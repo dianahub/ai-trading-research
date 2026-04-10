@@ -5,7 +5,7 @@ import requests
 import anthropic
 import pandas as pd
 import pandas_ta as ta
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -27,12 +27,14 @@ ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY")
 NEWS_API_KEY        = os.getenv("NEWS_API_KEY")
 ETHERSCAN_API_KEY   = os.getenv("ETHERSCAN_API_KEY", "")
 WHALE_ALERT_API_KEY = os.getenv("WHALE_ALERT_API_KEY", "")
+FINNHUB_API_KEY     = os.getenv("FINNHUB_API_KEY", "")
 
 COINGECKO_BASE   = "https://api.coingecko.com/api/v3"
 NEWSAPI_BASE     = "https://newsapi.org/v2"
 ETHERSCAN_BASE   = "https://api.etherscan.io/api"
 BLOCKCHAIN_INFO  = "https://blockchain.info"
 WHALE_ALERT_BASE = "https://api.whale-alert.io/v1"
+FINNHUB_BASE     = "https://finnhub.io/api/v1"
 
 # Tickers that live on Ethereum (Etherscan can provide on-chain data)
 ETH_CHAIN_TICKERS = frozenset({
@@ -916,4 +918,134 @@ def get_whales(ticker: str):
         "chain_note":                chain_note,
         "min_transaction_usd":       500_000,
         "disclaimer":                "This is educational research only. Not financial advice.",
+    }
+
+
+@app.get("/insiders/{ticker}")
+def get_insiders(ticker: str):
+    """
+    Fetch insider trading activity for a stock symbol via Finnhub (SEC Form 4 filings).
+    Filters to open-market purchases (P) and sales (S) in the last 90 days.
+    """
+    if not FINNHUB_API_KEY or FINNHUB_API_KEY == "your_finnhub_api_key_here":
+        raise HTTPException(
+            status_code=503,
+            detail="FINNHUB_API_KEY not configured — add it to backend/.env",
+        )
+
+    upper  = ticker.upper()
+    cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%d")
+
+    try:
+        resp = requests.get(
+            f"{FINNHUB_BASE}/stock/insider-transactions",
+            params={"symbol": upper, "token": FINNHUB_API_KEY},
+            timeout=10,
+            headers=_HEADERS,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Finnhub request failed: {e}")
+
+    raw = resp.json().get("data", [])
+
+    # Keep only open-market purchases (P) and sales (S) within the last 90 days
+    recent = [
+        t for t in raw
+        if t.get("transactionDate", "") >= cutoff
+        and t.get("transactionCode") in ("P", "S")
+    ]
+
+    buys  = [t for t in recent if t.get("transactionCode") == "P"]
+    sells = [t for t in recent if t.get("transactionCode") == "S"]
+
+    def _tx_value(t: dict) -> float:
+        return abs(t.get("change", 0)) * (t.get("transactionPrice") or 0)
+
+    buy_value  = sum(_tx_value(t) for t in buys)
+    sell_value = sum(_tx_value(t) for t in sells)
+    net_value  = buy_value - sell_value
+
+    # Sentiment — require 10 % imbalance to avoid noise
+    if buy_value > sell_value * 1.1:
+        sentiment_label = "bullish"
+        sentiment       = "Bullish — Insiders are net buyers"
+    elif sell_value > buy_value * 1.1:
+        sentiment_label = "bearish"
+        sentiment       = "Bearish — Insiders are net sellers"
+    else:
+        sentiment_label = "neutral"
+        sentiment       = "Neutral — Mixed insider activity"
+
+    # Largest single transaction by USD value
+    largest = max(recent, key=_tx_value, default=None)
+
+    def _fmt_tx(t: dict) -> dict:
+        shares = abs(t.get("change", 0))
+        price  = t.get("transactionPrice") or 0
+        return {
+            "name":             t.get("name", "Unknown"),
+            "transaction_type": "Purchase" if t.get("transactionCode") == "P" else "Sale",
+            "shares":           shares,
+            "price_per_share":  round(price, 2) if price else None,
+            "value_usd":        round(shares * price, 2) if price else None,
+            "transaction_date": t.get("transactionDate", ""),
+            "filing_date":      t.get("filingDate", ""),
+        }
+
+    transactions = [
+        _fmt_tx(t)
+        for t in sorted(recent, key=lambda x: x.get("transactionDate", ""), reverse=True)
+    ]
+
+    # Plain-English summary
+    total = len(recent)
+    if total == 0:
+        summary = (
+            f"No open-market insider purchases or sales were filed for {upper} "
+            f"in the last 90 days. This is educational research only — not financial advice."
+        )
+    else:
+        base = (
+            f"Over the last 90 days, {upper} insiders filed {total} open-market "
+            f"transaction{'s' if total != 1 else ''}: {len(buys)} "
+            f"purchase{'s' if len(buys) != 1 else ''} totalling ${buy_value:,.0f} and "
+            f"{len(sells)} sale{'s' if len(sells) != 1 else ''} totalling ${sell_value:,.0f}. "
+        )
+        if sentiment_label == "bullish":
+            detail = (
+                "The dominant pattern of insider buying suggests those with the deepest knowledge "
+                "of the company's prospects are adding exposure. Large open-market purchases in "
+                "particular — where insiders use personal funds — are historically viewed as a "
+                "constructive signal."
+            )
+        elif sentiment_label == "bearish":
+            detail = (
+                "The dominant pattern of insider selling may reflect profit-taking, diversification, "
+                "or personal liquidity needs rather than a negative outlook. However, heavy or "
+                "coordinated selling has historically preceded periods of price weakness. Note that "
+                "pre-planned 10b5-1 sales and option exercises are routine and may not be directional."
+            )
+        else:
+            detail = (
+                "The balanced mix of purchases and sales does not indicate strongly directional "
+                "conviction from company insiders at this time."
+            )
+        summary = base + detail + " This is educational research only — not financial advice."
+
+    return {
+        "ticker":                  upper,
+        "insider_sentiment":       sentiment,
+        "insider_sentiment_label": sentiment_label,
+        "transactions":            transactions,
+        "total_transactions_90d":  total,
+        "buy_count":               len(buys),
+        "sell_count":              len(sells),
+        "total_buy_value_usd":     round(buy_value, 2),
+        "total_sell_value_usd":    round(sell_value, 2),
+        "net_value_usd":           round(net_value, 2),
+        "largest_transaction":     _fmt_tx(largest) if largest else None,
+        "insider_summary":         summary,
+        "data_source":             "Finnhub — SEC Form 4 filings (last 90 days, open-market only)",
+        "disclaimer":              "This is educational research only. Not financial advice.",
     }
