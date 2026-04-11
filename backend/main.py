@@ -17,7 +17,7 @@ app = FastAPI(title="AI Trading Research API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -403,7 +403,10 @@ class AnalyzeRequest(BaseModel):
     price_data: dict
     headlines: list[str]
     technical_data: dict
-    whale_data: dict = {}
+    asset_type: str = "crypto"   # "crypto" | "stock"
+    whale_data: dict = {}        # crypto only
+    insider_data: dict = {}      # stock only
+    options_data: dict = {}      # stock only
 
 
 class AnalyzeResponse(BaseModel):
@@ -417,7 +420,11 @@ class AnalyzeResponse(BaseModel):
     key_opportunities: list[str]
     key_risks: list[str]
     research_summary: str
+    asset_type: str = "crypto"
     whale_sentiment_analysis: str = ""
+    insider_analysis: str = ""
+    options_analysis: str = ""
+    smart_money_summary: str = ""
     disclaimer: str
 
 
@@ -502,17 +509,140 @@ def get_news(ticker: str):
     return {"ticker": ticker.upper(), "articles": articles}
 
 
+def _compute_indicators(df: pd.DataFrame) -> dict:
+    """
+    Compute MACD (12,26,9), RSI (14), SMA 20/50, Bollinger Bands (20,2),
+    volume analysis, and support/resistance from a DataFrame that has at minimum
+    'close' and 'volume' columns.  If 'high' and 'low' are present they are used
+    for tighter support/resistance levels (stock candles); otherwise 30-day close
+    range is used (crypto market_chart).
+
+    Returns the indicators sub-dict shared by /technicals and /stock/technicals.
+    """
+    df = df.copy()
+
+    # pandas-ta macd() column order: MACD_12_26_9, MACDh_12_26_9, MACDs_12_26_9
+    macd_df        = ta.macd(df["close"], fast=12, slow=26, signal=9)
+    df["macd"]     = macd_df.iloc[:, 0]
+    df["macd_hist"]= macd_df.iloc[:, 1]
+    df["macd_sig"] = macd_df.iloc[:, 2]
+    df["rsi"]      = ta.rsi(df["close"], length=14)
+    df["sma20"]    = ta.sma(df["close"], length=20)
+    df["sma50"]    = ta.sma(df["close"], length=50)
+    bb_df          = ta.bbands(df["close"], length=20, std=2)
+    df["bb_lower"] = bb_df.iloc[:, 0]
+    df["bb_mid"]   = bb_df.iloc[:, 1]
+    df["bb_upper"] = bb_df.iloc[:, 2]
+
+    last           = df.iloc[-1]
+    current_price  = float(last["close"])
+    current_volume = float(last["volume"])
+    avg_volume     = float(df["volume"].tail(30).mean())
+
+    # Support/resistance — use high/low (stock OHLCV) when available, else close range
+    if "high" in df.columns and "low" in df.columns:
+        support    = float(df["low"].tail(30).min())
+        resistance = float(df["high"].tail(30).max())
+    else:
+        support    = float(df["close"].tail(30).min())
+        resistance = float(df["close"].tail(30).max())
+
+    # RSI
+    rsi_val = r2(last["rsi"])
+    if rsi_val is not None:
+        if rsi_val >= 70:
+            rsi_interp = f"RSI at {rsi_val} indicates overbought conditions — potential pullback ahead"
+        elif rsi_val <= 30:
+            rsi_interp = f"RSI at {rsi_val} indicates oversold conditions — potential bounce ahead"
+        else:
+            rsi_interp = f"RSI at {rsi_val} is in neutral territory with no extreme signal"
+    else:
+        rsi_interp = "RSI unavailable"
+
+    # MACD
+    macd_val   = r2(last["macd"])
+    signal_val = r2(last["macd_sig"])
+    hist_val   = r2(last["macd_hist"])
+    if macd_val is not None and signal_val is not None:
+        macd_interp = (
+            f"MACD ({macd_val}) is above signal ({signal_val}) — bullish momentum"
+            if macd_val > signal_val else
+            f"MACD ({macd_val}) is below signal ({signal_val}) — bearish momentum"
+        )
+    else:
+        macd_interp = "MACD unavailable"
+
+    # SMA
+    sma20_val = r2(last["sma20"])
+    sma50_val = r2(last["sma50"])
+    if sma20_val and sma50_val:
+        if current_price > sma20_val > sma50_val:
+            sma_interp = f"Price (${current_price:,.2f}) is above both SMA20 (${sma20_val:,.2f}) and SMA50 (${sma50_val:,.2f}) — strong uptrend"
+        elif current_price < sma20_val < sma50_val:
+            sma_interp = f"Price (${current_price:,.2f}) is below both SMA20 (${sma20_val:,.2f}) and SMA50 (${sma50_val:,.2f}) — downtrend"
+        elif sma20_val > sma50_val:
+            sma_interp = f"SMA20 (${sma20_val:,.2f}) crossed above SMA50 (${sma50_val:,.2f}) — golden cross signal"
+        else:
+            sma_interp = f"SMA20 (${sma20_val:,.2f}) below SMA50 (${sma50_val:,.2f}) — death cross signal"
+    else:
+        sma_interp = "SMA data unavailable"
+
+    # Bollinger Bands
+    bb_upper_v = r2(last["bb_upper"])
+    bb_lower_v = r2(last["bb_lower"])
+    bb_mid_v   = r2(last["bb_mid"])
+    if bb_upper_v and bb_lower_v:
+        bb_width_pct = r2(((bb_upper_v - bb_lower_v) / bb_mid_v) * 100) if bb_mid_v else None
+        if current_price >= bb_upper_v:
+            bb_interp = f"Price touching upper Bollinger Band (${bb_upper_v:,.2f}) — possible overbought or strong breakout"
+        elif current_price <= bb_lower_v:
+            bb_interp = f"Price touching lower Bollinger Band (${bb_lower_v:,.2f}) — possible oversold or breakdown"
+        else:
+            bb_interp = f"Price within Bollinger Bands (${bb_lower_v:,.2f}–${bb_upper_v:,.2f}), band width {bb_width_pct}%"
+    else:
+        bb_interp = "Bollinger Bands unavailable"
+
+    # Volume
+    vol_ratio = r2(current_volume / avg_volume) if avg_volume > 0 else None
+    if vol_ratio is not None:
+        if vol_ratio >= 1.5:
+            vol_interp = f"Volume is {vol_ratio}x the 30-day average — significantly elevated, confirms price move"
+        elif vol_ratio <= 0.5:
+            vol_interp = f"Volume is {vol_ratio}x the 30-day average — well below average, weak conviction"
+        else:
+            vol_interp = f"Volume is {vol_ratio}x the 30-day average — near normal levels"
+    else:
+        vol_interp = "Volume data unavailable"
+
+    # Support / Resistance
+    support_pct    = r2(((current_price - support) / support) * 100) if support else None
+    resistance_pct = r2(((resistance - current_price) / current_price) * 100) if resistance else None
+    support_interp    = f"Support at ${support:,.2f} ({support_pct}% below current price)" if support_pct is not None else "Support unavailable"
+    resistance_interp = f"Resistance at ${resistance:,.2f} ({resistance_pct}% above current price)" if resistance_pct is not None else "Resistance unavailable"
+
+    return {
+        "rsi":   {"value": rsi_val, "interpretation": rsi_interp},
+        "macd":  {"macd": macd_val, "signal": signal_val, "histogram": hist_val, "interpretation": macd_interp},
+        "sma":   {"sma20": sma20_val, "sma50": sma50_val, "interpretation": sma_interp},
+        "bollinger_bands": {"upper": bb_upper_v, "middle": bb_mid_v, "lower": bb_lower_v, "interpretation": bb_interp},
+        "volume": {"current": r2(current_volume), "avg_30d": r2(avg_volume), "ratio_vs_avg": vol_ratio, "interpretation": vol_interp},
+        "support_resistance": {
+            "support": r2(support),
+            "resistance": r2(resistance),
+            "support_interpretation": support_interp,
+            "resistance_interpretation": resistance_interp,
+        },
+    }
+
+
 @app.get("/technicals/{ticker}")
 def get_technicals(ticker: str):
     """
-    Fetch 90 days of daily close+volume from CoinGecko market_chart and compute:
-    MACD, RSI, SMA20, SMA50, Bollinger Bands, volume analysis,
-    support (30-day low close), and resistance (30-day high close).
+    Fetch 90 days of daily close+volume from CoinGecko market_chart and compute
+    MACD, RSI, SMA20/50, Bollinger Bands, volume analysis, support/resistance.
     """
     coin_id = resolve_coin_id(ticker)
 
-    # market_chart with interval=daily reliably returns ~91 daily data points on the free tier.
-    # The /ohlc endpoint returns 4-h candles on the free tier for long ranges (too few for SMA50).
     try:
         chart_resp = requests.get(
             f"{COINGECKO_BASE}/coins/{coin_id}/market_chart",
@@ -523,7 +653,7 @@ def get_technicals(ticker: str):
     except requests.RequestException as e:
         raise HTTPException(status_code=502, detail=f"CoinGecko request failed: {str(e)}")
 
-    chart = chart_resp.json()
+    chart   = chart_resp.json()
     prices  = chart.get("prices", [])
     volumes = chart.get("total_volumes", [])
 
@@ -547,196 +677,178 @@ def get_technicals(ticker: str):
     if len(df) < 26:
         raise HTTPException(status_code=422, detail="Not enough data to compute indicators (need ≥ 26 candles)")
 
-    # --- Indicators ---
-    # pandas-ta macd() column order: MACD_12_26_9, MACDh_12_26_9, MACDs_12_26_9
-    #   iloc[:,0] = MACD line, iloc[:,1] = histogram, iloc[:,2] = signal
-    macd_df = ta.macd(df["close"], fast=12, slow=26, signal=9)
-    df["macd"]        = macd_df.iloc[:, 0]
-    df["macd_hist"]   = macd_df.iloc[:, 1]
-    df["macd_signal"] = macd_df.iloc[:, 2]
-
-    df["rsi"]   = ta.rsi(df["close"], length=14)
-    df["sma20"] = ta.sma(df["close"], length=20)
-    df["sma50"] = ta.sma(df["close"], length=50)
-
-    bb_df = ta.bbands(df["close"], length=20, std=2)
-    # bbands columns: BBL (lower), BBM (middle), BBU (upper), BBB (bandwidth), BBP (percent)
-    df["bb_lower"] = bb_df.iloc[:, 0]
-    df["bb_mid"]   = bb_df.iloc[:, 1]
-    df["bb_upper"] = bb_df.iloc[:, 2]
-
-    last = df.iloc[-1]
-    current_price  = float(last["close"])
-    current_volume = float(last["volume"])
-    avg_volume     = float(df["volume"].tail(30).mean())
-
-    # Support/resistance from 30-day close range (no high/low available from market_chart)
-    support    = float(df["close"].tail(30).min())
-    resistance = float(df["close"].tail(30).max())
-
-    # --- Interpretations ---
-    rsi_val = r2(last["rsi"])
-    if rsi_val is not None:
-        if rsi_val >= 70:
-            rsi_interp = f"RSI at {rsi_val} indicates overbought conditions — potential pullback ahead"
-        elif rsi_val <= 30:
-            rsi_interp = f"RSI at {rsi_val} indicates oversold conditions — potential bounce ahead"
-        else:
-            rsi_interp = f"RSI at {rsi_val} is in neutral territory with no extreme signal"
-    else:
-        rsi_interp = "RSI unavailable"
-
-    macd_val = r2(last["macd"])
-    signal_val = r2(last["macd_signal"])
-    hist_val = r2(last["macd_hist"])
-    if macd_val is not None and signal_val is not None:
-        if macd_val > signal_val:
-            macd_interp = f"MACD ({macd_val}) is above signal ({signal_val}) — bullish momentum"
-        else:
-            macd_interp = f"MACD ({macd_val}) is below signal ({signal_val}) — bearish momentum"
-    else:
-        macd_interp = "MACD unavailable"
-
-    sma20_val = r2(last["sma20"])
-    sma50_val = r2(last["sma50"])
-    if sma20_val and sma50_val:
-        if current_price > sma20_val > sma50_val:
-            sma_interp = f"Price (${current_price:,.2f}) is above both SMA20 (${sma20_val:,.2f}) and SMA50 (${sma50_val:,.2f}) — strong uptrend"
-        elif current_price < sma20_val < sma50_val:
-            sma_interp = f"Price (${current_price:,.2f}) is below both SMA20 (${sma20_val:,.2f}) and SMA50 (${sma50_val:,.2f}) — downtrend"
-        elif sma20_val > sma50_val:
-            sma_interp = f"SMA20 (${sma20_val:,.2f}) crossed above SMA50 (${sma50_val:,.2f}) — golden cross signal"
-        else:
-            sma_interp = f"SMA20 (${sma20_val:,.2f}) below SMA50 (${sma50_val:,.2f}) — death cross signal"
-    else:
-        sma_interp = "SMA data unavailable"
-
-    bb_upper = r2(last["bb_upper"])
-    bb_lower = r2(last["bb_lower"])
-    bb_mid = r2(last["bb_mid"])
-    if bb_upper and bb_lower:
-        bb_width_pct = r2(((bb_upper - bb_lower) / bb_mid) * 100) if bb_mid else None
-        if current_price >= bb_upper:
-            bb_interp = f"Price touching upper Bollinger Band (${bb_upper:,.2f}) — possible overbought or strong breakout"
-        elif current_price <= bb_lower:
-            bb_interp = f"Price touching lower Bollinger Band (${bb_lower:,.2f}) — possible oversold or breakdown"
-        else:
-            bb_interp = f"Price within Bollinger Bands (${bb_lower:,.2f}–${bb_upper:,.2f}), band width {bb_width_pct}%"
-    else:
-        bb_interp = "Bollinger Bands unavailable"
-
-    vol_ratio = r2(current_volume / avg_volume) if avg_volume > 0 else None
-    if vol_ratio is not None:
-        if vol_ratio >= 1.5:
-            vol_interp = f"Volume is {vol_ratio}x the 30-day average — significantly elevated, confirms price move"
-        elif vol_ratio <= 0.5:
-            vol_interp = f"Volume is {vol_ratio}x the 30-day average — well below average, weak conviction"
-        else:
-            vol_interp = f"Volume is {vol_ratio}x the 30-day average — near normal levels"
-    else:
-        vol_interp = "Volume data unavailable"
-
-    support_pct = r2(((current_price - support) / support) * 100) if support else None
-    resistance_pct = r2(((resistance - current_price) / current_price) * 100) if resistance else None
-    support_interp = f"Support at ${support:,.2f} ({support_pct}% below current price)" if support_pct is not None else "Support unavailable"
-    resistance_interp = f"Resistance at ${resistance:,.2f} ({resistance_pct}% above current price)" if resistance_pct is not None else "Resistance unavailable"
-
     return {
-        "ticker": ticker.upper(),
-        "current_price": r2(current_price),
-        "indicators": {
-            "rsi": {
-                "value": rsi_val,
-                "interpretation": rsi_interp,
-            },
-            "macd": {
-                "macd": macd_val,
-                "signal": signal_val,
-                "histogram": hist_val,
-                "interpretation": macd_interp,
-            },
-            "sma": {
-                "sma20": sma20_val,
-                "sma50": sma50_val,
-                "interpretation": sma_interp,
-            },
-            "bollinger_bands": {
-                "upper": bb_upper,
-                "middle": bb_mid,
-                "lower": bb_lower,
-                "interpretation": bb_interp,
-            },
-            "volume": {
-                "current": r2(current_volume),
-                "avg_30d": r2(avg_volume),
-                "ratio_vs_avg": vol_ratio,
-                "interpretation": vol_interp,
-            },
-            "support_resistance": {
-                "support": r2(support),
-                "resistance": r2(resistance),
-                "support_interpretation": support_interp,
-                "resistance_interpretation": resistance_interp,
-            },
-        },
+        "ticker":        ticker.upper(),
+        "current_price": r2(float(df.iloc[-1]["close"])),
+        "indicators":    _compute_indicators(df),
     }
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
-    """Send price data, technicals, and news to Claude for structured research analysis."""
+    """
+    Send all available data to Claude for a structured research report.
+    Handles both crypto (whale data) and stock (insider + options) asset types.
+    """
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not configured")
 
-    headlines_block = "\n".join(f"- {h}" for h in req.headlines) if req.headlines else "No headlines provided."
+    asset_type = req.asset_type
+    upper      = req.ticker.upper()
 
-    price = req.price_data
-
+    # ── Shared formatters ──────────────────────────────────────────────────────
     def _fmt(v):
-        if v is None:
-            return "N/A"
-        if isinstance(v, (int, float)):
-            return f"${v:,.2f}"
+        if v is None:              return "N/A"
+        if isinstance(v, (int, float)): return f"${v:,.2f}"
         return str(v)
-
-    price_block = (
-        f"Current price: {_fmt(price.get('price_usd'))}\n"
-        f"24h change:    {price.get('change_24h_pct', 'N/A')}%\n"
-        f"Market cap:    {_fmt(price.get('market_cap_usd'))}\n"
-        f"24h volume:    {_fmt(price.get('volume_24h_usd'))}"
-    )
-
-    tech = req.technical_data.get("indicators", req.technical_data)
 
     def fmt_tech(data: dict) -> str:
         lines = []
         for key, val in data.items():
             if isinstance(val, dict):
-                interp = val.get("interpretation", "")
+                interp  = val.get("interpretation", "")
                 numeric = {k: v for k, v in val.items() if k != "interpretation"}
                 lines.append(f"{key.upper()}: {numeric} — {interp}")
             else:
                 lines.append(f"{key}: {val}")
         return "\n".join(lines)
 
-    tech_block = fmt_tech(tech)
-
-    # Build whale block
-    w = req.whale_data
-    if w:
-        directions = [t.get("direction", "") for t in w.get("large_transactions", [])[:5]]
-        whale_block = (
-            f"Whale Sentiment: {w.get('whale_sentiment', 'N/A')}\n"
-            f"Exchange Inflows (selling pressure): {w.get('exchange_inflow_count', 0)}\n"
-            f"Exchange Outflows (accumulation):    {w.get('exchange_outflow_count', 0)}\n"
-            f"Inflow/Outflow Ratio: {w.get('inflow_outflow_ratio', 'N/A')}\n"
-            f"Recent large tx directions: {', '.join(directions) if directions else 'N/A'}\n"
-            f"Whale Summary: {w.get('whale_summary', 'N/A')}"
+    # ── Common blocks ──────────────────────────────────────────────────────────
+    price = req.price_data
+    if asset_type == "stock":
+        price_block = (
+            f"Current price:  {_fmt(price.get('price_usd'))}\n"
+            f"Day change:     {price.get('change', 'N/A')} ({price.get('change_pct', 'N/A')}%)\n"
+            f"52-week high:   {_fmt(price.get('week_52_high'))}\n"
+            f"52-week low:    {_fmt(price.get('week_52_low'))}\n"
+            f"Market cap:     {_fmt(price.get('market_cap_usd'))}\n"
+            f"P/E ratio:      {price.get('pe_ratio', 'N/A')}\n"
+            f"EPS:            {_fmt(price.get('eps'))}"
         )
     else:
-        whale_block = "No whale data available for this ticker."
+        price_block = (
+            f"Current price: {_fmt(price.get('price_usd'))}\n"
+            f"24h change:    {price.get('change_24h_pct', 'N/A')}%\n"
+            f"Market cap:    {_fmt(price.get('market_cap_usd'))}\n"
+            f"24h volume:    {_fmt(price.get('volume_24h_usd'))}"
+        )
 
-    prompt = f"""Analyze the following data for {req.ticker.upper()} and respond with a JSON object only — no markdown, no extra text.
+    tech_block       = fmt_tech(req.technical_data.get("indicators", req.technical_data))
+    headlines_block  = "\n".join(f"- {h}" for h in req.headlines) if req.headlines else "No headlines provided."
+
+    # ── Asset-specific smart-money blocks + prompt ─────────────────────────────
+    if asset_type == "stock":
+        # Insider block
+        ins = req.insider_data
+        if ins and not ins.get("error"):
+            cluster = ins.get("cluster_buying_alert", False)
+            tx_lines = "\n".join(
+                f"  {t.get('name','?')} {t.get('transaction_type','?')} "
+                f"{t.get('shares', 0):,} shares @ {_fmt(t.get('price_per_share'))} "
+                f"= {_fmt(t.get('value_usd'))} on {t.get('transaction_date','?')}"
+                for t in ins.get("transactions", [])[:5]
+            )
+            insider_block = (
+                f"Insider Sentiment: {ins.get('insider_sentiment', 'N/A')}\n"
+                f"90d purchases: {_fmt(ins.get('total_buy_value_usd'))} ({ins.get('buy_count', 0)} transactions)\n"
+                f"90d sales:     {_fmt(ins.get('total_sell_value_usd'))} ({ins.get('sell_count', 0)} transactions)\n"
+                f"Net value:     {_fmt(ins.get('net_value_usd'))}\n"
+                f"Cluster buying alert (3+ insiders in 30d): {'YES — historically very bullish signal' if cluster else 'No'}\n"
+                f"Recent transactions:\n{tx_lines or '  None filed'}"
+            )
+        else:
+            insider_block = ins.get("error", "No insider data available.") if ins else "No insider data available."
+
+        # Options block
+        opt = req.options_data
+        if opt and not opt.get("error"):
+            top_calls = ", ".join(f"${s}" for s in (opt.get("top_call_strikes") or []))
+            top_puts  = ", ".join(f"${s}" for s in (opt.get("top_put_strikes")  or []))
+            options_block = (
+                f"Put/Call Ratio: {opt.get('put_call_ratio', 'N/A')} — {opt.get('put_call_interpretation', 'N/A')}\n"
+                f"Options Sentiment: {opt.get('options_sentiment', 'N/A')}\n"
+                f"Max Pain Price: {_fmt(opt.get('max_pain'))}\n"
+                f"Average IV: {opt.get('avg_iv_pct', 'N/A')}%\n"
+                f"Unusual activity (volume > 3x OI): {len(opt.get('unusual_activity', []))} positions\n"
+                f"Smart money flags (>$1M notional): {len(opt.get('smart_money_flags', []))}\n"
+                f"Top call OI strikes: {top_calls or 'N/A'}\n"
+                f"Top put OI strikes:  {top_puts  or 'N/A'}"
+            )
+        else:
+            options_block = opt.get("error", "No options data available.") if opt else "No options data available."
+
+        prompt = f"""Analyze the following data for {upper} (Stock) and respond with a JSON object only — no markdown, no extra text.
+
+## Price Data
+{price_block}
+
+## Technical Indicators
+{tech_block}
+
+## Recent News Headlines
+{headlines_block}
+
+## Insider Trading Activity (SEC Form 4 — last 90 days)
+{insider_block}
+
+## Options Market Analysis
+{options_block}
+
+Respond with this exact JSON structure:
+{{
+  "overall_sentiment": "<bullish|bearish|neutral>",
+  "confidence_score": <integer 1-10>,
+  "technical_summary": "<paragraph 1>\\n\\n<paragraph 2>",
+  "support_resistance_analysis": "<one paragraph>",
+  "macd_analysis": "<one paragraph>",
+  "volume_analysis": "<one paragraph>",
+  "news_sentiment": "<bullish|bearish|neutral>",
+  "key_opportunities": ["<opp 1>", "<opp 2>", "<opp 3>", "<opp 4>", "<opp 5>"],
+  "key_risks": ["<risk 1>", "<risk 2>", "<risk 3>", "<risk 4>", "<risk 5>"],
+  "research_summary": "<paragraph 1>\\n\\n<paragraph 2>\\n\\n<paragraph 3>",
+  "insider_analysis": "<one paragraph>",
+  "options_analysis": "<one paragraph>",
+  "smart_money_summary": "<one paragraph>",
+  "asset_type": "stock",
+  "disclaimer": "This is educational research only. Not financial advice."
+}}
+
+Rules:
+- overall_sentiment and news_sentiment must be exactly one of: bullish, bearish, neutral
+- confidence_score is an integer from 1 (very uncertain) to 10 (very certain)
+- key_opportunities and key_risks must each have exactly 4-5 items
+- technical_summary must be exactly 2 paragraphs
+- research_summary must be exactly 3 paragraphs combining technicals, news, insider activity, and options
+- insider_analysis must explain what the insider activity signals about management conviction
+- options_analysis must explain what the options market is pricing in (P/C ratio, max pain, unusual flow)
+- smart_money_summary must combine insider and options signals into one overall smart money assessment
+- Pay special attention to cluster buying and unusual options activity — these are historically significant
+- disclaimer must be exactly: "This is educational research only. Not financial advice."
+"""
+        required = {
+            "overall_sentiment", "confidence_score", "technical_summary",
+            "support_resistance_analysis", "macd_analysis", "volume_analysis",
+            "news_sentiment", "key_opportunities", "key_risks",
+            "research_summary", "insider_analysis", "options_analysis",
+            "smart_money_summary", "asset_type", "disclaimer",
+        }
+
+    else:  # crypto
+        w = req.whale_data
+        if w:
+            directions  = [t.get("direction", "") for t in w.get("large_transactions", [])[:5]]
+            whale_block = (
+                f"Whale Sentiment: {w.get('whale_sentiment', 'N/A')}\n"
+                f"Exchange Inflows (selling pressure): {w.get('exchange_inflow_count', 0)}\n"
+                f"Exchange Outflows (accumulation):    {w.get('exchange_outflow_count', 0)}\n"
+                f"Inflow/Outflow Ratio: {w.get('inflow_outflow_ratio', 'N/A')}\n"
+                f"Recent large tx directions: {', '.join(directions) if directions else 'N/A'}\n"
+                f"Whale Summary: {w.get('whale_summary', 'N/A')}"
+            )
+        else:
+            whale_block = "No whale data available for this ticker."
+
+        prompt = f"""Analyze the following data for {upper} (Crypto) and respond with a JSON object only — no markdown, no extra text.
 
 ## Price Data
 {price_block}
@@ -763,28 +875,42 @@ Respond with this exact JSON structure:
   "key_risks": ["<risk 1>", "<risk 2>", "<risk 3>", "<risk 4>", "<risk 5>"],
   "research_summary": "<paragraph 1>\\n\\n<paragraph 2>\\n\\n<paragraph 3>",
   "whale_sentiment_analysis": "<one paragraph>",
+  "smart_money_summary": "<one paragraph>",
+  "asset_type": "crypto",
   "disclaimer": "This is educational research only. Not financial advice."
 }}
 
 Rules:
-- overall_sentiment and news_sentiment must each be exactly one of: bullish, bearish, neutral
+- overall_sentiment and news_sentiment must be exactly one of: bullish, bearish, neutral
 - confidence_score is an integer from 1 (very uncertain) to 10 (very certain)
 - key_opportunities and key_risks must each have exactly 4-5 items
 - technical_summary must be exactly 2 paragraphs interpreting all indicators together
 - research_summary must be exactly 3 paragraphs combining technical analysis, news, and whale activity
-- whale_sentiment_analysis must be one paragraph explaining whether whale behavior supports or contradicts the technical indicators
+- whale_sentiment_analysis must explain whether whale behaviour supports or contradicts the technical signals
+- smart_money_summary must summarise overall whale flow significance
 - disclaimer must be exactly: "This is educational research only. Not financial advice."
 """
+        required = {
+            "overall_sentiment", "confidence_score", "technical_summary",
+            "support_resistance_analysis", "macd_analysis", "volume_analysis",
+            "news_sentiment", "key_opportunities", "key_risks",
+            "research_summary", "whale_sentiment_analysis", "smart_money_summary",
+            "asset_type", "disclaimer",
+        }
 
+    # ── Claude call ────────────────────────────────────────────────────────────
     system_prompt = (
-        "You are a professional crypto market analyst. "
-        "Analyze the provided price data, technical indicators, recent news, and whale/smart money activity "
-        "to give a comprehensive research report. "
-        "Never give direct buy or sell advice. Always frame analysis as educational research."
+        "You are a professional market analyst specializing in both crypto and equities. "
+        "Analyze all provided data including technical indicators, insider activity, options flow, "
+        "and news sentiment to produce comprehensive educational research. "
+        "For stocks, pay special attention to insider cluster buying and unusual options activity "
+        "as these are historically significant signals. "
+        "Never give direct buy or sell recommendations. "
+        "Always frame as educational research for informed decision making."
     )
 
     try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        client  = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         message = client.messages.create(
             model="claude-sonnet-4-5",
             max_tokens=2048,
@@ -797,8 +923,6 @@ Rules:
         raise HTTPException(status_code=502, detail="Could not connect to Anthropic API")
 
     raw = message.content[0].text.strip()
-
-    # Strip accidental markdown fences
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -810,22 +934,21 @@ Rules:
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"Claude returned non-JSON response: {raw[:200]}")
 
-    required = {
-        "overall_sentiment", "confidence_score", "technical_summary",
-        "support_resistance_analysis", "macd_analysis", "volume_analysis",
-        "news_sentiment", "key_opportunities", "key_risks",
-        "research_summary", "whale_sentiment_analysis", "disclaimer",
-    }
     missing = required - parsed.keys()
     if missing:
         raise HTTPException(status_code=500, detail=f"Claude response missing fields: {missing}")
 
     for field in ("overall_sentiment", "news_sentiment"):
-        if parsed[field] not in ("bullish", "bearish", "neutral"):
+        if parsed.get(field) not in ("bullish", "bearish", "neutral"):
             parsed[field] = "neutral"
 
-    parsed["confidence_score"] = max(1, min(10, int(parsed["confidence_score"])))
-    parsed["disclaimer"] = "This is educational research only. Not financial advice."
+    parsed["confidence_score"] = max(1, min(10, int(parsed.get("confidence_score", 5))))
+    parsed["disclaimer"]       = "This is educational research only. Not financial advice."
+    parsed["asset_type"]       = asset_type
+
+    # Ensure all optional fields exist with safe defaults
+    for field in ("whale_sentiment_analysis", "insider_analysis", "options_analysis", "smart_money_summary"):
+        parsed.setdefault(field, "")
 
     return AnalyzeResponse(**parsed)
 
@@ -1047,5 +1170,493 @@ def get_insiders(ticker: str):
         "largest_transaction":     _fmt_tx(largest) if largest else None,
         "insider_summary":         summary,
         "data_source":             "Finnhub — SEC Form 4 filings (last 90 days, open-market only)",
+        "disclaimer":              "This is educational research only. Not financial advice.",
+    }
+
+
+# ===========================================================================
+# Stock endpoints — Finnhub
+# ===========================================================================
+
+def _finnhub_get(path: str, params: dict | None = None) -> dict:
+    """GET from Finnhub; raises HTTPException on missing key or request failure."""
+    if not FINNHUB_API_KEY or FINNHUB_API_KEY == "your_finnhub_api_key_here":
+        raise HTTPException(status_code=503, detail="FINNHUB_API_KEY not configured — add it to backend/.env")
+    try:
+        resp = requests.get(
+            f"{FINNHUB_BASE}/{path}",
+            params={"token": FINNHUB_API_KEY, **(params or {})},
+            timeout=12,
+            headers=_HEADERS,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Finnhub request failed: {e}")
+
+
+def _calc_max_pain(calls: list, puts: list) -> float | None:
+    """
+    Strike price at which total intrinsic value owed to option buyers is minimised
+    (= maximum pain for option buyers / maximum premium retention for sellers).
+    """
+    strikes = sorted(
+        {c["strike"] for c in calls if c.get("strike")} |
+        {p["strike"] for p in puts  if p.get("strike")}
+    )
+    if not strikes:
+        return None
+    min_pain, pain_strike = float("inf"), strikes[0]
+    for s in strikes:
+        call_payout = sum(max(0.0, s - c["strike"]) * (c.get("openInterest") or 0) * 100 for c in calls if c.get("strike"))
+        put_payout  = sum(max(0.0, p["strike"] - s) * (p.get("openInterest") or 0) * 100 for p in puts  if p.get("strike"))
+        total = call_payout + put_payout
+        if total < min_pain:
+            min_pain, pain_strike = total, s
+    return pain_strike
+
+
+@app.get("/detect/{ticker}")
+def detect_asset(ticker: str):
+    """Determine whether a ticker is crypto (CoinGecko) or a stock (Finnhub)."""
+    upper = ticker.upper()
+
+    # ── 1. Known crypto map first (zero API calls) ────────────────────────────
+    if upper in TICKER_TO_ID:
+        coin_id = TICKER_TO_ID[upper]
+        name    = upper
+        try:
+            cg = requests.get(
+                f"{COINGECKO_BASE}/coins/{coin_id}",
+                params={"localization": "false", "market_data": "false",
+                        "community_data": "false", "developer_data": "false"},
+                timeout=8,
+            )
+            if cg.ok:
+                name = cg.json().get("name", upper)
+        except Exception:
+            pass
+        return {"ticker": upper, "asset_type": "crypto", "name": name, "coin_id": coin_id, "exchange": None}
+
+    # ── 2. CoinGecko search ───────────────────────────────────────────────────
+    try:
+        cg = requests.get(f"{COINGECKO_BASE}/search", params={"query": ticker}, timeout=8)
+        if cg.ok:
+            for coin in cg.json().get("coins", []):
+                if coin.get("symbol", "").upper() == upper:
+                    return {
+                        "ticker":     upper,
+                        "asset_type": "crypto",
+                        "name":       coin.get("name", upper),
+                        "coin_id":    coin["id"],
+                        "exchange":   None,
+                    }
+    except Exception:
+        pass
+
+    # ── 3. Finnhub stock search ───────────────────────────────────────────────
+    name, exchange = upper, ""
+    if FINNHUB_API_KEY and FINNHUB_API_KEY != "your_finnhub_api_key_here":
+        try:
+            resp = requests.get(
+                f"{FINNHUB_BASE}/search",
+                params={"q": upper, "token": FINNHUB_API_KEY},
+                timeout=8,
+            )
+            if resp.ok:
+                for r in resp.json().get("result", []):
+                    if r.get("symbol", "").upper() == upper:
+                        name     = r.get("description", upper)
+                        exchange = r.get("primaryExchange", "")
+                        break
+        except Exception:
+            pass
+
+    return {"ticker": upper, "asset_type": "stock", "name": name, "coin_id": None, "exchange": exchange}
+
+
+@app.get("/stock/price/{ticker}")
+def get_stock_price(ticker: str):
+    """Current quote + fundamental metrics for a stock ticker via Finnhub."""
+    upper  = ticker.upper()
+    errors: list[str] = []
+
+    try:
+        quote = _finnhub_get("quote", {"symbol": upper})
+    except HTTPException as e:
+        raise e
+
+    current = quote.get("c")
+    if not current:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No price data found for '{ticker}'. Verify this is a valid stock symbol.",
+        )
+
+    metrics: dict = {}
+    try:
+        m       = _finnhub_get("stock/metric", {"symbol": upper, "metric": "all"})
+        metrics = m.get("metric", {})
+    except HTTPException as e:
+        errors.append(f"Fundamentals unavailable: {e.detail}")
+
+    cap_raw = metrics.get("marketCapitalization")   # Finnhub returns in millions USD
+    return {
+        "ticker":         upper,
+        "asset_type":     "stock",
+        "price_usd":      current,
+        "change":         round(quote.get("d",  0) or 0, 2),
+        "change_pct":     round(quote.get("dp", 0) or 0, 2),
+        "prev_close":     quote.get("pc"),
+        "day_high":       quote.get("h"),
+        "day_low":        quote.get("l"),
+        "week_52_high":   metrics.get("52WeekHigh"),
+        "week_52_low":    metrics.get("52WeekLow"),
+        "market_cap_usd": round(cap_raw * 1_000_000) if cap_raw else None,
+        "pe_ratio":       metrics.get("peNormalizedAnnual"),
+        "eps":            metrics.get("epsBasicExclExtraItemsAnnual"),
+        "beta":           metrics.get("beta"),
+        "dividend_yield": metrics.get("dividendYieldIndicatedAnnual"),
+        "errors":         errors or None,
+    }
+
+
+@app.get("/stock/technicals/{ticker}")
+def get_stock_technicals(ticker: str):
+    """90-day OHLCV from Yahoo Finance daily candles + same indicator set as /technicals."""
+    import yfinance as yf
+    upper = ticker.upper()
+
+    try:
+        hist = yf.Ticker(upper).history(period="3mo", interval="1d")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"yfinance error for '{ticker}': {exc}")
+
+    if hist.empty:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No price history available for '{ticker}'. Verify it is a valid stock ticker.",
+        )
+
+    df = hist[["Open", "High", "Low", "Close", "Volume"]].rename(columns={
+        "Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume",
+    })
+    df.index = df.index.tz_localize(None)
+
+    if len(df) < 26:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Not enough data for '{ticker}' (need ≥ 26 candles, got {len(df)})",
+        )
+
+    return {
+        "ticker":        upper,
+        "asset_type":    "stock",
+        "current_price": r2(float(df.iloc[-1]["close"])),
+        "indicators":    _compute_indicators(df),
+    }
+
+
+@app.get("/stock/news/{ticker}")
+def get_stock_news(ticker: str):
+    """Last 10 company news articles from Finnhub — same shape as /news/{ticker}."""
+    upper     = ticker.upper()
+    to_date   = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    from_date = (datetime.now(tz=timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    try:
+        data = _finnhub_get("company-news", {"symbol": upper, "from": from_date, "to": to_date})
+    except HTTPException as e:
+        raise e
+
+    articles = [
+        {
+            "title":        a.get("headline", ""),
+            "source":       a.get("source", ""),
+            "published_at": datetime.fromtimestamp(a["datetime"], tz=timezone.utc).isoformat()
+                            if a.get("datetime") else None,
+            "url":          a.get("url", ""),
+            "description":  a.get("summary", ""),
+        }
+        for a in data[:10]
+        if a.get("headline")
+    ]
+    return {"ticker": upper, "asset_type": "stock", "articles": articles}
+
+
+@app.get("/stock/insiders/{ticker}")
+def get_stock_insiders(ticker: str):
+    """
+    Insider trading activity via Finnhub (SEC Form 4).
+    Open-market purchases (P) and sales (S) only, last 90 days.
+    Includes cluster buying detection: 3+ unique insiders buying in last 30 days.
+    """
+    upper      = ticker.upper()
+    cutoff_90  = (datetime.now(tz=timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%d")
+    cutoff_30  = (datetime.now(tz=timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    try:
+        raw_data = _finnhub_get("stock/insider-transactions", {"symbol": upper})
+    except HTTPException as e:
+        raise e
+
+    raw    = raw_data.get("data", [])
+    recent = [t for t in raw if t.get("transactionDate", "") >= cutoff_90 and t.get("transactionCode") in ("P", "S")]
+    buys   = [t for t in recent if t.get("transactionCode") == "P"]
+    sells  = [t for t in recent if t.get("transactionCode") == "S"]
+
+    def _tx_value(t: dict) -> float:
+        return abs(t.get("change", 0)) * (t.get("transactionPrice") or 0)
+
+    buy_value  = sum(_tx_value(t) for t in buys)
+    sell_value = sum(_tx_value(t) for t in sells)
+    net_value  = buy_value - sell_value
+
+    # Cluster buying: 3+ unique insiders purchased in the last 30 days
+    cluster_buyers       = {t.get("name") for t in buys if t.get("transactionDate", "") >= cutoff_30 and t.get("name")}
+    cluster_buying_alert = len(cluster_buyers) >= 3
+
+    if buy_value > sell_value * 1.1:
+        sentiment_label, sentiment = "bullish", "Bullish — Insiders are net buyers"
+    elif sell_value > buy_value * 1.1:
+        sentiment_label, sentiment = "bearish", "Bearish — Insiders are net sellers"
+    else:
+        sentiment_label, sentiment = "neutral", "Neutral — Mixed insider activity"
+
+    largest = max(recent, key=_tx_value, default=None)
+
+    def _fmt_tx(t: dict) -> dict:
+        shares = abs(t.get("change", 0))
+        price  = t.get("transactionPrice") or 0
+        return {
+            "name":             t.get("name", "Unknown"),
+            "title":            t.get("reportingTitle", t.get("title", "")),
+            "transaction_type": "Purchase" if t.get("transactionCode") == "P" else "Sale",
+            "shares":           shares,
+            "price_per_share":  round(price, 2) if price else None,
+            "value_usd":        round(shares * price, 2) if price else None,
+            "transaction_date": t.get("transactionDate", ""),
+            "filing_date":      t.get("filingDate", ""),
+        }
+
+    transactions = [_fmt_tx(t) for t in sorted(recent, key=lambda x: x.get("transactionDate", ""), reverse=True)]
+
+    total = len(recent)
+    if total == 0:
+        summary = (
+            f"No open-market insider purchases or sales were filed for {upper} in the last 90 days. "
+            "This is educational research only — not financial advice."
+        )
+    else:
+        base = (
+            f"Over the last 90 days, {upper} insiders filed {total} open-market transaction"
+            f"{'s' if total != 1 else ''}: {len(buys)} purchase{'s' if len(buys) != 1 else ''} "
+            f"totalling ${buy_value:,.0f} and {len(sells)} sale{'s' if len(sells) != 1 else ''} "
+            f"totalling ${sell_value:,.0f}. "
+        )
+        if cluster_buying_alert:
+            base += f"{len(cluster_buyers)} different insiders bought in the last 30 days — cluster buying is historically a very bullish signal. "
+        if sentiment_label == "bullish":
+            detail = (
+                "The dominant insider buying pattern suggests those with the deepest knowledge of the company's "
+                "prospects are adding personal exposure. Large open-market purchases — where insiders use their own "
+                "funds rather than exercising pre-granted options — are viewed as particularly constructive."
+            )
+        elif sentiment_label == "bearish":
+            detail = (
+                "The dominant selling may reflect profit-taking, diversification, or liquidity needs. Context matters: "
+                "pre-planned 10b5-1 sales and option exercises are routine and may not be directional. However, "
+                "heavy unplanned selling has historically preceded periods of price weakness."
+            )
+        else:
+            detail = "The balanced mix of purchases and sales does not indicate strongly directional conviction from insiders."
+        summary = base + detail + " This is educational research only — not financial advice."
+
+    return {
+        "ticker":                  upper,
+        "asset_type":              "stock",
+        "insider_sentiment":       sentiment,
+        "insider_sentiment_label": sentiment_label,
+        "transactions":            transactions,
+        "total_transactions_90d":  total,
+        "buy_count":               len(buys),
+        "sell_count":              len(sells),
+        "total_buy_value_usd":     round(buy_value, 2),
+        "total_sell_value_usd":    round(sell_value, 2),
+        "net_value_usd":           round(net_value, 2),
+        "cluster_buying_alert":    cluster_buying_alert,
+        "cluster_buyers":          sorted(cluster_buyers),
+        "largest_transaction":     _fmt_tx(largest) if largest else None,
+        "insider_summary":         summary,
+        "data_source":             "Finnhub — SEC Form 4 filings (last 90 days, open-market only)",
+        "disclaimer":              "This is educational research only. Not financial advice.",
+    }
+
+
+@app.get("/stock/options/{ticker}")
+def get_stock_options(ticker: str):
+    """
+    Options chain analysis via Yahoo Finance (yfinance):
+    put/call ratio, max pain, unusual activity (vol > 3x OI),
+    smart money flags (notional > $1M), IV summary, top OI strikes.
+    Returns a structured error rather than crashing if data is unavailable.
+    """
+    import yfinance as yf
+    upper  = ticker.upper()
+    errors: list[str] = []
+
+    try:
+        ticker_obj   = yf.Ticker(upper)
+        exp_dates    = ticker_obj.options          # tuple of expiry strings
+    except Exception as exc:
+        return {"ticker": upper, "asset_type": "stock", "error": str(exc), "options_sentiment": "neutral"}
+
+    if not exp_dates:
+        return {
+            "ticker": upper, "asset_type": "stock",
+            "error": f"No options chain found for '{ticker}'. The symbol may not have listed options.",
+            "options_sentiment": "neutral",
+        }
+
+    # Flatten across the next 4 expirations to keep response size reasonable
+    all_calls: list[dict] = []
+    all_puts:  list[dict] = []
+    expirations_analyzed = 0
+    for exp in exp_dates[:4]:
+        try:
+            chain = ticker_obj.option_chain(exp)
+        except Exception as exc:
+            errors.append(f"Could not fetch chain for {exp}: {exc}")
+            continue
+        expirations_analyzed += 1
+
+        def _row_to_dict(row) -> dict:
+            def _get(key):
+                val = row[key] if key in row.index else None
+                return val if val == val else None  # NaN check
+            return {
+                "strike":            _get("strike"),
+                "volume":            int(_get("volume") or 0),
+                "openInterest":      int(_get("openInterest") or 0),
+                "impliedVolatility": float(_get("impliedVolatility") or 0),
+            }
+
+        all_calls.extend(_row_to_dict(r) for _, r in chain.calls.iterrows())
+        all_puts.extend(_row_to_dict(r)  for _, r in chain.puts.iterrows())
+
+    # ── Put/Call ratio ─────────────────────────────────────────────────────────
+    call_vol = sum(c.get("volume") or 0 for c in all_calls)
+    put_vol  = sum(p.get("volume") or 0 for p in all_puts)
+    call_oi  = sum(c.get("openInterest") or 0 for c in all_calls)
+    put_oi   = sum(p.get("openInterest") or 0 for p in all_puts)
+
+    if call_vol > 0:
+        pc_ratio, pc_basis = round(put_vol / call_vol, 3), "volume"
+    elif call_oi > 0:
+        pc_ratio, pc_basis = round(put_oi / call_oi, 3),  "open interest"
+    else:
+        pc_ratio, pc_basis = None, "unavailable"
+
+    if pc_ratio is None:
+        pc_interp, opt_sentiment = "Put/Call ratio unavailable", "neutral"
+    elif pc_ratio > 1.0:
+        pc_interp, opt_sentiment = f"P/C ratio {pc_ratio} (bearish — more puts than calls)", "bearish"
+    elif pc_ratio < 0.7:
+        pc_interp, opt_sentiment = f"P/C ratio {pc_ratio} (bullish — significantly more calls than puts)", "bullish"
+    else:
+        pc_interp, opt_sentiment = f"P/C ratio {pc_ratio} (neutral)", "neutral"
+
+    # ── Max pain ───────────────────────────────────────────────────────────────
+    max_pain = _calc_max_pain(all_calls, all_puts)
+
+    # ── Unusual activity: volume ≥ 10 contracts AND volume > 3× OI ────────────
+    unusual: list[dict] = []
+    for opt_list, kind in ((all_calls, "CALL"), (all_puts, "PUT")):
+        for o in opt_list:
+            vol = o.get("volume") or 0
+            oi  = o.get("openInterest") or 0
+            if vol >= 10 and oi > 0 and vol >= oi * 3:
+                unusual.append({
+                    "type":           kind,
+                    "strike":         o.get("strike"),
+                    "volume":         vol,
+                    "open_interest":  oi,
+                    "volume_oi_ratio":round(vol / oi, 1),
+                    "implied_volatility_pct": round((o.get("impliedVolatility") or 0) * 100, 1),
+                })
+    unusual.sort(key=lambda x: x["volume"], reverse=True)
+
+    # ── Smart money: notional > $1M (volume × strike × 100 shares/contract) ───
+    smart_money: list[dict] = []
+    for opt_list, kind in ((all_calls, "CALL"), (all_puts, "PUT")):
+        for o in opt_list:
+            strike   = o.get("strike") or 0
+            vol      = o.get("volume") or 0
+            notional = vol * strike * 100
+            if notional >= 1_000_000:
+                smart_money.append({
+                    "type":         kind,
+                    "strike":       strike,
+                    "volume":       vol,
+                    "notional_usd": round(notional),
+                    "implied_volatility_pct": round((o.get("impliedVolatility") or 0) * 100, 1),
+                })
+    smart_money.sort(key=lambda x: x["notional_usd"], reverse=True)
+
+    # Upgrade/downgrade sentiment if smart money skews strongly one way
+    if smart_money:
+        call_notional = sum(s["notional_usd"] for s in smart_money if s["type"] == "CALL")
+        put_notional  = sum(s["notional_usd"] for s in smart_money if s["type"] == "PUT")
+        if call_notional > put_notional * 1.5:
+            opt_sentiment = "bullish"
+        elif put_notional > call_notional * 1.5:
+            opt_sentiment = "bearish"
+
+    # ── Average IV ─────────────────────────────────────────────────────────────
+    ivs    = [(o.get("impliedVolatility") or 0) * 100 for o in all_calls + all_puts if (o.get("impliedVolatility") or 0) > 0]
+    avg_iv = round(sum(ivs) / len(ivs), 1) if ivs else None
+
+    # ── Top open-interest strikes ──────────────────────────────────────────────
+    top_call_strikes = [c["strike"] for c in sorted(all_calls, key=lambda x: x.get("openInterest") or 0, reverse=True)[:3] if c.get("strike")]
+    top_put_strikes  = [p["strike"] for p in sorted(all_puts,  key=lambda x: x.get("openInterest") or 0, reverse=True)[:3] if p.get("strike")]
+
+    # ── Plain-English summary ──────────────────────────────────────────────────
+    if not (all_calls or all_puts):
+        options_summary = f"No options data could be retrieved for {upper}."
+    else:
+        options_summary = (
+            f"The {upper} options market shows a put/call ratio of {pc_ratio} (based on {pc_basis}), "
+            f"indicating {'bearish hedging activity' if opt_sentiment == 'bearish' else 'bullish call positioning' if opt_sentiment == 'bullish' else 'neutral positioning'}. "
+        )
+        if max_pain:
+            options_summary += f"The max pain price is ${max_pain:,.2f} — the strike at which the most option premium expires worthless. "
+        if avg_iv is not None:
+            options_summary += f"Average implied volatility across the chain is {avg_iv}%. "
+        if unusual:
+            options_summary += f"{len(unusual)} position{'s' if len(unusual) != 1 else ''} showed volume exceeding 3× open interest — potentially informed activity. "
+        if smart_money:
+            options_summary += f"{len(smart_money)} trade{'s' if len(smart_money) != 1 else ''} exceeded $1M notional and may represent institutional positioning. "
+        options_summary += "This is educational research only — not financial advice."
+
+    return {
+        "ticker":                  upper,
+        "asset_type":              "stock",
+        "options_sentiment":       opt_sentiment,
+        "put_call_ratio":          pc_ratio,
+        "put_call_basis":          pc_basis,
+        "put_call_interpretation": pc_interp,
+        "max_pain":                max_pain,
+        "avg_iv_pct":              avg_iv,
+        "total_call_volume":       call_vol,
+        "total_put_volume":        put_vol,
+        "total_call_oi":           call_oi,
+        "total_put_oi":            put_oi,
+        "unusual_activity":        unusual[:10],
+        "smart_money_flags":       smart_money[:10],
+        "top_call_strikes":        top_call_strikes,
+        "top_put_strikes":         top_put_strikes,
+        "options_summary":         options_summary,
+        "expirations_analyzed":    expirations_analyzed,
+        "errors":                  errors or None,
         "disclaimer":              "This is educational research only. Not financial advice.",
     }
