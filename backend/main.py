@@ -104,12 +104,10 @@ def resolve_coin_id(ticker: str) -> str:
         resp = requests.get(f"{COINGECKO_BASE}/search", params={"query": ticker}, timeout=10)
         resp.raise_for_status()
         coins = resp.json().get("coins", [])
-        if not coins:
-            raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found on CoinGecko")
         for coin in coins:
             if coin.get("symbol", "").upper() == upper:
                 return coin["id"]
-        return coins[0]["id"]
+        raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found on CoinGecko")
     except HTTPException:
         raise
     except Exception as e:

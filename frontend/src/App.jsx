@@ -53,14 +53,26 @@ export default function App() {
     setData(null)
 
     try {
-      const [price, news, technicals, whales] = await Promise.all([
-        apiFetch(`/price/${ticker}`),
-        apiFetch(`/news/${ticker}`),
-        apiFetch(`/technicals/${ticker}`),
-        apiFetch(`/whales/${ticker}`),
+      // Detect asset type first so we call the right endpoints
+      const detected = await apiFetch(`/detect/${ticker}`)
+      const isStock = detected.asset_type === 'stock'
+
+      const [price, news, technicals, smartMoney] = await Promise.all([
+        apiFetch(isStock ? `/stock/price/${ticker}` : `/price/${ticker}`),
+        apiFetch(isStock ? `/stock/news/${ticker}` : `/news/${ticker}`),
+        apiFetch(isStock ? `/stock/technicals/${ticker}` : `/technicals/${ticker}`),
+        isStock
+          ? Promise.all([
+              apiFetch(`/stock/insiders/${ticker}`).catch(() => null),
+              apiFetch(`/stock/options/${ticker}`).catch(() => null),
+            ])
+          : apiFetch(`/whales/${ticker}`).catch(() => null),
       ])
 
-      setData({ price, news, technicals, whales, analysis: null })
+      const [insiders, options] = isStock ? smartMoney : [null, null]
+      const whales = isStock ? null : smartMoney
+
+      setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type })
       setLoading(false)
       setAnalyzing(true)
 
@@ -73,6 +85,8 @@ export default function App() {
           headlines: news.articles?.map(a => a.title) ?? [],
           technical_data: technicals,
           whale_data: whales,
+          insider_data: insiders,
+          options_data: options,
           astro_signal: astroData?.astro_signal ?? null,
         }),
       })
