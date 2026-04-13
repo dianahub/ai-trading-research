@@ -199,7 +199,7 @@ export default function App() {
             <div className="flex items-center gap-3 rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
               <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
               <span className="text-sm" style={{ color: '#94a3b8' }}>
-                Fetching price, technicals, news and whale data — please wait…
+                Fetching price, technicals, news, whale data and astro signals — please wait…
               </span>
             </div>
             <div className="h-24 rounded-xl animate-pulse" style={{ background: '#111827' }} />
