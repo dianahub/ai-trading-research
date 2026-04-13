@@ -232,6 +232,24 @@ function VolumeCard({ data }) {
 
 export default function TechnicalGrid({ technicals }) {
   if (!technicals) return null
+
+  if (technicals._unavailable) {
+    return (
+      <div>
+        <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#475569' }}>
+          Technical Indicators
+        </h3>
+        <div className="rounded-xl p-4 flex items-center gap-3"
+          style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+          <span style={{ color: '#f59e0b' }}>⚠</span>
+          <p className="text-sm" style={{ color: '#64748b' }}>
+            Technical data temporarily unavailable
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const ind = technicals.indicators ?? {}
   const price = technicals.current_price
 

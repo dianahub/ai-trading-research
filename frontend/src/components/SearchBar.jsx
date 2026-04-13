@@ -13,7 +13,7 @@ export default function SearchBar({ onSearch, loading }) {
     <div className="flex gap-2">
       <div className="relative flex-1">
         <Search
-          size={16}
+          size={18}
           className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
           style={{ color: '#475569' }}
         />
@@ -23,7 +23,7 @@ export default function SearchBar({ onSearch, loading }) {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
           placeholder="Enter ticker  (BTC, ETH, SOL…)"
-          className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm font-mono outline-none transition-all"
+          className="w-full pl-10 pr-4 py-3.5 md:py-2.5 rounded-lg text-base md:text-sm font-mono outline-none transition-all"
           style={{
             background: '#111827',
             border: '1px solid #1e2d45',
@@ -36,7 +36,7 @@ export default function SearchBar({ onSearch, loading }) {
       <button
         onClick={submit}
         disabled={loading || !input.trim()}
-        className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 cursor-pointer"
+        className="px-5 py-3.5 md:py-2.5 rounded-lg text-base md:text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 cursor-pointer"
         style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', color: '#fff' }}
       >
         {loading ? (

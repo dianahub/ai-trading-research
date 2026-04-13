@@ -31,6 +31,23 @@ const SparkTooltip = ({ active, payload }) => {
 export default function PriceCard({ price }) {
   if (!price) return null
 
+  if (price._unavailable) {
+    return (
+      <div className="rounded-xl h-full flex items-center justify-center p-6"
+        style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+        <div className="text-center">
+          <div className="text-2xl mb-2" style={{ color: '#f59e0b' }}>⚠</div>
+          <p className="text-sm font-medium" style={{ color: '#94a3b8' }}>
+            Price data temporarily unavailable
+          </p>
+          <p className="text-xs mt-1" style={{ color: '#475569' }}>
+            CoinGecko rate limit reached — retrying automatically
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const isPositive = (price.change_24h_pct ?? 0) >= 0
   const color = isPositive ? '#10b981' : '#ef4444'
   const sparkData = (price.sparkline_7d ?? []).map((p, i) => ({ i, price: p }))

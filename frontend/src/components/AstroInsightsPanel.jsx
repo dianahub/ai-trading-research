@@ -213,10 +213,15 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle }) {
               ) : (
                 <button
                   onClick={() => setShowAll(true)}
-                  className="w-full text-xs py-2 rounded transition-colors cursor-pointer"
-                  style={{ background: '#111827', color: '#64748b', border: '1px solid #1e2d45' }}
+                  className="w-full py-3 rounded-lg text-sm font-semibold tracking-wide transition-all cursor-pointer hover:brightness-125 active:scale-[0.99]"
+                  style={{
+                    background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
+                    color: '#a5b4fc',
+                    border: '1px solid #3730a3',
+                    boxShadow: '0 0 16px #3730a344',
+                  }}
                 >
-                  View all {total_insights} insights ↓
+                  ♄ View All Astro Insights ({total_insights}) ↓
                 </button>
               )}
             </>

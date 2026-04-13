@@ -66,9 +66,12 @@ export default function App() {
       const isStock = detected.asset_type === 'stock'
 
       const [price, news, technicals, smartMoney] = await Promise.all([
-        apiFetch(isStock ? `/stock/price/${ticker}` : `/price/${ticker}`),
-        apiFetch(isStock ? `/stock/news/${ticker}` : `/news/${ticker}`),
-        apiFetch(isStock ? `/stock/technicals/${ticker}` : `/technicals/${ticker}`),
+        apiFetch(isStock ? `/stock/price/${ticker}` : `/price/${ticker}`)
+          .catch(() => ({ _unavailable: true, ticker: ticker.toUpperCase() })),
+        apiFetch(isStock ? `/stock/news/${ticker}` : `/news/${ticker}`)
+          .catch(() => ({ articles: [] })),
+        apiFetch(isStock ? `/stock/technicals/${ticker}` : `/technicals/${ticker}`)
+          .catch(() => ({ _unavailable: true })),
         isStock
           ? Promise.all([
               apiFetch(`/stock/insiders/${ticker}`).catch(() => null),
@@ -82,24 +85,31 @@ export default function App() {
 
       setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type })
       setLoading(false)
-      setAnalyzing(true)
 
-      const analysis = await apiFetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticker,
-          price_data: price,
-          headlines: news.articles?.map(a => a.title) ?? [],
-          technical_data: technicals,
-          whale_data: whales ?? {},
-          insider_data: insiders ?? {},
-          options_data: options ?? {},
-          astro_signal: astroData?.astro_signal ?? null,
-        }),
-      })
-
-      setData(prev => ({ ...prev, analysis }))
+      // Only run AI analysis when core CoinGecko data is available
+      const hasCoreData = !price?._unavailable && !technicals?._unavailable
+      if (hasCoreData) {
+        setAnalyzing(true)
+        try {
+          const analysis = await apiFetch('/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ticker,
+              price_data: price,
+              headlines: news.articles?.map(a => a.title) ?? [],
+              technical_data: technicals,
+              whale_data: whales ?? {},
+              insider_data: insiders ?? {},
+              options_data: options ?? {},
+              astro_signal: astroData?.astro_signal ?? null,
+            }),
+          })
+          setData(prev => ({ ...prev, analysis }))
+        } catch {
+          // Analysis failed — dashboard remains usable without AI summary
+        }
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -112,25 +122,35 @@ export default function App() {
     <div className="min-h-screen" style={{ background: '#0a0e1a' }}>
       {/* Header */}
       <header style={{ background: '#0a0e1a', borderBottom: '1px solid #1e2d45' }}
-        className="sticky top-0 z-50 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center gap-6">
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
-              <span className="text-white text-xs font-bold">AI</span>
+        className="sticky top-0 z-50 px-4 md:px-6 py-3 md:py-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
+          {/* Logo + title row — on mobile also holds the LIVE badge */}
+          <div className="flex items-center justify-between md:justify-start gap-3 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
+                <span className="text-white text-xs font-bold">AI</span>
+              </div>
+              <div>
+                <div className="text-sm font-bold tracking-widest text-white">
+                  Futurotek
+                </div>
+                <div className="text-xs" style={{ color: '#475569' }}>
+                  Ai Astro Trading
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-sm font-bold tracking-widest text-white uppercase">
-                AI Market Research
-              </div>
-              <div className="text-xs" style={{ color: '#475569' }}>
-                Stocks &amp; Crypto Analysis
-              </div>
+            {/* LIVE badge shown in title row on mobile */}
+            <div className="flex md:hidden items-center gap-2 text-xs" style={{ color: '#475569' }}>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block pulse-glow" />
+              LIVE
             </div>
           </div>
+          {/* Search bar — full width on mobile */}
           <div className="flex-1">
             <SearchBar onSearch={handleSearch} loading={loading} />
           </div>
+          {/* LIVE badge — desktop only */}
           <div className="hidden md:flex items-center gap-2 text-xs shrink-0"
             style={{ color: '#475569' }}>
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block pulse-glow" />

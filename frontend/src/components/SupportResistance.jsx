@@ -4,7 +4,7 @@ function fmt(v) {
 }
 
 export default function SupportResistance({ technicals, price }) {
-  if (!technicals) return null
+  if (!technicals || technicals._unavailable) return null
   const sr = technicals.indicators?.support_resistance ?? {}
   const currentPrice = price?.price_usd ?? technicals.current_price
 

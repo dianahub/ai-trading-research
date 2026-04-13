@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from coingecko_client import coingecko, CoinGeckoError, PRICE_TTL, MARKET_TTL, SEARCH_TTL
 
 load_dotenv()
 
@@ -101,15 +102,15 @@ def resolve_coin_id(ticker: str) -> str:
         return TICKER_TO_ID[upper]
 
     try:
-        resp = requests.get(f"{COINGECKO_BASE}/search", params={"query": ticker}, timeout=10)
-        resp.raise_for_status()
-        coins = resp.json().get("coins", [])
-        for coin in coins:
+        data = coingecko.get("/search", params={"query": ticker}, ttl=SEARCH_TTL)
+        for coin in data.get("coins", []):
             if coin.get("symbol", "").upper() == upper:
                 return coin["id"]
         raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found on CoinGecko")
     except HTTPException:
         raise
+    except CoinGeckoError as e:
+        raise HTTPException(status_code=503, detail=f"CoinGecko temporarily unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"CoinGecko search failed: {str(e)}")
 
@@ -525,16 +526,14 @@ def get_price(ticker: str):
     coin_id = resolve_coin_id(ticker)
 
     try:
-        resp = requests.get(
-            f"{COINGECKO_BASE}/coins/markets",
+        data = coingecko.get(
+            "/coins/markets",
             params={"vs_currency": "usd", "ids": coin_id, "sparkline": "true"},
-            timeout=10,
+            ttl=PRICE_TTL,
         )
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"CoinGecko request failed: {str(e)}")
+    except CoinGeckoError as e:
+        raise HTTPException(status_code=503, detail=f"Price data temporarily unavailable: {str(e)}")
 
-    data = resp.json()
     if not data:
         raise HTTPException(status_code=404, detail=f"No market data found for '{ticker}'")
 
@@ -726,16 +725,13 @@ def get_technicals(ticker: str):
     coin_id = resolve_coin_id(ticker)
 
     try:
-        chart_resp = requests.get(
-            f"{COINGECKO_BASE}/coins/{coin_id}/market_chart",
+        chart = coingecko.get(
+            f"/coins/{coin_id}/market_chart",
             params={"vs_currency": "usd", "days": 90, "interval": "daily"},
-            timeout=15,
+            ttl=MARKET_TTL,
         )
-        chart_resp.raise_for_status()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"CoinGecko request failed: {str(e)}")
-
-    chart   = chart_resp.json()
+    except CoinGeckoError as e:
+        raise HTTPException(status_code=503, detail=f"Technical data temporarily unavailable: {str(e)}")
     prices  = chart.get("prices", [])
     volumes = chart.get("total_volumes", [])
 
@@ -1080,15 +1076,14 @@ def get_whales(ticker: str):
 
     # ── 1. Current USD price (needed for threshold conversion) ──────────────
     try:
-        px_resp = requests.get(
-            f"{COINGECKO_BASE}/simple/price",
+        px_data = coingecko.get(
+            "/simple/price",
             params={"ids": coin_id, "vs_currencies": "usd"},
-            timeout=10,
+            ttl=PRICE_TTL,
         )
-        px_resp.raise_for_status()
-        price_usd = px_resp.json().get(coin_id, {}).get("usd", 0)
-    except requests.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"Price fetch failed: {e}")
+        price_usd = px_data.get(coin_id, {}).get("usd", 0)
+    except CoinGeckoError as e:
+        raise HTTPException(status_code=503, detail=f"Price data temporarily unavailable: {e}")
 
     if not price_usd:
         raise HTTPException(status_code=404, detail=f"No USD price found for '{ticker}'")
@@ -1111,8 +1106,8 @@ def get_whales(ticker: str):
     top_holders_pct = None
     holders_note    = "Top-holder concentration data is not available on the CoinGecko free tier."
     try:
-        cg = requests.get(
-            f"{COINGECKO_BASE}/coins/{coin_id}",
+        coin_data = coingecko.get(
+            f"/coins/{coin_id}",
             params={
                 "localization":   "false",
                 "tickers":        "false",
@@ -1121,22 +1116,20 @@ def get_whales(ticker: str):
                 "developer_data": "false",
                 "sparkline":      "false",
             },
-            timeout=10,
+            ttl=MARKET_TTL,
         )
-        if cg.ok:
-            coin_data = cg.json()
-            # Extract circulating / total supply ratio as a basic concentration proxy
-            market = coin_data.get("market_data", {})
-            circ   = market.get("circulating_supply")
-            total  = market.get("total_supply")
-            if circ and total and total > 0:
-                pct = round((1 - circ / total) * 100, 2)
-                top_holders_pct = pct
-                holders_note = (
-                    f"{pct}% of {upper} total supply is not in circulation "
-                    f"(held by team, locked, burned, or unreleased). "
-                    f"Per-address holder distribution requires a paid analytics service."
-                )
+        # Extract circulating / total supply ratio as a basic concentration proxy
+        market = coin_data.get("market_data", {})
+        circ   = market.get("circulating_supply")
+        total  = market.get("total_supply")
+        if circ and total and total > 0:
+            pct = round((1 - circ / total) * 100, 2)
+            top_holders_pct = pct
+            holders_note = (
+                f"{pct}% of {upper} total supply is not in circulation "
+                f"(held by team, locked, burned, or unreleased). "
+                f"Per-address holder distribution requires a paid analytics service."
+            )
     except Exception:
         pass
 
@@ -1339,31 +1332,29 @@ def detect_asset(ticker: str):
         coin_id = TICKER_TO_ID[upper]
         name    = upper
         try:
-            cg = requests.get(
-                f"{COINGECKO_BASE}/coins/{coin_id}",
+            cg_data = coingecko.get(
+                f"/coins/{coin_id}",
                 params={"localization": "false", "market_data": "false",
                         "community_data": "false", "developer_data": "false"},
-                timeout=8,
+                ttl=MARKET_TTL,
             )
-            if cg.ok:
-                name = cg.json().get("name", upper)
+            name = cg_data.get("name", upper)
         except Exception:
             pass
         return {"ticker": upper, "asset_type": "crypto", "name": name, "coin_id": coin_id, "exchange": None}
 
     # ── 2. CoinGecko search ───────────────────────────────────────────────────
     try:
-        cg = requests.get(f"{COINGECKO_BASE}/search", params={"query": ticker}, timeout=8)
-        if cg.ok:
-            for coin in cg.json().get("coins", []):
-                if coin.get("symbol", "").upper() == upper:
-                    return {
-                        "ticker":     upper,
-                        "asset_type": "crypto",
-                        "name":       coin.get("name", upper),
-                        "coin_id":    coin["id"],
-                        "exchange":   None,
-                    }
+        cg_search = coingecko.get("/search", params={"query": ticker}, ttl=SEARCH_TTL)
+        for coin in cg_search.get("coins", []):
+            if coin.get("symbol", "").upper() == upper:
+                return {
+                    "ticker":     upper,
+                    "asset_type": "crypto",
+                    "name":       coin.get("name", upper),
+                    "coin_id":    coin["id"],
+                    "exchange":   None,
+                }
     except Exception:
         pass
 
