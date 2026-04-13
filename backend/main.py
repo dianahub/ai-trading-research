@@ -872,8 +872,8 @@ def analyze(req: AnalyzeRequest):
                 f"\n## Astrological / Alternative Signal (weight: {ASTRO_SIGNAL_WEIGHT*100:.0f}%)\n"
                 f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
                 + (f"Astro Summary: {astro_summary}\n" if astro_summary else "")
-                + f"Note: This is a minor alternative data signal derived from financial astrology sources. "
-                f"Weight it at {ASTRO_SIGNAL_WEIGHT*100:.0f}% in your overall assessment.\n"
+                + f"Note: This signal is derived from financial astrology sources. "
+                f"Incorporate it meaningfully into the research_summary third paragraph.\n"
             )
 
         prompt = f"""Analyze the following data for {upper} (Stock) and respond with a JSON object only — no markdown, no extra text.
@@ -917,7 +917,7 @@ Rules:
 - confidence_score is an integer from 1 (very uncertain) to 10 (very certain)
 - key_opportunities and key_risks must each have exactly 4-5 items
 - technical_summary must be exactly 2 paragraphs
-- research_summary must be exactly 3 paragraphs combining technicals, news, insider activity, and options
+- research_summary must be exactly 3 paragraphs: paragraph 1 covers technicals and price action, paragraph 2 covers news, insider activity, and options, paragraph 3 must explicitly address the astrological signal and overall market timing outlook if astro data was provided, otherwise synthesize all signals into a final outlook
 - insider_analysis must explain what the insider activity signals about management conviction
 - options_analysis must explain what the options market is pricing in (P/C ratio, max pain, unusual flow)
 - smart_money_summary must combine insider and options signals into one overall smart money assessment
@@ -958,8 +958,8 @@ Rules:
                 f"\n## Astrological / Alternative Signal (weight: {ASTRO_SIGNAL_WEIGHT*100:.0f}%)\n"
                 f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
                 + (f"Astro Summary: {astro_summary}\n" if astro_summary else "")
-                + f"Note: This is a minor alternative data signal derived from financial astrology sources. "
-                f"Weight it at {ASTRO_SIGNAL_WEIGHT*100:.0f}% in your overall assessment.\n"
+                + f"Note: This signal is derived from financial astrology sources. "
+                f"Incorporate it meaningfully into the research_summary third paragraph.\n"
             )
 
         prompt = f"""Analyze the following data for {upper} (Crypto) and respond with a JSON object only — no markdown, no extra text.
@@ -999,7 +999,7 @@ Rules:
 - confidence_score is an integer from 1 (very uncertain) to 10 (very certain)
 - key_opportunities and key_risks must each have exactly 4-5 items
 - technical_summary must be exactly 2 paragraphs interpreting all indicators together
-- research_summary must be exactly 3 paragraphs combining technical analysis, news, and whale activity
+- research_summary must be exactly 3 paragraphs: paragraph 1 covers technicals and price action, paragraph 2 covers news and whale/smart money activity, paragraph 3 must explicitly address the astrological signal and overall market timing outlook if astro data was provided, otherwise synthesize all signals into a final outlook
 - whale_sentiment_analysis must explain whether whale behaviour supports or contradicts the technical signals
 - smart_money_summary must summarise overall whale flow significance
 - disclaimer must be exactly: "This is educational research only. Not financial advice."

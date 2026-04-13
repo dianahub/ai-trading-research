@@ -154,6 +154,12 @@ export default function App() {
         {/* Loading skeleton */}
         {loading && (
           <div className="space-y-5 fade-in">
+            <div className="flex items-center gap-3 rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
+              <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
+              <span className="text-sm" style={{ color: '#94a3b8' }}>
+                Fetching price, technicals, news and whale data — please wait…
+              </span>
+            </div>
             <div className="h-24 rounded-xl animate-pulse" style={{ background: '#111827' }} />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[...Array(3)].map((_, i) => (
@@ -196,8 +202,15 @@ export default function App() {
                 style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
                 <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
                 <span className="text-sm" style={{ color: '#94a3b8' }}>
-                  Claude AI is analyzing price data, technicals and news…
+                  Claude AI is analyzing price data, technicals, news and astrological signals — please wait…
                 </span>
+              </div>
+            )}
+
+            {/* Research summary — shown first once analysis is ready */}
+            {data.analysis && (
+              <div className="fade-in">
+                <ResearchSummary analysis={data.analysis} ticker={data.price?.ticker} />
               </div>
             )}
 
@@ -245,12 +258,6 @@ export default function App() {
               <NewsSection news={data.news} newsSentiment={data.analysis?.news_sentiment} />
             </div>
 
-            {/* Research summary */}
-            {data.analysis && (
-              <div className="fade-in">
-                <ResearchSummary analysis={data.analysis} ticker={data.price?.ticker} />
-              </div>
-            )}
           </>
         )}
       </main>
