@@ -215,7 +215,7 @@ export default function App() {
           <div className="fade-in">
             <AstroInsightsPanel
               astroData={astroData}
-              visible={showAstro}
+              visible={showAstro || !!ETF_TOPIC_MAP[ticker] || data?.assetType === 'crypto'}
               onToggle={handleToggleAstro}
               ticker={ticker}
               matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : null)) : null}
