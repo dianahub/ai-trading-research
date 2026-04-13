@@ -17,7 +17,15 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 async function apiFetch(path, opts = {}) {
   const res = await fetch(`${API}${path}`, opts)
   const json = await res.json()
-  if (!res.ok) throw new Error(json.detail || `HTTP ${res.status}`)
+  if (!res.ok) {
+    const detail = json.detail
+    const msg = Array.isArray(detail)
+      ? detail.map(e => e.msg || JSON.stringify(e)).join('; ')
+      : typeof detail === 'string'
+        ? detail
+        : JSON.stringify(detail) || `HTTP ${res.status}`
+    throw new Error(msg)
+  }
   return json
 }
 
@@ -84,9 +92,9 @@ export default function App() {
           price_data: price,
           headlines: news.articles?.map(a => a.title) ?? [],
           technical_data: technicals,
-          whale_data: whales,
-          insider_data: insiders,
-          options_data: options,
+          whale_data: whales ?? {},
+          insider_data: insiders ?? {},
+          options_data: options ?? {},
           astro_signal: astroData?.astro_signal ?? null,
         }),
       })
