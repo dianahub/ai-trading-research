@@ -118,8 +118,8 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-5">
-        {/* Astro panel — always visible regardless of ticker state */}
-        {astroData && (
+        {/* Astro panel — only shown after a ticker has been searched */}
+        {astroData && data && (
           <div className="fade-in">
             <AstroInsightsPanel
               astroData={astroData}
