@@ -182,7 +182,7 @@ export default function App() {
               Try BTC, ETH, AAPL, TSLA, NVDA — powered by CoinGecko, Finnhub &amp; Claude AI
             </p>
             <div className="flex gap-2 mt-4">
-              {['BTC', 'ETH', 'SOL', 'DOGE', 'ADA'].map(t => (
+              {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA'].map(t => (
                 <button key={t} onClick={() => handleSearch(t)}
                   className="px-3 py-1.5 rounded-full text-xs font-mono font-medium transition-all hover:scale-105 cursor-pointer"
                   style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>

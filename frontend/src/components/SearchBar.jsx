@@ -22,7 +22,7 @@ export default function SearchBar({ onSearch, loading }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
-          placeholder="Enter ticker  (BTC, ETH, SOL…)"
+          placeholder="Enter symbol  (BTC, ETH, AAPL, TSLA…)"
           className="w-full pl-10 pr-4 py-3.5 md:py-2.5 rounded-lg text-base md:text-sm font-mono outline-none transition-all"
           style={{
             background: '#111827',
