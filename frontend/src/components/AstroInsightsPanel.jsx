@@ -1,5 +1,6 @@
 // AstroInsightsPanel.jsx
 // Displays financial astrology insights from the Astro API microservice.
+import { useState } from 'react'
 
 const OUTLOOK_CONFIG = {
   bullish:  { color: '#10b981', bg: '#052e16', border: '#065f46', label: 'BULLISH' },
@@ -114,6 +115,8 @@ function InsightCard({ insight }) {
 }
 
 export default function AstroInsightsPanel({ astroData, visible, onToggle }) {
+  const [showAll, setShowAll] = useState(false)
+
   if (!astroData) return null
 
   const { available, sentiment_score, overall_summary, insights = [], total_insights } = astroData
@@ -193,12 +196,29 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle }) {
                 </div>
               )}
 
-              {/* Individual insight cards */}
-              <div className="space-y-3">
-                {insights.map((insight, i) => (
-                  <InsightCard key={insight.id ?? i} insight={insight} />
-                ))}
-              </div>
+              {/* Individual insight cards — collapsed by default */}
+              {showAll ? (
+                <div className="space-y-3">
+                  {insights.map((insight, i) => (
+                    <InsightCard key={insight.id ?? i} insight={insight} />
+                  ))}
+                  <button
+                    onClick={() => setShowAll(false)}
+                    className="w-full text-xs py-2 rounded transition-colors cursor-pointer"
+                    style={{ background: '#111827', color: '#475569', border: '1px solid #1e2d45' }}
+                  >
+                    Show less
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="w-full text-xs py-2 rounded transition-colors cursor-pointer"
+                  style={{ background: '#111827', color: '#64748b', border: '1px solid #1e2d45' }}
+                >
+                  View all {total_insights} insights ↓
+                </button>
+              )}
             </>
           )}
 

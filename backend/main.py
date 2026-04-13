@@ -861,6 +861,21 @@ def analyze(req: AnalyzeRequest):
         else:
             options_block = opt.get("error", "No options data available.") if opt else "No options data available."
 
+        # Astro signal block (stocks)
+        astro_block = ""
+        astro_signal_val = req.astro_signal
+        astro_data = _fetch_astro_data()
+        if astro_signal_val is not None:
+            astro_direction = "bullish" if astro_signal_val > 0.05 else ("bearish" if astro_signal_val < -0.05 else "neutral")
+            astro_summary = astro_data.get("overall_summary", "") if astro_data else ""
+            astro_block = (
+                f"\n## Astrological / Alternative Signal (weight: {ASTRO_SIGNAL_WEIGHT*100:.0f}%)\n"
+                f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
+                + (f"Astro Summary: {astro_summary}\n" if astro_summary else "")
+                + f"Note: This is a minor alternative data signal derived from financial astrology sources. "
+                f"Weight it at {ASTRO_SIGNAL_WEIGHT*100:.0f}% in your overall assessment.\n"
+            )
+
         prompt = f"""Analyze the following data for {upper} (Stock) and respond with a JSON object only — no markdown, no extra text.
 
 ## Price Data
@@ -877,7 +892,7 @@ def analyze(req: AnalyzeRequest):
 
 ## Options Market Analysis
 {options_block}
-
+{astro_block}
 Respond with this exact JSON structure:
 {{
   "overall_sentiment": "<bullish|bearish|neutral>",
@@ -935,12 +950,15 @@ Rules:
         # Astro signal block (optional — only included when available)
         astro_block = ""
         astro_signal_val = req.astro_signal
+        astro_data = _fetch_astro_data()
         if astro_signal_val is not None:
             astro_direction = "bullish" if astro_signal_val > 0.05 else ("bearish" if astro_signal_val < -0.05 else "neutral")
+            astro_summary = astro_data.get("overall_summary", "") if astro_data else ""
             astro_block = (
                 f"\n## Astrological / Alternative Signal (weight: {ASTRO_SIGNAL_WEIGHT*100:.0f}%)\n"
                 f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
-                f"Note: This is a minor alternative data signal derived from financial astrology sources. "
+                + (f"Astro Summary: {astro_summary}\n" if astro_summary else "")
+                + f"Note: This is a minor alternative data signal derived from financial astrology sources. "
                 f"Weight it at {ASTRO_SIGNAL_WEIGHT*100:.0f}% in your overall assessment.\n"
             )
 
