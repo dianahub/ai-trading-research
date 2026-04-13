@@ -487,7 +487,7 @@ def _fetch_astro_data() -> dict | None:
 
         data = {
             "sentiment_score":  summary.get("sentimentScore", 0),
-            "overall_summary":  summary.get("overallSummary", ""),
+            "overall_summary":  "" if summary.get("overallSummary", "").lower().startswith("summary unavailable") else summary.get("overallSummary", ""),
             "total_insights":   summary.get("totalInsights", 0),
             "breakdown":        summary.get("breakdown", {}),
             "insights":         insights.get("insights", []),
