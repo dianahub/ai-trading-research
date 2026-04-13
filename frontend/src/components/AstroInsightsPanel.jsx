@@ -114,17 +114,69 @@ function InsightCard({ insight }) {
   )
 }
 
-export default function AstroInsightsPanel({ astroData, visible, onToggle }) {
+function DirectMatchBanner({ ticker, topic, insights, breakdown }) {
+  const topicInsights = insights.filter(i => i.topic === topic)
+  const topicStats    = breakdown?.[topic]
+  if (topicInsights.length === 0) return null
+
+  const cfg = outlookCfg(topicStats?.dominantOutlook)
+  const score = topicStats?.sentimentScore ?? 0
+  const scoreLabel = score > 0.05 ? 'Bullish' : score < -0.05 ? 'Bearish' : 'Neutral'
+  const scoreColor = score > 0.05 ? '#10b981' : score < -0.05 ? '#ef4444' : '#94a3b8'
+
+  return (
+    <div
+      className="rounded-xl p-4 space-y-4"
+      style={{
+        background: 'linear-gradient(135deg, #0d1f0d, #0b1a2e)',
+        border: `1px solid ${cfg.border}`,
+        boxShadow: `0 0 20px ${cfg.border}55`,
+      }}
+    >
+      {/* Match header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className="px-2.5 py-1 rounded-full text-xs font-bold tracking-widest uppercase"
+            style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
+          >
+            ♄ Direct Astro Coverage
+          </span>
+          <span className="text-xs font-mono font-semibold" style={{ color: '#94a3b8' }}>
+            {ticker} → {topic.toUpperCase()}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <span style={{ color: '#475569' }}>{topicInsights.length} signal{topicInsights.length !== 1 ? 's' : ''}</span>
+          <span className="font-semibold" style={{ color: scoreColor }}>
+            {scoreLabel} ({score > 0 ? '+' : ''}{score.toFixed(2)})
+          </span>
+        </div>
+      </div>
+
+      {/* Matched insight cards */}
+      <div className="space-y-3">
+        {topicInsights.map((insight, i) => (
+          <InsightCard key={insight.id ?? i} insight={insight} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic }) {
   const [showAll, setShowAll] = useState(false)
 
   if (!astroData) return null
 
-  const { available, sentiment_score, overall_summary, insights = [], total_insights } = astroData
+  const { available, sentiment_score, overall_summary, insights = [], total_insights, breakdown = {} } = astroData
+
+  const hasDirectMatch = matchedTopic && available && insights.some(i => i.topic === matchedTopic)
 
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ background: '#0b0f1e', border: '1px solid #1e2d45' }}
+      style={{ background: '#0b0f1e', border: hasDirectMatch ? '1px solid #3730a3' : '1px solid #1e2d45' }}
     >
       {/* Panel header with toggle */}
       <div
@@ -145,6 +197,14 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle }) {
             {available && total_insights > 0 && (
               <span className="ml-2 text-xs" style={{ color: '#475569' }}>
                 {total_insights} signal{total_insights !== 1 ? 's' : ''}
+              </span>
+            )}
+            {hasDirectMatch && (
+              <span
+                className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold tracking-wide"
+                style={{ background: '#1e1b4b', color: '#a5b4fc', border: '1px solid #3730a3' }}
+              >
+                {matchedTopic.toUpperCase()} MATCH
               </span>
             )}
           </div>
@@ -181,6 +241,16 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle }) {
             </p>
           ) : (
             <>
+              {/* Direct match banner — pinned at top when ticker maps to an astro topic */}
+              {hasDirectMatch && (
+                <DirectMatchBanner
+                  ticker={ticker}
+                  topic={matchedTopic}
+                  insights={insights}
+                  breakdown={breakdown}
+                />
+              )}
+
               {/* Sentiment gauge */}
               <SentimentGauge score={sentiment_score} />
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import SearchBar from './components/SearchBar'
 import PriceCard from './components/PriceCard'
@@ -13,6 +13,46 @@ import WhaleSection from './components/WhaleSection'
 import AstroInsightsPanel from './components/AstroInsightsPanel'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+// ETFs whose underlying asset is directly covered by astro API topics
+const ETF_TOPIC_MAP = {
+  // Gold ETFs
+  GLD: 'gold', IAU: 'gold', SGOL: 'gold', GLDM: 'gold', BAR: 'gold',
+  OUNZ: 'gold', PHYS: 'gold', AAAU: 'gold',
+  // Gold miner ETFs
+  GDX: 'gold', GDXJ: 'gold', RING: 'gold', GOAU: 'gold',
+  // Gold mining stocks
+  NEM: 'gold', GOLD: 'gold', AEM: 'gold', FNV: 'gold', WPM: 'gold',
+  KGC: 'gold', BTG: 'gold', IAG: 'gold', EGO: 'gold', HMY: 'gold',
+  AU: 'gold', DRD: 'gold', SSRM: 'gold', OR: 'gold', RGLD: 'gold',
+  SAND: 'gold', NGD: 'gold', AUMN: 'gold', MAI: 'gold',
+  // Silver ETFs (precious metals — same astro coverage as gold)
+  SLV: 'gold', SIVR: 'gold', PSLV: 'gold', AGQ: 'gold', ZSL: 'gold',
+  // Silver miner ETFs
+  SIL: 'gold', SILJ: 'gold',
+  // Silver mining stocks
+  AG: 'gold', HL: 'gold', PAAS: 'gold', CDE: 'gold', MAG: 'gold',
+  EXK: 'gold', SVM: 'gold', SILV: 'gold', FSM: 'gold',
+  // Broad precious metals ETFs
+  GLTR: 'gold', PPLT: 'gold',
+  // Platinum / palladium (precious metals)
+  PALL: 'gold', SPPP: 'gold',
+  // Broad metals / mining ETFs
+  XME: 'gold', PICK: 'gold', COPX: 'gold',
+  // Oil / Energy ETFs
+  USO: 'oil', UCO: 'oil', SCO: 'oil', DBO: 'oil', BNO: 'oil',
+  XLE: 'oil', XOP: 'oil', OIH: 'oil', DRIP: 'oil', GUSH: 'oil',
+  FENY: 'oil', VDE: 'oil', IYE: 'oil',
+  // Crypto ETFs
+  GBTC: 'crypto', IBIT: 'crypto', FBTC: 'crypto', BITB: 'crypto',
+  ETHA: 'crypto', EZBC: 'crypto', BTCO: 'crypto',
+  // Banking / Financials
+  XLF: 'banking', KBE: 'banking', KRE: 'banking', IAT: 'banking', FAZ: 'banking',
+  // Tech
+  QQQ: 'tech stocks', XLK: 'tech stocks', SMH: 'tech stocks', SOXX: 'tech stocks',
+  // Currency
+  UUP: 'currency', FXE: 'currency', FXY: 'currency', FXB: 'currency', FXF: 'currency',
+}
 
 async function apiFetch(path, opts = {}) {
   const res = await fetch(`${API}${path}`, opts)
@@ -34,7 +74,9 @@ export default function App() {
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError]         = useState(null)
   const [data, setData]           = useState(null)
+  const [ticker, setTicker]       = useState(null)
   const [astroData, setAstroData] = useState(null)
+  const analysisRef = useRef(null)
   const [showAstro, setShowAstro] = useState(() => {
     try { return localStorage.getItem('showAstro') !== 'false' } catch { return true }
   })
@@ -45,6 +87,13 @@ export default function App() {
       .then(setAstroData)
       .catch(() => null) // silent failure
   }, [])
+
+  // Scroll to AI analysis the moment it becomes available
+  useEffect(() => {
+    if (data?.analysis && analysisRef.current) {
+      analysisRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [data?.analysis])
 
   const handleToggleAstro = () => {
     setShowAstro(prev => {
@@ -59,6 +108,7 @@ export default function App() {
     setAnalyzing(false)
     setError(null)
     setData(null)
+    setTicker(ticker.toUpperCase())
 
     try {
       // Detect asset type first so we call the right endpoints
@@ -167,6 +217,8 @@ export default function App() {
               astroData={astroData}
               visible={showAstro}
               onToggle={handleToggleAstro}
+              ticker={ticker}
+              matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : null)) : null}
             />
           </div>
         )}
@@ -233,7 +285,7 @@ export default function App() {
           <>
             {/* Sentiment banner — only once analysis is ready */}
             {data.analysis && (
-              <div className="fade-in">
+              <div ref={analysisRef} className="fade-in">
                 <SentimentBanner analysis={data.analysis} ticker={data.price?.ticker} />
               </div>
             )}
