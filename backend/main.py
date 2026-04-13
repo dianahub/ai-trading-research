@@ -29,6 +29,14 @@ ETHERSCAN_API_KEY   = os.getenv("ETHERSCAN_API_KEY", "")
 WHALE_ALERT_API_KEY = os.getenv("WHALE_ALERT_API_KEY", "")
 FINNHUB_API_KEY     = os.getenv("FINNHUB_API_KEY", "")
 
+# Astro API integration
+ASTRO_API_URL          = os.getenv("ASTRO_API_URL", "http://localhost:3001")
+ASTRO_API_KEY_INTERNAL = os.getenv("ASTRO_API_KEY_INTERNAL", "")
+ASTRO_SIGNAL_WEIGHT    = float(os.getenv("ASTRO_SIGNAL_WEIGHT", "0.1"))
+
+# Astro cache — 30-minute TTL, shared across requests
+_astro_cache: dict = {"data": None, "fetched_at": 0.0}
+
 COINGECKO_BASE   = "https://api.coingecko.com/api/v3"
 NEWSAPI_BASE     = "https://newsapi.org/v2"
 ETHERSCAN_BASE   = "https://api.etherscan.io/api"
@@ -403,10 +411,11 @@ class AnalyzeRequest(BaseModel):
     price_data: dict
     headlines: list[str]
     technical_data: dict
-    asset_type: str = "crypto"   # "crypto" | "stock"
-    whale_data: dict = {}        # crypto only
-    insider_data: dict = {}      # stock only
-    options_data: dict = {}      # stock only
+    asset_type: str = "crypto"       # "crypto" | "stock"
+    whale_data: dict = {}            # crypto only
+    insider_data: dict = {}          # stock only
+    options_data: dict = {}          # stock only
+    astro_signal: float | None = None  # -1.0 to 1.0 from astro service, None if unavailable
 
 
 class AnalyzeResponse(BaseModel):
@@ -425,6 +434,7 @@ class AnalyzeResponse(BaseModel):
     insider_analysis: str = ""
     options_analysis: str = ""
     smart_money_summary: str = ""
+    astro_signal: float | None = None
     disclaimer: str
 
 
@@ -435,6 +445,76 @@ class AnalyzeResponse(BaseModel):
 @app.get("/")
 def root():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Astro service helpers
+# ---------------------------------------------------------------------------
+
+def _fetch_astro_data() -> dict | None:
+    """
+    Fetch summary + insights from the Astro API.
+    Returns None on any failure — caller must handle gracefully.
+    Caches for 30 minutes to avoid blocking the main platform.
+    """
+    now = time.time()
+    if _astro_cache["data"] is not None and (now - _astro_cache["fetched_at"]) < 1800:
+        return _astro_cache["data"]
+
+    if not ASTRO_API_KEY_INTERNAL:
+        return None
+
+    headers = {"x-api-key": ASTRO_API_KEY_INTERNAL}
+    try:
+        summary_resp = requests.get(
+            f"{ASTRO_API_URL}/api/v1/insights/summary",
+            headers=headers,
+            timeout=8,
+        )
+        summary_resp.raise_for_status()
+        summary = summary_resp.json()
+
+        insights_resp = requests.get(
+            f"{ASTRO_API_URL}/api/v1/insights",
+            headers=headers,
+            timeout=8,
+        )
+        insights_resp.raise_for_status()
+        insights = insights_resp.json()
+
+        data = {
+            "sentiment_score":  summary.get("sentimentScore", 0),
+            "overall_summary":  summary.get("overallSummary", ""),
+            "total_insights":   summary.get("totalInsights", 0),
+            "breakdown":        summary.get("breakdown", {}),
+            "insights":         insights.get("insights", []),
+            "astro_signal":     round(summary.get("sentimentScore", 0) * ASTRO_SIGNAL_WEIGHT, 4),
+        }
+
+        _astro_cache["data"]       = data
+        _astro_cache["fetched_at"] = now
+        return data
+
+    except Exception:
+        # Silent failure — never let astro service errors surface to users
+        return None
+
+
+@app.get("/astro")
+def get_astro():
+    """Return current astro insights to the frontend. Returns empty payload if service unavailable."""
+    data = _fetch_astro_data()
+    if data is None:
+        return {
+            "available":       False,
+            "sentiment_score": 0,
+            "astro_signal":    0,
+            "overall_summary": "",
+            "total_insights":  0,
+            "breakdown":       {},
+            "insights":        [],
+        }
+    return {"available": True, **data}
 
 
 @app.get("/price/{ticker}")
@@ -848,6 +928,18 @@ Rules:
         else:
             whale_block = "No whale data available for this ticker."
 
+        # Astro signal block (optional — only included when available)
+        astro_block = ""
+        astro_signal_val = req.astro_signal
+        if astro_signal_val is not None:
+            astro_direction = "bullish" if astro_signal_val > 0.05 else ("bearish" if astro_signal_val < -0.05 else "neutral")
+            astro_block = (
+                f"\n## Astrological / Alternative Signal (weight: {ASTRO_SIGNAL_WEIGHT*100:.0f}%)\n"
+                f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
+                f"Note: This is a minor alternative data signal derived from financial astrology sources. "
+                f"Weight it at {ASTRO_SIGNAL_WEIGHT*100:.0f}% in your overall assessment.\n"
+            )
+
         prompt = f"""Analyze the following data for {upper} (Crypto) and respond with a JSON object only — no markdown, no extra text.
 
 ## Price Data
@@ -861,7 +953,7 @@ Rules:
 
 ## Whale & Smart Money Activity
 {whale_block}
-
+{astro_block}
 Respond with this exact JSON structure:
 {{
   "overall_sentiment": "<bullish|bearish|neutral>",
@@ -945,6 +1037,7 @@ Rules:
     parsed["confidence_score"] = max(1, min(10, int(parsed.get("confidence_score", 5))))
     parsed["disclaimer"]       = "This is educational research only. Not financial advice."
     parsed["asset_type"]       = asset_type
+    parsed["astro_signal"]     = req.astro_signal  # pass through for frontend display
 
     # Ensure all optional fields exist with safe defaults
     for field in ("whale_sentiment_analysis", "insider_analysis", "options_analysis", "smart_money_summary"):

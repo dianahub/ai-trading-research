@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import SearchBar from './components/SearchBar'
 import PriceCard from './components/PriceCard'
@@ -10,6 +10,7 @@ import AnalysisCards from './components/AnalysisCards'
 import NewsSection from './components/NewsSection'
 import ResearchSummary from './components/ResearchSummary'
 import WhaleSection from './components/WhaleSection'
+import AstroInsightsPanel from './components/AstroInsightsPanel'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -21,10 +22,29 @@ async function apiFetch(path, opts = {}) {
 }
 
 export default function App() {
-  const [loading, setLoading]   = useState(false)
+  const [loading, setLoading]     = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
-  const [error, setError]       = useState(null)
-  const [data, setData]         = useState(null)
+  const [error, setError]         = useState(null)
+  const [data, setData]           = useState(null)
+  const [astroData, setAstroData] = useState(null)
+  const [showAstro, setShowAstro] = useState(() => {
+    try { return localStorage.getItem('showAstro') !== 'false' } catch { return true }
+  })
+
+  // Fetch astro data once on mount — independent of ticker searches
+  useEffect(() => {
+    apiFetch('/astro')
+      .then(setAstroData)
+      .catch(() => null) // silent failure
+  }, [])
+
+  const handleToggleAstro = () => {
+    setShowAstro(prev => {
+      const next = !prev
+      try { localStorage.setItem('showAstro', String(next)) } catch { /* storage unavailable */ }
+      return next
+    })
+  }
 
   const handleSearch = async (ticker) => {
     setLoading(true)
@@ -53,6 +73,7 @@ export default function App() {
           headlines: news.articles?.map(a => a.title) ?? [],
           technical_data: technicals,
           whale_data: whales,
+          astro_signal: astroData?.astro_signal ?? null,
         }),
       })
 
@@ -78,10 +99,10 @@ export default function App() {
             </div>
             <div>
               <div className="text-sm font-bold tracking-widest text-white uppercase">
-                CryptoResearch
+                AI Market Research
               </div>
               <div className="text-xs" style={{ color: '#475569' }}>
-                AI-Powered Market Analysis
+                Stocks &amp; Crypto Analysis
               </div>
             </div>
           </div>
@@ -97,15 +118,26 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-5">
+        {/* Astro panel — always visible regardless of ticker state */}
+        {astroData && (
+          <div className="fade-in">
+            <AstroInsightsPanel
+              astroData={astroData}
+              visible={showAstro}
+              onToggle={handleToggleAstro}
+            />
+          </div>
+        )}
+
         {/* Idle state */}
         {!loading && !data && !error && (
           <div className="flex flex-col items-center justify-center py-32 space-y-4 fade-in">
             <div className="text-6xl mb-2">📊</div>
             <h2 className="text-2xl font-semibold" style={{ color: '#94a3b8' }}>
-              Enter a crypto ticker to begin
+              Enter a ticker to begin
             </h2>
             <p style={{ color: '#475569' }} className="text-sm">
-              Try BTC, ETH, SOL, ADA, DOGE — powered by CoinGecko, NewsAPI & Claude AI
+              Try BTC, ETH, AAPL, TSLA, NVDA — powered by CoinGecko, Finnhub &amp; Claude AI
             </p>
             <div className="flex gap-2 mt-4">
               {['BTC', 'ETH', 'SOL', 'DOGE', 'ADA'].map(t => (
