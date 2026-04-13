@@ -1344,22 +1344,19 @@ def detect_asset(ticker: str):
         return {"ticker": upper, "asset_type": "crypto", "name": name, "coin_id": coin_id, "exchange": None}
 
     # ── 2. CoinGecko search ───────────────────────────────────────────────────
+    cg_candidate: dict | None = None
     try:
         cg_search = coingecko.get("/search", params={"query": ticker}, ttl=SEARCH_TTL)
         for coin in cg_search.get("coins", []):
             if coin.get("symbol", "").upper() == upper:
-                return {
-                    "ticker":     upper,
-                    "asset_type": "crypto",
-                    "name":       coin.get("name", upper),
-                    "coin_id":    coin["id"],
-                    "exchange":   None,
-                }
+                cg_candidate = coin
+                break
     except Exception:
         pass
 
     # ── 3. Finnhub stock search ───────────────────────────────────────────────
     name, exchange = upper, ""
+    finnhub_price: float | None = None
     if FINNHUB_API_KEY and FINNHUB_API_KEY != "your_finnhub_api_key_here":
         try:
             resp = requests.get(
@@ -1375,6 +1372,32 @@ def detect_asset(ticker: str):
                         break
         except Exception:
             pass
+
+        # Get a live quote to confirm it's a real traded stock
+        try:
+            q = requests.get(
+                f"{FINNHUB_BASE}/quote",
+                params={"symbol": upper, "token": FINNHUB_API_KEY},
+                timeout=8,
+            )
+            if q.ok:
+                finnhub_price = q.json().get("c") or None
+        except Exception:
+            pass
+
+    # Prefer stock when Finnhub has a real price — avoids routing well-known
+    # ETFs/stocks (e.g. UCO) to a near-zero micro-cap crypto with the same symbol.
+    if finnhub_price:
+        return {"ticker": upper, "asset_type": "stock", "name": name, "coin_id": None, "exchange": exchange}
+
+    if cg_candidate:
+        return {
+            "ticker":     upper,
+            "asset_type": "crypto",
+            "name":       cg_candidate.get("name", upper),
+            "coin_id":    cg_candidate["id"],
+            "exchange":   None,
+        }
 
     return {"ticker": upper, "asset_type": "stock", "name": name, "coin_id": None, "exchange": exchange}
 
