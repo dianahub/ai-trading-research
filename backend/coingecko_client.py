@@ -27,6 +27,10 @@ import requests
 FREE_BASE_URL = "https://api.coingecko.com/api/v3"
 PRO_BASE_URL  = "https://pro-api.coingecko.com/api/v3"
 
+# Demo keys (free tier) start with "CG-" and use the standard URL
+# with x-cg-demo-api-key header.  Paid Pro keys use the pro URL
+# with x-cg-pro-api-key header.
+
 # Cache TTLs (seconds)
 PRICE_TTL  = 60    # /coins/markets, /simple/price — refresh every minute
 MARKET_TTL = 300   # /coins/{id}/market_chart, /coins/{id} — refresh every 5 min
@@ -57,8 +61,17 @@ class CoinGeckoClient:
 
     def __init__(self) -> None:
         api_key = os.getenv("COINGECKO_API_KEY", "").strip()
-        self._base_url = PRO_BASE_URL if api_key else FREE_BASE_URL
-        self._headers  = {"x-cg-pro-api-key": api_key} if api_key else {}
+        # Demo keys start with "CG-" → standard URL + x-cg-demo-api-key header
+        # Pro keys (paid) → pro URL + x-cg-pro-api-key header
+        if not api_key:
+            self._base_url = FREE_BASE_URL
+            self._headers: dict[str, str] = {}
+        elif api_key.startswith("CG-"):
+            self._base_url = FREE_BASE_URL
+            self._headers = {"x-cg-demo-api-key": api_key}
+        else:
+            self._base_url = PRO_BASE_URL
+            self._headers = {"x-cg-pro-api-key": api_key}
 
         # key → (data, expires_at_unix_timestamp)
         self._cache: dict[str, tuple[object, float]] = {}
