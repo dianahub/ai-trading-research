@@ -1450,25 +1450,58 @@ def get_stock_price(ticker: str):
 
 @app.get("/stock/technicals/{ticker}")
 def get_stock_technicals(ticker: str):
-    """90-day OHLCV from Yahoo Finance daily candles + same indicator set as /technicals."""
+    """90-day OHLCV from Finnhub daily candles + same indicator set as /technicals.
+    Falls back to yfinance if Finnhub returns no data."""
     import yfinance as yf
     upper = ticker.upper()
 
-    try:
-        hist = yf.Ticker(upper).history(period="3mo", interval="1d")
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"yfinance error for '{ticker}': {exc}")
+    df = None
 
-    if hist.empty:
+    # ── Primary: Finnhub candles (already proven to work on Railway) ──────────
+    if FINNHUB_API_KEY and FINNHUB_API_KEY != "your_finnhub_api_key_here":
+        try:
+            to_ts   = int(time.time())
+            from_ts = to_ts - 90 * 86400
+            resp = requests.get(
+                f"{FINNHUB_BASE}/stock/candle",
+                params={"symbol": upper, "resolution": "D",
+                        "from": from_ts, "to": to_ts, "token": FINNHUB_API_KEY},
+                timeout=12,
+                headers=_HEADERS,
+            )
+            if resp.ok:
+                candle = resp.json()
+                if candle.get("s") == "ok" and candle.get("c"):
+                    import datetime
+                    df = pd.DataFrame({
+                        "close":  candle["c"],
+                        "open":   candle.get("o", candle["c"]),
+                        "high":   candle.get("h", candle["c"]),
+                        "low":    candle.get("l", candle["c"]),
+                        "volume": candle.get("v", [0] * len(candle["c"])),
+                    }, index=pd.to_datetime(candle["t"], unit="s"))
+                    df.index.name = "ts"
+        except Exception:
+            pass
+
+    # ── Fallback: yfinance ────────────────────────────────────────────────────
+    if df is None or df.empty:
+        try:
+            hist = yf.Ticker(upper).history(period="3mo", interval="1d")
+            if not hist.empty:
+                df = hist[["Open", "High", "Low", "Close", "Volume"]].rename(columns={
+                    "Open": "open", "High": "high", "Low": "low",
+                    "Close": "close", "Volume": "volume",
+                })
+                df.index = df.index.tz_localize(None)
+        except Exception:
+            pass
+
+    if df is None or df.empty:
         raise HTTPException(
             status_code=404,
             detail=f"No price history available for '{ticker}'. Verify it is a valid stock ticker.",
         )
-
-    df = hist[["Open", "High", "Low", "Close", "Volume"]].rename(columns={
-        "Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume",
-    })
-    df.index = df.index.tz_localize(None)
 
     if len(df) < 26:
         raise HTTPException(
