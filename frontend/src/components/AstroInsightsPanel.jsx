@@ -207,8 +207,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </span>
               )}
             </div>
-            <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
-              Best used alongside the technical &amp; fundamental analysis below.
+            <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>
+              Astro Insights are best used alongside the technical &amp; fundamental analysis below.
             </p>
           </div>
           {!available && (
