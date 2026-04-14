@@ -309,6 +309,7 @@ const handleToggleAstro = () => {
             {/* Hero */}
             <div className="text-center space-y-3">
               <div className="text-5xl mb-2">🔭 ♄</div>
+              <p className="text-sm font-bold tracking-widest uppercase" style={{ color: '#64748b' }}>Starsignal.io</p>
               <h2 className="text-3xl font-bold" style={{ color: '#e2e8f0' }}>
                 AI + Astro Trading Research
               </h2>
