@@ -48,7 +48,8 @@ export default function PriceCard({ price }) {
     )
   }
 
-  const isPositive = (price.change_24h_pct ?? 0) >= 0
+  const changePct = price.change_24h_pct ?? price.change_pct ?? 0
+  const isPositive = changePct >= 0
   const color = isPositive ? '#10b981' : '#ef4444'
   const sparkData = (price.sparkline_7d ?? []).map((p, i) => ({ i, price: p }))
 
@@ -72,7 +73,7 @@ export default function PriceCard({ price }) {
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold`}
             style={{ background: isPositive ? '#052e16' : '#1f0a0a', color }}>
             {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-            {isPositive ? '+' : ''}{(price.change_24h_pct ?? 0).toFixed(2)}%
+            {isPositive ? '+' : ''}{changePct.toFixed(2)}%
           </div>
         </div>
 
