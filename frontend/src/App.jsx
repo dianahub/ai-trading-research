@@ -46,8 +46,15 @@ const ETF_TOPIC_MAP = {
   // Crypto ETFs
   GBTC: 'crypto', IBIT: 'crypto', FBTC: 'crypto', BITB: 'crypto',
   ETHA: 'crypto', EZBC: 'crypto', BTCO: 'crypto',
-  // Banking / Financials
+  // Banking / Financials ETFs
   XLF: 'banking', KBE: 'banking', KRE: 'banking', IAT: 'banking', FAZ: 'banking',
+  // Major bank stocks
+  BAC: 'banking', JPM: 'banking', WFC: 'banking', C: 'banking', GS: 'banking',
+  MS: 'banking', USB: 'banking', PNC: 'banking', TFC: 'banking', COF: 'banking',
+  SCHW: 'banking', BK: 'banking', STT: 'banking', FITB: 'banking', RF: 'banking',
+  HBAN: 'banking', CFG: 'banking', MTB: 'banking', KEY: 'banking', ZION: 'banking',
+  CMA: 'banking', FHN: 'banking', SNV: 'banking', ALLY: 'banking', SYF: 'banking',
+  DFS: 'banking', AXP: 'banking', BX: 'banking', KKR: 'banking', APO: 'banking',
   // Tech
   QQQ: 'tech stocks', XLK: 'tech stocks', SMH: 'tech stocks', SOXX: 'tech stocks',
   // Currency
