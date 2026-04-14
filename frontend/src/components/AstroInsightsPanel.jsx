@@ -15,7 +15,7 @@ function outlookCfg(outlook) {
 }
 
 function ConfidenceBar({ value }) {
-  const pct = Math.round((value ?? 0) * 100)
+  const pct = Math.round((parseFloat(value) || 0) * 100)
   const color = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444'
   return (
     <div className="flex items-center gap-2">
@@ -28,7 +28,7 @@ function ConfidenceBar({ value }) {
 }
 
 function SentimentGauge({ score }) {
-  const clamped = Math.max(-1, Math.min(1, score ?? 0))
+  const clamped = Math.max(-1, Math.min(1, parseFloat(score) || 0))
   const pct     = Math.round(((clamped + 1) / 2) * 100)
   const color   = clamped > 0.1 ? '#10b981' : clamped < -0.1 ? '#ef4444' : '#94a3b8'
   const label   = clamped > 0.1 ? 'Bullish' : clamped < -0.1 ? 'Bearish' : 'Neutral'
@@ -115,7 +115,7 @@ function DirectMatchHeader({ ticker, topic, insights, breakdown }) {
   if (topicInsights.length === 0) return null
 
   const cfg        = outlookCfg(topicStats?.dominantOutlook)
-  const score      = topicStats?.sentimentScore ?? 0
+  const score      = parseFloat(topicStats?.sentimentScore) || 0
   const scoreLabel = score > 0.05 ? 'Bullish' : score < -0.05 ? 'Bearish' : 'Neutral'
   const scoreColor = score > 0.05 ? '#10b981' : score < -0.05 ? '#ef4444' : '#94a3b8'
 
