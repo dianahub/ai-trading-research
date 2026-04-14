@@ -241,7 +241,7 @@ const handleToggleAstro = () => {
               visible={showAstro || !!ETF_TOPIC_MAP[ticker] || data?.assetType === 'crypto' || data?.assetType === 'stock'}
               onToggle={handleToggleAstro}
               ticker={ticker}
-              matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : data.assetType === 'stock' ? 'stock market' : null)) : null}
+              matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : data.assetType === 'stock' ? ['stock market', 'financial markets'] : null)) : null}
             />
           </div>
         )}

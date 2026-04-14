@@ -156,20 +156,23 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
   const { available, sentiment_score, overall_summary, insights = [], total_insights, breakdown = {} } = astroData
 
-  const hasDirectMatch = matchedTopic && available && insights.some(i => i.topic === matchedTopic)
+  // matchedTopic can be a string or array of strings
+  const matchedTopics = matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
+  const hasDirectMatch = matchedTopics.length > 0 && available && insights.some(i => matchedTopics.includes(i.topic))
 
   // Split matched vs others
-  const matchedInsights = hasDirectMatch ? insights.filter(i => i.topic === matchedTopic) : []
-  const otherInsights   = hasDirectMatch ? insights.filter(i => i.topic !== matchedTopic) : insights
+  const matchedInsights = hasDirectMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
+  const otherInsights   = hasDirectMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
 
   // 3 preview cards shown above summary; rest shown on "View All"
-  const previewInsights   = matchedInsights.slice(0, 3)
+  const previewInsights  = matchedInsights.slice(0, 3)
   // View All order: remaining matched first (no repeat of preview), then non-matched
-  const expandedInsights  = [...matchedInsights.slice(3), ...otherInsights]
+  const expandedInsights = [...matchedInsights.slice(3), ...otherInsights]
 
   // When no direct match, "View All" shows everything
   const viewAllInsights = hasDirectMatch ? expandedInsights : insights
   const showViewAll     = viewAllInsights.length > 0
+  const matchLabel      = matchedTopics.map(t => t.toUpperCase()).join(' & ')
 
   return (
     <div
@@ -203,7 +206,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold tracking-wide"
                   style={{ background: '#1e1b4b', color: '#a5b4fc', border: '1px solid #3730a3' }}
                 >
-                  {matchedTopic.toUpperCase()} MATCH
+                  {matchLabel} MATCH
                 </span>
               )}
             </div>
