@@ -254,15 +254,6 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 />
               )}
 
-              {/* 3 most recent related insight cards — shown above summary */}
-              {previewInsights.length > 0 && (
-                <div className="space-y-3">
-                  {previewInsights.map((insight, i) => (
-                    <InsightCard key={insight.id ?? i} insight={insight} />
-                  ))}
-                </div>
-              )}
-
               {/* Sentiment gauge */}
               <SentimentGauge score={sentiment_score} />
 
@@ -278,6 +269,15 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
                     {overall_summary}
                   </p>
+                </div>
+              )}
+
+              {/* 3 most recent related insight cards — shown below summary */}
+              {previewInsights.length > 0 && (
+                <div className="space-y-3">
+                  {previewInsights.map((insight, i) => (
+                    <InsightCard key={insight.id ?? i} insight={insight} />
+                  ))}
                 </div>
               )}
 
