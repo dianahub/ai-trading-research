@@ -47,16 +47,23 @@ export default function SearchBar({ onSearch, loading }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const select = (symbol) => {
-    setInput(symbol)
+  const select = (symbol, name) => {
+    setInput(name ? `${symbol} — ${name}` : symbol)
     setOpen(false)
     setSuggestions([])
     onSearch(symbol)
   }
 
   const submit = () => {
-    const t = input.trim().toUpperCase()
-    if (t) { setOpen(false); onSearch(t) }
+    const raw = input.trim()
+    if (!raw) return
+    setOpen(false)
+    // If suggestions are loaded, use the top match — avoids sending a name as a ticker
+    if (suggestions.length > 0) {
+      select(suggestions[0].symbol, suggestions[0].name)
+    } else {
+      onSearch(raw.toUpperCase())
+    }
   }
 
   return (
@@ -72,7 +79,7 @@ export default function SearchBar({ onSearch, loading }) {
           value={input}
           onChange={e => { setInput(e.target.value); }}
           onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setOpen(false) }}
-          placeholder="Enter symbol or name  (BTC, Apple, Tesla…)"
+          placeholder="Symbol or name  (BTC, Apple, Tesla…) — pick from list"
           className="w-full pl-10 pr-4 py-3.5 md:py-2.5 rounded-lg text-base md:text-sm font-mono outline-none transition-all"
           style={{
             background: '#111827',
@@ -93,7 +100,7 @@ export default function SearchBar({ onSearch, loading }) {
             {suggestions.map((s, i) => (
               <button
                 key={i}
-                onMouseDown={() => select(s.symbol)}
+                onMouseDown={() => select(s.symbol, s.name)}
                 className="w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors hover:brightness-125"
                 style={{ background: 'transparent', borderBottom: i < suggestions.length - 1 ? '1px solid #1e2d45' : 'none' }}
               >
