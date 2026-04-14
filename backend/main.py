@@ -42,6 +42,10 @@ ASTRO_SIGNAL_WEIGHT    = float(os.getenv("ASTRO_SIGNAL_WEIGHT", "0.1"))
 # Astro cache — 30-minute TTL, shared across requests
 _astro_cache: dict = {"data": None, "fetched_at": 0.0}
 
+# Analysis cache — 15-minute TTL, keyed by ticker
+_analyze_cache: dict[str, dict] = {}   # { ticker: {"result": AnalyzeResponse, "fetched_at": float} }
+ANALYZE_TTL = 15 * 60  # 15 minutes
+
 COINGECKO_BASE   = "https://api.coingecko.com/api/v3"
 NEWSAPI_BASE     = "https://newsapi.org/v2"
 ETHERSCAN_BASE   = "https://api.etherscan.io/api"
@@ -774,6 +778,11 @@ def analyze(req: AnalyzeRequest):
     asset_type = req.asset_type
     upper      = req.ticker.upper()
 
+    # Return cached result if still fresh
+    cached = _analyze_cache.get(upper)
+    if cached and (time.time() - cached["fetched_at"]) < ANALYZE_TTL:
+        return cached["result"]
+
     # ── Shared formatters ──────────────────────────────────────────────────────
     def _fmt(v):
         if v is None:              return "N/A"
@@ -1059,7 +1068,9 @@ Rules:
     for field in ("whale_sentiment_analysis", "insider_analysis", "options_analysis", "smart_money_summary"):
         parsed.setdefault(field, "")
 
-    return AnalyzeResponse(**parsed)
+    result = AnalyzeResponse(**parsed)
+    _analyze_cache[upper] = {"result": result, "fetched_at": time.time()}
+    return result
 
 
 @app.get("/whales/{ticker}")
