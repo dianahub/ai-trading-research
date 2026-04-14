@@ -11,7 +11,6 @@ import NewsSection from './components/NewsSection'
 import ResearchSummary from './components/ResearchSummary'
 import WhaleSection from './components/WhaleSection'
 import AstroInsightsPanel from './components/AstroInsightsPanel'
-import CongressPanel from './components/CongressPanel'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -181,10 +180,7 @@ const handleToggleAstro = () => {
 
       const name = price?.name || detected.name || ticker.toUpperCase()
 
-      // Congress trades — fire in parallel, silent failure
-      const congressData = await apiFetch(`/congress/${ticker}`).catch(() => null)
-
-      setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name, congressData })
+      setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name })
       setLoading(false)
 
       // Only run AI analysis when price is available — technicals being unavailable is non-fatal
@@ -418,7 +414,6 @@ const handleToggleAstro = () => {
                   { href: '#smart-money',  label: '🐋 Smart Money',        show: !!(data.whales || data.insiders) },
                   { href: '#astro',        label: '♄ Astro',               show: true },
                   { href: '#news',         label: '📰 News',               show: true },
-                  { href: '#congress',     label: '🏛 Congress',           show: true },
                 ].filter(s => s.show).map(s => (
                   <a key={s.href} href={s.href}
                     className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
@@ -501,10 +496,6 @@ const handleToggleAstro = () => {
               <NewsSection news={data.news} newsSentiment={data.analysis?.news_sentiment} />
             </div>
 
-            {/* Congressional trades */}
-            <div id="congress" className="fade-in">
-              <CongressPanel congressData={data.congressData} ticker={ticker} />
-            </div>
           </>
         )}
       </main>
