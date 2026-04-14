@@ -238,10 +238,10 @@ const handleToggleAstro = () => {
           <div className="fade-in">
             <AstroInsightsPanel
               astroData={astroData}
-              visible={showAstro || !!ETF_TOPIC_MAP[ticker] || data?.assetType === 'crypto'}
+              visible={showAstro || !!ETF_TOPIC_MAP[ticker] || data?.assetType === 'crypto' || data?.assetType === 'stock'}
               onToggle={handleToggleAstro}
               ticker={ticker}
-              matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : null)) : null}
+              matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : data.assetType === 'stock' ? 'tech stocks' : null)) : null}
             />
           </div>
         )}
