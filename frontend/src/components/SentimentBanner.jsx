@@ -50,7 +50,7 @@ export default function SentimentBanner({ analysis, ticker }) {
             <Icon size={22} style={{ color: cfg.color }} />
           </div>
           <div>
-            <div className="text-xs uppercase tracking-widest mb-0.5" style={{ color: '#475569' }}>
+            <div className="text-sm font-semibold mb-0.5" style={{ color: '#94a3b8' }}>
               {ticker} · AI Sentiment
             </div>
             <div className="text-3xl font-bold tracking-tight" style={{ color: cfg.color }}>
