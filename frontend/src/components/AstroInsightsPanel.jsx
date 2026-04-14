@@ -248,8 +248,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           ) : (
             <>
 
-              {/* Sentiment gauge */}
-              <SentimentGauge score={sentiment_score} />
+              {/* Sentiment gauge — only when ticker has no mapped category */}
+              {matchedTopics.length === 0 && <SentimentGauge score={sentiment_score} />}
 
               {/* Overall summary */}
               {overall_summary && (

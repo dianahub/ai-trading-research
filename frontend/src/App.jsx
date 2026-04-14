@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import './App.css'
 import SearchBar from './components/SearchBar'
 import PriceCard from './components/PriceCard'
@@ -254,7 +255,7 @@ const handleToggleAstro = () => {
               </div>
               <div>
                 <div className="text-sm font-bold tracking-widest text-white">
-                  Futurotek
+                  Starsignal.io
                 </div>
                 <div className="text-xs" style={{ color: '#475569' }}>
                   Ai Astro Trading
@@ -294,7 +295,7 @@ const handleToggleAstro = () => {
           <div id="astro" className="fade-in">
             <AstroInsightsPanel
               astroData={astroData}
-              visible={showAstro || !!ETF_TOPIC_MAP[ticker] || data?.assetType === 'crypto' || data?.assetType === 'stock'}
+              visible={showAstro}
               onToggle={handleToggleAstro}
               ticker={ticker}
               matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : data.assetType === 'stock' ? ['stock market', 'financial markets'] : null)) : null}
@@ -502,14 +503,28 @@ const handleToggleAstro = () => {
         )}
       </main>
 
-      {/* Disclaimer footer */}
-      <footer className="mt-12 px-6 py-6 text-center"
-        style={{ borderTop: '1px solid #1e2d45' }}>
-        <p className="text-xs" style={{ color: '#475569' }}>
-          ⚠ This platform provides educational research only. Not financial advice.
-          Cryptocurrency investments carry significant risk. Always conduct your own research.
-          Past performance does not guarantee future results.
-        </p>
+      {/* Disclaimer strip */}
+      <p className="mt-12 px-6 text-center text-xs" style={{ color: '#334155' }}>
+        Star Signal is a product of Futurotek LLC. Astrological insights are for informational purposes only and do not constitute financial advice.
+      </p>
+
+      {/* Site-wide footer */}
+      <footer className="mt-4 px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
+        <div className="max-w-7xl mx-auto space-y-4">
+          {/* Top row: copyright left, links right */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <span className="text-xs" style={{ color: '#475569' }}>© 2026 Futurotek LLC. All rights reserved.</span>
+            <div className="flex items-center gap-4">
+              <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
+              <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>
+              <Link to="/contact" className="text-xs hover:underline" style={{ color: '#64748b' }}>Contact</Link>
+            </div>
+          </div>
+          {/* Bottom muted line */}
+          <p className="text-xs" style={{ color: '#334155' }}>
+            Star Signal is a product of Futurotek LLC. Astrological insights are for informational purposes only and do not constitute investment advice.
+          </p>
+        </div>
       </footer>
     </div>
   )

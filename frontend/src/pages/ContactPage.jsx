@@ -1,0 +1,135 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+
+function PageLayout({ title, children }) {
+  return (
+    <div style={{ background: '#070b16', minHeight: '100vh', color: '#e2e8f0' }}>
+      <header style={{ background: '#0a0e1a', borderBottom: '1px solid #1e2d45' }}
+        className="sticky top-0 z-50 px-6 py-4">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3 no-underline">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
+              <span className="text-white text-xs font-bold">AI</span>
+            </div>
+            <span className="text-sm font-bold tracking-widest text-white">Starsignal.io</span>
+          </Link>
+          <Link to="/" className="text-xs hover:underline" style={{ color: '#64748b' }}>← Back to app</Link>
+        </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-6 py-12">
+        <h1 className="text-2xl font-bold mb-8" style={{ color: '#f1f5f9' }}>{title}</h1>
+        <div className="space-y-6 text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
+          {children}
+        </div>
+      </main>
+
+      <footer className="mt-16 px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
+        <div className="max-w-3xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <span className="text-xs" style={{ color: '#475569' }}>© 2026 Futurotek LLC. All rights reserved.</span>
+          <div className="flex items-center gap-4">
+            <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
+            <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>
+            <Link to="/contact" className="text-xs hover:underline" style={{ color: '#64748b' }}>Contact</Link>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+export default function ContactPage() {
+  const [form, setForm] = useState({ name: '', email: '', message: '' })
+  const [submitted, setSubmitted] = useState(false)
+
+  function handleChange(e) {
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    // Opens the user's mail client with pre-filled fields
+    const subject = encodeURIComponent('Star Signal Inquiry')
+    const body = encodeURIComponent(`Name: ${form.name}\n\n${form.message}`)
+    window.location.href = `mailto:dianahelene@gmail.com?subject=${subject}&body=${body}`
+    setSubmitted(true)
+  }
+
+  const inputStyle = {
+    background: '#0f1a2e',
+    border: '1px solid #1e3a5f',
+    borderRadius: 8,
+    color: '#e2e8f0',
+    padding: '10px 14px',
+    width: '100%',
+    fontSize: 14,
+    outline: 'none',
+  }
+
+  return (
+    <PageLayout title="Contact">
+      <p>Have a question, feedback, or issue? We'd love to hear from you.</p>
+
+      {submitted ? (
+        <div className="rounded-lg px-5 py-4" style={{ background: '#052e16', border: '1px solid #065f46' }}>
+          <p style={{ color: '#10b981' }}>Your mail client should have opened. If not, email us directly at <strong>hello@futurotek.com</strong>.</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Name</label>
+            <input
+              name="name"
+              type="text"
+              required
+              placeholder="Your name"
+              value={form.name}
+              onChange={handleChange}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Email</label>
+            <input
+              name="email"
+              type="email"
+              required
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleChange}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Message</label>
+            <textarea
+              name="message"
+              required
+              rows={5}
+              placeholder="How can we help?"
+              value={form.message}
+              onChange={handleChange}
+              style={{ ...inputStyle, resize: 'vertical' }}
+            />
+          </div>
+          <button
+            type="submit"
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all hover:brightness-110 cursor-pointer"
+            style={{
+              background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
+              color: '#a5b4fc',
+              border: '1px solid #3730a3',
+            }}
+          >
+            Send Message
+          </button>
+        </form>
+      )}
+
+      <div className="pt-4" style={{ borderTop: '1px solid #1e2d45' }}>
+        <p>You can also reach us directly at <strong style={{ color: '#cbd5e1' }}>dianahelene@gmail.com</strong>.</p>
+      </div>
+    </PageLayout>
+  )
+}
