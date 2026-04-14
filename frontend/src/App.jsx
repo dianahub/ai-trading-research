@@ -107,9 +107,12 @@ function getCachedAnalysis(ticker) {
   } catch { return null }
 }
 
-function setCachedAnalysis(ticker, result) {
+function setCachedAnalysis(ticker, result, alreadyStale = false) {
   try {
-    localStorage.setItem(CACHE_PREFIX + ticker.toUpperCase(), JSON.stringify({ result, cachedAt: Date.now() }))
+    // alreadyStale=true: store with a timestamp that is exactly at the TTL boundary
+    // so the next check treats it as stale and re-fetches, but at least it's usable
+    const cachedAt = alreadyStale ? Date.now() - ANALYSIS_TTL_MS : Date.now()
+    localStorage.setItem(CACHE_PREFIX + ticker.toUpperCase(), JSON.stringify({ result, cachedAt }))
   } catch { /* storage full or unavailable */ }
 }
 
@@ -196,7 +199,7 @@ const handleToggleAstro = () => {
 
         // If no cache or stale, fetch from backend
         if (!cached || cached.stale) {
-          // Show spinner only if we have nothing to show yet — backend may return from its own cache instantly
+          // Only show spinner if there is nothing at all to display yet
           if (!cached) setAnalyzing(true)
           try {
             const analysis = await apiFetch('/analyze', {
@@ -213,8 +216,17 @@ const handleToggleAstro = () => {
                 astro_signal: astroData?.astro_signal ?? null,
               }),
             })
-            // If backend served from its cache, store locally so next visit on this device is instant too
-            setCachedAnalysis(ticker, analysis)
+            // Only reset the local cache timer when the backend ran Claude fresh.
+            // If backend returned stale (from_cache=true), keep our existing TTL so
+            // we re-check next search and pick up the background-refreshed result.
+            if (!analysis.from_cache) {
+              setCachedAnalysis(ticker, analysis)
+            } else if (!cached) {
+              // No local cache at all — store the stale result so other searches
+              // on this device are instant, but mark it already-stale so we
+              // re-fetch next time.
+              setCachedAnalysis(ticker, analysis, true)
+            }
             setData(prev => ({ ...prev, analysis }))
           } catch {
             // Analysis failed — keep showing stale result if available
