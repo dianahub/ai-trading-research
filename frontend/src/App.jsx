@@ -295,7 +295,7 @@ const handleToggleAstro = () => {
 
         {/* Astro panel — only shown after a ticker has been searched */}
         {astroData && data && (
-          <div className="fade-in">
+          <div id="astro" className="fade-in">
             <AstroInsightsPanel
               astroData={astroData}
               visible={showAstro || !!ETF_TOPIC_MAP[ticker] || data?.assetType === 'crypto' || data?.assetType === 'stock'}
@@ -406,33 +406,57 @@ const handleToggleAstro = () => {
         {/* Data panels */}
         {data && (
           <>
-            {/* Sentiment banner — only once analysis is ready */}
-            {data.analysis && (
-              <div className="fade-in">
-                <SentimentBanner analysis={data.analysis} ticker={data.price?.ticker} />
+            {/* Section nav */}
+            <nav className="fade-in sticky top-16 z-40 -mx-4 px-4 py-2 overflow-x-auto"
+              style={{ background: '#0a0e1aee', backdropFilter: 'blur(8px)', borderBottom: '1px solid #1e2d45' }}>
+              <div className="flex gap-2 min-w-max">
+                {[
+                  { href: '#ai-summary',   label: '🤖 AI Summary',        show: !!data.analysis },
+                  { href: '#price',        label: '💰 Price',              show: true },
+                  { href: '#technicals',   label: '📈 Technicals',         show: true },
+                  { href: '#analysis',     label: '🔍 Analysis',           show: !!data.analysis },
+                  { href: '#smart-money',  label: '🐋 Smart Money',        show: !!(data.whales || data.insiders) },
+                  { href: '#astro',        label: '♄ Astro',               show: true },
+                  { href: '#news',         label: '📰 News',               show: true },
+                  { href: '#congress',     label: '🏛 Congress',           show: true },
+                ].filter(s => s.show).map(s => (
+                  <a key={s.href} href={s.href}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
+                    style={{ background: '#111827', color: '#64748b', border: '1px solid #1e2d45' }}>
+                    {s.label}
+                  </a>
+                ))}
               </div>
-            )}
+            </nav>
 
-            {/* Analyzing indicator */}
-            {analyzing && !data.analysis && (
-              <div className="rounded-xl p-4 flex items-center gap-3 fade-in"
-                style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
-                <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm" style={{ color: '#94a3b8' }}>
-                  Claude AI is analyzing price data, technicals, news and astrological signals — please wait…
-                </span>
-              </div>
-            )}
+            {/* AI Sentiment banner */}
+            <div id="ai-summary">
+              {data.analysis && (
+                <div className="fade-in">
+                  <SentimentBanner analysis={data.analysis} ticker={data.price?.ticker} />
+                </div>
+              )}
 
-            {/* Research summary — shown first once analysis is ready */}
-            {data.analysis && (
-              <div className="fade-in">
-                <ResearchSummary analysis={data.analysis} ticker={data.price?.ticker} />
-              </div>
-            )}
+              {/* Analyzing indicator */}
+              {analyzing && !data.analysis && (
+                <div className="rounded-xl p-4 flex items-center gap-3 fade-in"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
+                  <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm" style={{ color: '#94a3b8' }}>
+                    Claude AI is analyzing price data, technicals, news and astrological signals — please wait…
+                  </span>
+                </div>
+              )}
 
-            {/* Price + summary row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 fade-in">
+              {data.analysis && (
+                <div className="fade-in">
+                  <ResearchSummary analysis={data.analysis} ticker={data.price?.ticker} />
+                </div>
+              )}
+            </div>
+
+            {/* Price */}
+            <div id="price" className="grid grid-cols-1 lg:grid-cols-3 gap-4 fade-in">
               <div className="lg:col-span-2">
                 <PriceCard price={data.price} />
               </div>
@@ -443,43 +467,44 @@ const handleToggleAstro = () => {
               )}
             </div>
 
-            {/* Technical indicators grid */}
-            <div className="fade-in">
-              <TechnicalGrid technicals={data.technicals} />
-            </div>
-
-            {/* Support / Resistance */}
-            <div className="fade-in">
-              <SupportResistance technicals={data.technicals} price={data.price} />
-            </div>
-
-            {/* Analysis cards (needs AI) */}
-            {data.analysis && (
+            {/* Technicals */}
+            <div id="technicals" className="space-y-4">
               <div className="fade-in">
+                <TechnicalGrid technicals={data.technicals} />
+              </div>
+              <div className="fade-in">
+                <SupportResistance technicals={data.technicals} price={data.price} />
+              </div>
+            </div>
+
+            {/* Analysis cards */}
+            {data.analysis && (
+              <div id="analysis" className="fade-in">
                 <AnalysisCards analysis={data.analysis} />
               </div>
             )}
 
-            {/* Whale activity */}
-            {data.whales && (
-              <div className="fade-in">
-                <WhaleSection
-                  whales={data.whales}
-                  whaleAnalysis={data.analysis?.whale_sentiment_analysis}
-                />
-              </div>
-            )}
-
-            {/* Congressional trades — always shown, handles null/empty state internally */}
-            <div className="fade-in">
-              <CongressPanel congressData={data.congressData} ticker={ticker} />
+            {/* Smart money — whale (crypto) or insiders (stocks) */}
+            <div id="smart-money">
+              {data.whales && (
+                <div className="fade-in">
+                  <WhaleSection
+                    whales={data.whales}
+                    whaleAnalysis={data.analysis?.whale_sentiment_analysis}
+                  />
+                </div>
+              )}
             </div>
 
             {/* News */}
-            <div className="fade-in">
+            <div id="news" className="fade-in">
               <NewsSection news={data.news} newsSentiment={data.analysis?.news_sentiment} />
             </div>
 
+            {/* Congressional trades */}
+            <div id="congress" className="fade-in">
+              <CongressPanel congressData={data.congressData} ticker={ticker} />
+            </div>
           </>
         )}
       </main>
