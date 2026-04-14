@@ -1473,9 +1473,18 @@ def get_stock_price(ticker: str):
     except HTTPException as e:
         errors.append(f"Fundamentals unavailable: {e.detail}")
 
+    # Fetch company name from Finnhub profile
+    company_name = upper
+    try:
+        profile = _finnhub_get("stock/profile2", {"symbol": upper})
+        company_name = profile.get("name", upper) or upper
+    except Exception:
+        pass
+
     cap_raw = metrics.get("marketCapitalization")   # Finnhub returns in millions USD
     return {
         "ticker":         upper,
+        "name":           company_name,
         "asset_type":     "stock",
         "price_usd":      current,
         "change":         round(quote.get("d",  0) or 0, 2),
