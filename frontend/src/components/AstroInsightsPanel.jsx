@@ -189,22 +189,27 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
             ♄
           </div>
           <div>
-            <span className="text-sm font-semibold tracking-wide" style={{ color: '#e2e8f0' }}>
-              Astro Insights
-            </span>
-            {available && total_insights > 0 && (
-              <span className="ml-2 text-xs" style={{ color: '#475569' }}>
-                {total_insights} signal{total_insights !== 1 ? 's' : ''}
+            <div className="flex items-center">
+              <span className="text-sm font-semibold tracking-wide" style={{ color: '#e2e8f0' }}>
+                Astro Insights
               </span>
-            )}
-            {hasDirectMatch && (
-              <span
-                className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold tracking-wide"
-                style={{ background: '#1e1b4b', color: '#a5b4fc', border: '1px solid #3730a3' }}
-              >
-                {matchedTopic.toUpperCase()} MATCH
-              </span>
-            )}
+              {available && total_insights > 0 && (
+                <span className="ml-2 text-xs" style={{ color: '#475569' }}>
+                  {total_insights} signal{total_insights !== 1 ? 's' : ''}
+                </span>
+              )}
+              {hasDirectMatch && (
+                <span
+                  className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold tracking-wide"
+                  style={{ background: '#1e1b4b', color: '#a5b4fc', border: '1px solid #3730a3' }}
+                >
+                  {matchedTopic.toUpperCase()} MATCH
+                </span>
+              )}
+            </div>
+            <p className="text-xs mt-0.5" style={{ color: '#475569' }}>
+              Best used alongside the technical &amp; fundamental analysis below.
+            </p>
           </div>
           {!available && (
             <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#1e2d45', color: '#475569' }}>
