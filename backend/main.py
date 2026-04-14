@@ -544,6 +544,62 @@ def get_astro():
     return {"available": True, **data}
 
 
+@app.get("/search")
+def search_symbols(q: str):
+    """Search for ticker symbols by name or symbol. Returns up to 8 suggestions from CoinGecko (crypto) and Finnhub (stocks)."""
+    q = q.strip()
+    if not q or len(q) < 2:
+        return {"results": []}
+
+    results: list[dict] = []
+
+    # --- CoinGecko crypto search ---
+    try:
+        data = coingecko.get("/search", params={"query": q}, ttl=SEARCH_TTL)
+        for coin in data.get("coins", [])[:5]:
+            results.append({
+                "symbol": coin.get("symbol", "").upper(),
+                "name":   coin.get("name", ""),
+                "type":   "crypto",
+            })
+    except Exception:
+        pass
+
+    # --- Finnhub stock search ---
+    if FINNHUB_API_KEY:
+        try:
+            resp = requests.get(
+                f"{FINNHUB_BASE}/search",
+                params={"q": q, "token": FINNHUB_API_KEY},
+                timeout=5,
+            )
+            if resp.ok:
+                for item in resp.json().get("result", [])[:5]:
+                    sym = item.get("symbol", "")
+                    # Skip complex symbols (options, preferred shares, etc.)
+                    if "." in sym or len(sym) > 6:
+                        continue
+                    results.append({
+                        "symbol": sym,
+                        "name":   item.get("description", ""),
+                        "type":   "stock",
+                    })
+        except Exception:
+            pass
+
+    # Deduplicate by symbol, keep first occurrence, limit to 8
+    seen: set[str] = set()
+    deduped: list[dict] = []
+    for r in results:
+        if r["symbol"] and r["symbol"] not in seen:
+            seen.add(r["symbol"])
+            deduped.append(r)
+        if len(deduped) >= 8:
+            break
+
+    return {"results": deduped}
+
+
 @app.get("/price/{ticker}")
 def get_price(ticker: str):
     """Fetch current price, 24h change, market cap, and volume from CoinGecko."""
