@@ -201,14 +201,6 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   {total_insights} signal{total_insights !== 1 ? 's' : ''}
                 </span>
               )}
-              {hasDirectMatch && (
-                <span
-                  className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold tracking-wide"
-                  style={{ background: '#1e1b4b', color: '#a5b4fc', border: '1px solid #3730a3' }}
-                >
-                  {matchLabel} MATCH
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg" style={{ background: '#a5b4fc18', border: '1px solid #a5b4fc44' }}>
               <span className="text-lg">♄</span>
