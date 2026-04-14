@@ -42,9 +42,28 @@ ASTRO_SIGNAL_WEIGHT    = float(os.getenv("ASTRO_SIGNAL_WEIGHT", "0.1"))
 # Astro cache — 30-minute TTL, shared across requests
 _astro_cache: dict = {"data": None, "fetched_at": 0.0}
 
-# Analysis cache — 15-minute TTL, keyed by ticker
-_analyze_cache: dict[str, dict] = {}   # { ticker: {"result": AnalyzeResponse, "fetched_at": float} }
-ANALYZE_TTL = 15 * 60  # 15 minutes
+# Analysis cache — 15-minute TTL, keyed by ticker, persisted to disk so restarts don't wipe it
+ANALYZE_TTL       = 15 * 60  # 15 minutes
+_CACHE_FILE       = os.path.join(os.path.dirname(__file__), ".analysis_cache.json")
+_analyze_cache: dict[str, dict] = {}
+
+def _load_cache():
+    global _analyze_cache
+    try:
+        if os.path.exists(_CACHE_FILE):
+            with open(_CACHE_FILE, "r") as f:
+                _analyze_cache = json.load(f)
+    except Exception:
+        _analyze_cache = {}
+
+def _save_cache():
+    try:
+        with open(_CACHE_FILE, "w") as f:
+            json.dump(_analyze_cache, f)
+    except Exception:
+        pass
+
+_load_cache()  # load on startup
 
 COINGECKO_BASE   = "https://api.coingecko.com/api/v3"
 NEWSAPI_BASE     = "https://newsapi.org/v2"
@@ -781,7 +800,7 @@ def analyze(req: AnalyzeRequest):
     # Return cached result if still fresh
     cached = _analyze_cache.get(upper)
     if cached and (time.time() - cached["fetched_at"]) < ANALYZE_TTL:
-        return cached["result"]
+        return AnalyzeResponse(**cached["result"])
 
     # ── Shared formatters ──────────────────────────────────────────────────────
     def _fmt(v):
@@ -1069,7 +1088,8 @@ Rules:
         parsed.setdefault(field, "")
 
     result = AnalyzeResponse(**parsed)
-    _analyze_cache[upper] = {"result": result, "fetched_at": time.time()}
+    _analyze_cache[upper] = {"result": result.model_dump(), "fetched_at": time.time()}
+    _save_cache()
     return result
 
 
