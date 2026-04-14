@@ -207,9 +207,12 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </span>
               )}
             </div>
-            <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>
-              Astro Insights are best used alongside the technical &amp; fundamental analysis below.
-            </p>
+            <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg" style={{ background: '#a5b4fc18', border: '1px solid #a5b4fc44' }}>
+              <span className="text-lg">♄</span>
+              <p className="text-sm font-bold" style={{ color: '#a5b4fc' }}>
+                Astro Insights are best used alongside the technical &amp; fundamental analysis below.
+              </p>
+            </div>
           </div>
           {!available && (
             <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#1e2d45', color: '#475569' }}>
