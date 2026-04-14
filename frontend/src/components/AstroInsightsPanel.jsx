@@ -247,15 +247,6 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
             </p>
           ) : (
             <>
-              {/* Match header banner (stats only, no cards) */}
-              {hasDirectMatch && (
-                <DirectMatchHeader
-                  ticker={ticker}
-                  topic={matchedTopic}
-                  insights={insights}
-                  breakdown={breakdown}
-                />
-              )}
 
               {/* Sentiment gauge */}
               <SentimentGauge score={sentiment_score} />
