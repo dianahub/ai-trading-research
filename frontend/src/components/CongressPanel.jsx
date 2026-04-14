@@ -71,9 +71,9 @@ function TradeRow({ trade }) {
 export default function CongressPanel({ congressData, ticker }) {
   const [showAll, setShowAll] = useState(false)
 
-  if (!congressData) return null
+  const { total = 0, trades = [] } = congressData ?? {}
 
-  const { total, trades = [] } = congressData
+  const unavailable = !congressData
 
   const PREVIEW = 5
   const visible  = showAll ? trades : trades.slice(0, PREVIEW)
@@ -119,7 +119,11 @@ export default function CongressPanel({ congressData, ticker }) {
 
       {/* Body */}
       <div className="p-5 space-y-3">
-        {total === 0 ? (
+        {unavailable ? (
+          <p className="text-sm text-center py-6" style={{ color: '#475569' }}>
+            Congressional data unavailable — the backend may need a restart to load this feature.
+          </p>
+        ) : total === 0 ? (
           <p className="text-sm text-center py-6" style={{ color: '#475569' }}>
             No congressional disclosures found for <span className="font-mono text-white">{ticker}</span>.
           </p>

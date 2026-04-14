@@ -454,12 +454,10 @@ const handleToggleAstro = () => {
               </div>
             )}
 
-            {/* Congressional trades */}
-            {data.congressData && (
-              <div className="fade-in">
-                <CongressPanel congressData={data.congressData} ticker={ticker} />
-              </div>
-            )}
+            {/* Congressional trades — always shown, handles null/empty state internally */}
+            <div className="fade-in">
+              <CongressPanel congressData={data.congressData} ticker={ticker} />
+            </div>
 
             {/* News */}
             <div className="fade-in">
