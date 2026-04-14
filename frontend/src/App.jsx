@@ -187,8 +187,8 @@ const handleToggleAstro = () => {
       setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name, congressData })
       setLoading(false)
 
-      // Only run AI analysis when core data is available
-      const hasCoreData = !price?._unavailable && !technicals?._unavailable
+      // Only run AI analysis when price is available — technicals being unavailable is non-fatal
+      const hasCoreData = !price?._unavailable
       if (hasCoreData) {
         const cached = getCachedAnalysis(ticker)
 
