@@ -168,6 +168,13 @@ const handleToggleAstro = () => {
       const [insiders, options] = isStock ? smartMoney : [null, null]
       const whales = isStock ? null : smartMoney
 
+      // If price came back unavailable the symbol doesn't exist — bail out
+      if (price?._unavailable) {
+        setError('SYMBOL_NOT_FOUND')
+        setLoading(false)
+        return
+      }
+
       const name = price?.name || detected.name || ticker.toUpperCase()
       setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name })
       setLoading(false)
@@ -353,28 +360,25 @@ const handleToggleAstro = () => {
 
         {/* Error */}
         {error && (
-          (() => {
-            const isInvalid = /not found|no price data|no market data|valid stock|valid.*ticker/i.test(error)
-            return isInvalid ? (
-              <div className="rounded-xl p-8 fade-in flex flex-col items-center gap-3 text-center"
-                style={{ background: '#1a0f0f', border: '1px solid #7f1d1d' }}>
-                <span className="text-5xl">🔍</span>
-                <p className="text-xl font-bold text-red-400">Invalid Symbol — please try again</p>
-                <p className="text-sm" style={{ color: '#94a3b8' }}>
-                  We couldn't find <span className="font-mono font-semibold text-white">{ticker}</span>. Double-check the ticker and try again.
-                </p>
+          error === 'SYMBOL_NOT_FOUND' || /not found|no price data|no market data|valid stock|valid.*ticker/i.test(error) ? (
+            <div className="rounded-xl p-8 fade-in flex flex-col items-center gap-3 text-center"
+              style={{ background: '#1a0f0f', border: '1px solid #7f1d1d' }}>
+              <span className="text-5xl">🔍</span>
+              <p className="text-xl font-bold text-red-400">Symbol not found — try again</p>
+              <p className="text-sm" style={{ color: '#94a3b8' }}>
+                <span className="font-mono font-semibold text-white">{ticker}</span> could not be found. Check the symbol and try again.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl p-5 fade-in flex items-start gap-3"
+              style={{ background: '#1a0f0f', border: '1px solid #7f1d1d' }}>
+              <span className="text-red-400 text-xl">⚠</span>
+              <div>
+                <p className="text-red-400 font-medium">Error fetching data</p>
+                <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>{error}</p>
               </div>
-            ) : (
-              <div className="rounded-xl p-5 fade-in flex items-start gap-3"
-                style={{ background: '#1a0f0f', border: '1px solid #7f1d1d' }}>
-                <span className="text-red-400 text-xl">⚠</span>
-                <div>
-                  <p className="text-red-400 font-medium">Error fetching data</p>
-                  <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>{error}</p>
-                </div>
-              </div>
-            )
-          })()
+            </div>
+          )
         )}
 
         {/* Data panels */}
