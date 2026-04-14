@@ -18,11 +18,14 @@ function ConfidenceBar({ value }) {
   const pct = Math.round((parseFloat(value) || 0) * 100)
   const color = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444'
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 rounded-full overflow-hidden" style={{ height: 4, background: '#1e2d45' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: color, transition: 'width 0.4s ease' }} />
+    <div className="flex flex-col gap-1 flex-1">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 rounded-full overflow-hidden" style={{ height: 4, background: '#1e2d45' }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: color, transition: 'width 0.4s ease' }} />
+        </div>
+        <span className="text-xs font-mono" style={{ color, minWidth: 32 }}>{pct}%</span>
       </div>
-      <span className="text-xs font-mono" style={{ color, minWidth: 32 }}>{pct}%</span>
+      <span className="text-xs" style={{ color: '#475569' }}>Astrologer's confidence in this signal</span>
     </div>
   )
 }
