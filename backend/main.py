@@ -469,6 +469,7 @@ class AnalyzeResponse(BaseModel):
     smart_money_summary: str = ""
     astro_signal: float | None = None
     disclaimer: str
+    from_cache: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -1062,17 +1063,17 @@ def analyze(req: AnalyzeRequest):
 
     # Fresh hit — return instantly
     if is_fresh:
-        return AnalyzeResponse(**cached["result"])
+        return AnalyzeResponse(**{**cached["result"], "from_cache": True})
 
     # Stale hit — return instantly and refresh in background
     if is_stale:
         def _background_refresh():
             try:
-                analyze(req)   # re-runs, populates cache, result discarded (side-effect only)
+                analyze(req)
             except Exception:
                 pass
         threading.Thread(target=_background_refresh, daemon=True).start()
-        return AnalyzeResponse(**cached["result"])
+        return AnalyzeResponse(**{**cached["result"], "from_cache": True})
 
     # ── Shared formatters ──────────────────────────────────────────────────────
     def _fmt(v):

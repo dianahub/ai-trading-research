@@ -194,8 +194,9 @@ const handleToggleAstro = () => {
           setData(prev => ({ ...prev, analysis: cached.result }))
         }
 
-        // If no cache or stale, fetch fresh in the background (no spinner if stale)
+        // If no cache or stale, fetch from backend
         if (!cached || cached.stale) {
+          // Show spinner only if we have nothing to show yet — backend may return from its own cache instantly
           if (!cached) setAnalyzing(true)
           try {
             const analysis = await apiFetch('/analyze', {
@@ -212,10 +213,13 @@ const handleToggleAstro = () => {
                 astro_signal: astroData?.astro_signal ?? null,
               }),
             })
+            // If backend served from its cache, store locally so next visit on this device is instant too
             setCachedAnalysis(ticker, analysis)
             setData(prev => ({ ...prev, analysis }))
           } catch {
             // Analysis failed — keep showing stale result if available
+          } finally {
+            setAnalyzing(false)
           }
         }
       }
