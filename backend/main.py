@@ -2,10 +2,13 @@ import os
 import json
 import time
 import threading
+import smtplib
 import requests
 import anthropic
 import pandas as pd
 import pandas_ta as ta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,10 +33,13 @@ app.add_middleware(
 )
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY")
+GMAIL_USER          = os.getenv("GMAIL_USER", "dianahelene@gmail.com")
+GMAIL_APP_PASSWORD  = os.getenv("GMAIL_APP_PASSWORD", "")
 NEWS_API_KEY        = os.getenv("NEWS_API_KEY")
 ETHERSCAN_API_KEY   = os.getenv("ETHERSCAN_API_KEY", "")
 WHALE_ALERT_API_KEY = os.getenv("WHALE_ALERT_API_KEY", "")
 FINNHUB_API_KEY     = os.getenv("FINNHUB_API_KEY", "")
+POLYGON_API_KEY     = os.getenv("POLYGON_API_KEY", "")
 
 # Astro API integration
 ASTRO_API_URL          = os.getenv("ASTRO_API_URL", "http://localhost:3001")
@@ -479,6 +485,44 @@ class AnalyzeResponse(BaseModel):
 @app.get("/")
 def root():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Contact form
+# ---------------------------------------------------------------------------
+
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    message: str
+
+@app.post("/contact")
+def contact(req: ContactRequest):
+    if not GMAIL_APP_PASSWORD:
+        raise HTTPException(status_code=503, detail="Email service not configured")
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"Star Signal Contact: {req.name}"
+        msg["From"]    = GMAIL_USER
+        msg["To"]      = GMAIL_USER
+        msg["Reply-To"] = req.email
+
+        body = (
+            f"Name: {req.name}\n"
+            f"Email: {req.email}\n\n"
+            f"{req.message}"
+        )
+        msg.attach(MIMEText(body, "plain"))
+
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_USER, GMAIL_USER, msg.as_string())
+
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -1763,15 +1807,41 @@ def get_stock_price(ticker: str):
 
 @app.get("/stock/technicals/{ticker}")
 def get_stock_technicals(ticker: str):
-    """90-day OHLCV from Finnhub daily candles + same indicator set as /technicals.
-    Falls back to yfinance if Finnhub returns no data."""
+    """90-day OHLCV + indicator set for a stock ticker.
+    Sources tried in order: Polygon.io → Finnhub → yfinance."""
     import yfinance as yf
     upper = ticker.upper()
 
     df = None
 
-    # ── Primary: Finnhub candles (already proven to work on Railway) ──────────
-    if FINNHUB_API_KEY and FINNHUB_API_KEY != "your_finnhub_api_key_here":
+    # ── Primary: Polygon.io aggregates ───────────────────────────────────────
+    if POLYGON_API_KEY:
+        try:
+            to_date   = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+            from_date = (datetime.now(tz=timezone.utc) - timedelta(days=120)).strftime("%Y-%m-%d")
+            resp = requests.get(
+                f"https://api.polygon.io/v2/aggs/ticker/{upper}/range/1/day/{from_date}/{to_date}",
+                params={"adjusted": "true", "sort": "asc", "limit": 120, "apiKey": POLYGON_API_KEY},
+                timeout=12,
+                headers=_HEADERS,
+            )
+            data = resp.json() if resp.ok else {}
+            results = data.get("results") or []
+            print(f"[technicals] Polygon {upper}: status={resp.status_code} count={len(results)}")
+            if results:
+                df = pd.DataFrame({
+                    "close":  [r["c"] for r in results],
+                    "open":   [r["o"] for r in results],
+                    "high":   [r["h"] for r in results],
+                    "low":    [r["l"] for r in results],
+                    "volume": [r.get("v", 0) for r in results],
+                }, index=pd.to_datetime([r["t"] for r in results], unit="ms"))
+                df.index.name = "ts"
+        except Exception as e:
+            print(f"[technicals] Polygon exception for {upper}: {e}")
+
+    # ── Fallback: Finnhub candles ─────────────────────────────────────────────
+    if (df is None or df.empty) and FINNHUB_API_KEY and FINNHUB_API_KEY != "your_finnhub_api_key_here":
         try:
             to_ts   = int(time.time())
             from_ts = to_ts - 90 * 86400
@@ -1782,33 +1852,33 @@ def get_stock_technicals(ticker: str):
                 timeout=12,
                 headers=_HEADERS,
             )
-            if resp.ok:
-                candle = resp.json()
-                if candle.get("s") == "ok" and candle.get("c"):
-                    import datetime
-                    df = pd.DataFrame({
-                        "close":  candle["c"],
-                        "open":   candle.get("o", candle["c"]),
-                        "high":   candle.get("h", candle["c"]),
-                        "low":    candle.get("l", candle["c"]),
-                        "volume": candle.get("v", [0] * len(candle["c"])),
-                    }, index=pd.to_datetime(candle["t"], unit="s"))
-                    df.index.name = "ts"
-        except Exception:
-            pass
+            candle = resp.json() if resp.ok else {}
+            print(f"[technicals] Finnhub candle {upper}: status={resp.status_code} s={candle.get('s')} points={len(candle.get('c', []))}")
+            if candle.get("s") == "ok" and candle.get("c"):
+                df = pd.DataFrame({
+                    "close":  candle["c"],
+                    "open":   candle.get("o", candle["c"]),
+                    "high":   candle.get("h", candle["c"]),
+                    "low":    candle.get("l", candle["c"]),
+                    "volume": candle.get("v", [0] * len(candle["c"])),
+                }, index=pd.to_datetime(candle["t"], unit="s"))
+                df.index.name = "ts"
+        except Exception as e:
+            print(f"[technicals] Finnhub exception for {upper}: {e}")
 
     # ── Fallback: yfinance ────────────────────────────────────────────────────
     if df is None or df.empty:
         try:
             hist = yf.Ticker(upper).history(period="3mo", interval="1d")
+            print(f"[technicals] yfinance {upper}: rows={len(hist)}")
             if not hist.empty:
                 df = hist[["Open", "High", "Low", "Close", "Volume"]].rename(columns={
                     "Open": "open", "High": "high", "Low": "low",
                     "Close": "close", "Volume": "volume",
                 })
                 df.index = df.index.tz_localize(None)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[technicals] yfinance exception for {upper}: {e}")
 
     if df is None or df.empty:
         raise HTTPException(

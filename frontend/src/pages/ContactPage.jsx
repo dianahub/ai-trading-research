@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 function PageLayout({ title, children }) {
   return (
     <div style={{ background: '#070b16', minHeight: '100vh', color: '#e2e8f0' }}>
@@ -42,18 +44,33 @@ function PageLayout({ title, children }) {
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', message: '' })
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   function handleChange(e) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    // Opens the user's mail client with pre-filled fields
-    const subject = encodeURIComponent('Star Signal Inquiry')
-    const body = encodeURIComponent(`Name: ${form.name}\n\n${form.message}`)
-    window.location.href = `mailto:dianahelene@gmail.com?subject=${subject}&body=${body}`
-    setSubmitted(true)
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.detail || 'Failed to send message')
+      }
+      setSubmitted(true)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const inputStyle = {
@@ -73,7 +90,7 @@ export default function ContactPage() {
 
       {submitted ? (
         <div className="rounded-lg px-5 py-4" style={{ background: '#052e16', border: '1px solid #065f46' }}>
-          <p style={{ color: '#10b981' }}>Your mail client should have opened. If not, email us directly at <strong>hello@futurotek.com</strong>.</p>
+          <p style={{ color: '#10b981' }}>Message sent! We'll get back to you soon.</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -113,16 +130,20 @@ export default function ContactPage() {
               style={{ ...inputStyle, resize: 'vertical' }}
             />
           </div>
+          {error && (
+            <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>
+          )}
           <button
             type="submit"
-            className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all hover:brightness-110 cursor-pointer"
+            disabled={loading}
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all hover:brightness-110 cursor-pointer disabled:opacity-50"
             style={{
               background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
               color: '#a5b4fc',
               border: '1px solid #3730a3',
             }}
           >
-            Send Message
+            {loading ? 'Sending…' : 'Send Message'}
           </button>
         </form>
       )}
