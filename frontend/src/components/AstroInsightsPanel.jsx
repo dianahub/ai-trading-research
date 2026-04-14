@@ -266,8 +266,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   className="rounded-lg p-4 space-y-2"
                   style={{ background: '#0f1623', border: '1px solid #1e2d45' }}
                 >
-                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#64748b' }}>
-                    Astrological Market Outlook Summary
+                  <p className="text-sm font-bold tracking-wide" style={{ color: '#a5b4fc' }}>
+                    ♄ Astrological Market Outlook Summary
                   </p>
                   <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
                     {overall_summary}
