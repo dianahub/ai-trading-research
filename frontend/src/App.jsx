@@ -322,7 +322,6 @@ const handleToggleAstro = () => {
                 { icon: '📈', label: 'Technicals & Indicators' },
                 { icon: '📰', label: 'News Sentiment' },
                 { icon: '🐋', label: 'Whale & Smart Money' },
-                { icon: '🏛', label: 'Congressional Trades' },
                 { icon: '♄', label: 'Astro Signals' },
                 { icon: '🤖', label: 'Claude AI Summary' },
               ].map(f => (
@@ -403,8 +402,8 @@ const handleToggleAstro = () => {
         {data && (
           <>
             {/* Section nav */}
-            <nav className="fade-in sticky top-16 z-40 -mx-4 px-4 py-2 overflow-x-auto"
-              style={{ background: '#0a0e1aee', backdropFilter: 'blur(8px)', borderBottom: '1px solid #1e2d45' }}>
+            <nav className="fade-in -mx-4 px-4 py-2 overflow-x-auto"
+              style={{ background: '#0b0f1e', border: '1px solid #1e2d45', borderRadius: 12 }}>
               <div className="flex gap-2 min-w-max">
                 {[
                   { href: '#ai-summary',   label: '🤖 AI Summary',        show: !!data.analysis },
