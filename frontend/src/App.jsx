@@ -248,7 +248,7 @@ const handleToggleAstro = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
           {/* Logo + title row — on mobile also holds the LIVE badge */}
           <div className="flex items-center justify-between md:justify-start gap-3 shrink-0">
-            <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-3" style={{ textDecoration: 'none' }}>
               <div className="w-8 h-8 rounded-lg flex items-center justify-center"
                 style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
                 <span className="text-white text-xs font-bold">AI</span>
@@ -261,7 +261,7 @@ const handleToggleAstro = () => {
                   Ai Astro Trading
                 </div>
               </div>
-            </div>
+            </Link>
             {/* LIVE badge shown in title row on mobile */}
             <div className="flex md:hidden items-center gap-2 text-xs" style={{ color: '#475569' }}>
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block pulse-glow" />
