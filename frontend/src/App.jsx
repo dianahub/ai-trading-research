@@ -70,17 +70,25 @@ async function apiFetch(path, opts = {}) {
 }
 
 const ANALYSIS_TTL_MS = 15 * 60 * 1000  // 15 minutes — mirrors backend cache
-const analysisCache = new Map()          // ticker → { result, cachedAt }
+const CACHE_PREFIX = 'analysis_cache_'
 
 function getCachedAnalysis(ticker) {
-  const entry = analysisCache.get(ticker?.toUpperCase())
-  if (!entry) return null
-  if (Date.now() - entry.cachedAt > ANALYSIS_TTL_MS) { analysisCache.delete(ticker.toUpperCase()); return null }
-  return entry.result
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + ticker.toUpperCase())
+    if (!raw) return null
+    const entry = JSON.parse(raw)
+    if (Date.now() - entry.cachedAt > ANALYSIS_TTL_MS) {
+      localStorage.removeItem(CACHE_PREFIX + ticker.toUpperCase())
+      return null
+    }
+    return entry.result
+  } catch { return null }
 }
 
 function setCachedAnalysis(ticker, result) {
-  analysisCache.set(ticker.toUpperCase(), { result, cachedAt: Date.now() })
+  try {
+    localStorage.setItem(CACHE_PREFIX + ticker.toUpperCase(), JSON.stringify({ result, cachedAt: Date.now() }))
+  } catch { /* storage full or unavailable */ }
 }
 
 export default function App() {
