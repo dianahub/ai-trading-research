@@ -15,7 +15,6 @@ function outlookCfg(outlook) {
 }
 
 function ConfidenceBar({ value }) {
-  // value 0-1
   const pct = Math.round((value ?? 0) * 100)
   const color = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444'
   return (
@@ -29,9 +28,8 @@ function ConfidenceBar({ value }) {
 }
 
 function SentimentGauge({ score }) {
-  // score -1.0 to 1.0
   const clamped = Math.max(-1, Math.min(1, score ?? 0))
-  const pct     = Math.round(((clamped + 1) / 2) * 100)   // map -1…1 → 0…100
+  const pct     = Math.round(((clamped + 1) / 2) * 100)
   const color   = clamped > 0.1 ? '#10b981' : clamped < -0.1 ? '#ef4444' : '#94a3b8'
   const label   = clamped > 0.1 ? 'Bullish' : clamped < -0.1 ? 'Bearish' : 'Neutral'
 
@@ -42,7 +40,6 @@ function SentimentGauge({ score }) {
         <span className="text-xs font-semibold" style={{ color }}>{label} ({clamped > 0 ? '+' : ''}{clamped.toFixed(2)})</span>
       </div>
       <div className="relative h-3 rounded-full overflow-hidden" style={{ background: '#1e2d45' }}>
-        {/* Centre marker */}
         <div className="absolute top-0 bottom-0" style={{ left: '50%', width: 1, background: '#334155', zIndex: 1 }} />
         <div
           className="absolute top-0 bottom-0 rounded-full transition-all duration-500"
@@ -71,7 +68,6 @@ function InsightCard({ insight }) {
       className="rounded-lg p-4 space-y-3"
       style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
     >
-      {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span
@@ -92,12 +88,10 @@ function InsightCard({ insight }) {
         </div>
       </div>
 
-      {/* Summary */}
       <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
         {insight.summary}
       </p>
 
-      {/* Footer */}
       <div className="flex items-center justify-between pt-1">
         <ConfidenceBar value={insight.confidence} />
         <a
@@ -114,51 +108,42 @@ function InsightCard({ insight }) {
   )
 }
 
-function DirectMatchBanner({ ticker, topic, insights, breakdown }) {
+// Shows only the match header/stats — no cards (cards are handled in the main panel)
+function DirectMatchHeader({ ticker, topic, insights, breakdown }) {
   const topicInsights = insights.filter(i => i.topic === topic)
   const topicStats    = breakdown?.[topic]
   if (topicInsights.length === 0) return null
 
-  const cfg = outlookCfg(topicStats?.dominantOutlook)
-  const score = topicStats?.sentimentScore ?? 0
+  const cfg        = outlookCfg(topicStats?.dominantOutlook)
+  const score      = topicStats?.sentimentScore ?? 0
   const scoreLabel = score > 0.05 ? 'Bullish' : score < -0.05 ? 'Bearish' : 'Neutral'
   const scoreColor = score > 0.05 ? '#10b981' : score < -0.05 ? '#ef4444' : '#94a3b8'
 
   return (
     <div
-      className="rounded-xl p-4 space-y-4"
+      className="rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-2"
       style={{
         background: 'linear-gradient(135deg, #0d1f0d, #0b1a2e)',
         border: `1px solid ${cfg.border}`,
         boxShadow: `0 0 20px ${cfg.border}55`,
       }}
     >
-      {/* Match header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span
-            className="px-2.5 py-1 rounded-full text-xs font-bold tracking-widest uppercase"
-            style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
-          >
-            ♄ Direct Astro Coverage
-          </span>
-          <span className="text-xs font-mono font-semibold" style={{ color: '#94a3b8' }}>
-            {ticker} → {topic.toUpperCase()}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-xs">
-          <span style={{ color: '#475569' }}>{topicInsights.length} signal{topicInsights.length !== 1 ? 's' : ''}</span>
-          <span className="font-semibold" style={{ color: scoreColor }}>
-            {scoreLabel} ({score > 0 ? '+' : ''}{score.toFixed(2)})
-          </span>
-        </div>
+      <div className="flex items-center gap-2">
+        <span
+          className="px-2.5 py-1 rounded-full text-xs font-bold tracking-widest uppercase"
+          style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
+        >
+          ♄ Direct Astro Coverage
+        </span>
+        <span className="text-xs font-mono font-semibold" style={{ color: '#94a3b8' }}>
+          {ticker} → {topic.toUpperCase()}
+        </span>
       </div>
-
-      {/* Matched insight cards */}
-      <div className="space-y-3">
-        {topicInsights.map((insight, i) => (
-          <InsightCard key={insight.id ?? i} insight={insight} />
-        ))}
+      <div className="flex items-center gap-3 text-xs">
+        <span style={{ color: '#475569' }}>{topicInsights.length} signal{topicInsights.length !== 1 ? 's' : ''}</span>
+        <span className="font-semibold" style={{ color: scoreColor }}>
+          {scoreLabel} ({score > 0 ? '+' : ''}{score.toFixed(2)})
+        </span>
       </div>
     </div>
   )
@@ -173,12 +158,25 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
   const hasDirectMatch = matchedTopic && available && insights.some(i => i.topic === matchedTopic)
 
+  // Split matched vs others
+  const matchedInsights = hasDirectMatch ? insights.filter(i => i.topic === matchedTopic) : []
+  const otherInsights   = hasDirectMatch ? insights.filter(i => i.topic !== matchedTopic) : insights
+
+  // 3 preview cards shown above summary; rest shown on "View All"
+  const previewInsights   = matchedInsights.slice(0, 3)
+  // View All order: remaining matched first (no repeat of preview), then non-matched
+  const expandedInsights  = [...matchedInsights.slice(3), ...otherInsights]
+
+  // When no direct match, "View All" shows everything
+  const viewAllInsights = hasDirectMatch ? expandedInsights : insights
+  const showViewAll     = viewAllInsights.length > 0
+
   return (
     <div
       className="rounded-xl overflow-hidden"
       style={{ background: '#0b0f1e', border: hasDirectMatch ? '1px solid #3730a3' : '1px solid #1e2d45' }}
     >
-      {/* Panel header with toggle */}
+      {/* Panel header */}
       <div
         className="flex items-center justify-between px-5 py-4"
         style={{ borderBottom: visible ? '1px solid #1e2d45' : 'none' }}
@@ -241,14 +239,23 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
             </p>
           ) : (
             <>
-              {/* Direct match banner — pinned at top when ticker maps to an astro topic */}
+              {/* Match header banner (stats only, no cards) */}
               {hasDirectMatch && (
-                <DirectMatchBanner
+                <DirectMatchHeader
                   ticker={ticker}
                   topic={matchedTopic}
                   insights={insights}
                   breakdown={breakdown}
                 />
+              )}
+
+              {/* 3 most recent related insight cards — shown above summary */}
+              {previewInsights.length > 0 && (
+                <div className="space-y-3">
+                  {previewInsights.map((insight, i) => (
+                    <InsightCard key={insight.id ?? i} insight={insight} />
+                  ))}
+                </div>
               )}
 
               {/* Sentiment gauge */}
@@ -266,12 +273,18 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </div>
               )}
 
-              {/* Individual insight cards — collapsed by default */}
-              {showAll ? (
+              {/* Expanded insights (remaining matched + others, no repeats) */}
+              {showAll && viewAllInsights.length > 0 && (
                 <div className="space-y-3">
-                  {insights.map((insight, i) => (
+                  {viewAllInsights.map((insight, i) => (
                     <InsightCard key={insight.id ?? i} insight={insight} />
                   ))}
+                </div>
+              )}
+
+              {/* View All / Show Less button */}
+              {showViewAll && (
+                showAll ? (
                   <button
                     onClick={() => setShowAll(false)}
                     className="w-full text-xs py-2 rounded transition-colors cursor-pointer"
@@ -279,20 +292,20 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   >
                     Show less
                   </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowAll(true)}
-                  className="w-full py-3 rounded-lg text-sm font-semibold tracking-wide transition-all cursor-pointer hover:brightness-125 active:scale-[0.99]"
-                  style={{
-                    background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
-                    color: '#a5b4fc',
-                    border: '1px solid #3730a3',
-                    boxShadow: '0 0 16px #3730a344',
-                  }}
-                >
-                  ♄ View All Astro Insights ({total_insights}) ↓
-                </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAll(true)}
+                    className="w-full py-3 rounded-lg text-sm font-semibold tracking-wide transition-all cursor-pointer hover:brightness-125 active:scale-[0.99]"
+                    style={{
+                      background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
+                      color: '#a5b4fc',
+                      border: '1px solid #3730a3',
+                      boxShadow: '0 0 16px #3730a344',
+                    }}
+                  >
+                    ♄ View All Astro Insights ({total_insights}) ↓
+                  </button>
+                )
               )}
             </>
           )}
