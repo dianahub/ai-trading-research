@@ -54,16 +54,39 @@ export default function SearchBar({ onSearch, loading }) {
     onSearch(symbol)
   }
 
-  const submit = () => {
+  const submit = async () => {
     const raw = input.trim()
     if (!raw) return
     setOpen(false)
-    // If suggestions are loaded, use the top match — avoids sending a name as a ticker
+
+    // If suggestions already loaded, use top match
     if (suggestions.length > 0) {
       select(suggestions[0].symbol, suggestions[0].name)
-    } else {
-      onSearch(raw.toUpperCase())
+      return
     }
+
+    // If input looks like a ticker symbol, send as-is
+    const looksLikeSymbol = /^[A-Z0-9.]{1,6}$/i.test(raw) && !raw.includes(' ')
+    if (looksLikeSymbol) {
+      onSearch(raw.toUpperCase())
+      return
+    }
+
+    // Input looks like a name — fetch suggestions synchronously then use top hit
+    setFetching(true)
+    try {
+      const res = await fetch(`${API_URL}/search?q=${encodeURIComponent(raw)}`)
+      const json = await res.json()
+      const results = json.results ?? []
+      if (results.length > 0) {
+        select(results[0].symbol, results[0].name)
+        return
+      }
+    } catch { /* fall through */ }
+    finally { setFetching(false) }
+
+    // Nothing found — pass raw and let backend surface the error
+    onSearch(raw.toUpperCase())
   }
 
   return (
