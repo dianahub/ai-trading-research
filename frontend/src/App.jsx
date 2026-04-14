@@ -402,17 +402,20 @@ const handleToggleAstro = () => {
         {data && (
           <>
             {/* Section nav */}
-            <nav className="fade-in -mx-4 px-4 py-2 overflow-x-auto"
-              style={{ background: '#0b0f1e', border: '1px solid #1e2d45', borderRadius: 12 }}>
-              <div className="flex gap-2 min-w-max">
+            <nav className="fade-in overflow-x-auto" style={{ background: '#0b0f1e', border: '1px solid #1e2d45', borderRadius: 12 }}>
+              <div className="flex items-center gap-3 px-4 py-2.5 min-w-max">
+                <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#334155' }}>
+                  Menu · click to go to a section
+                </span>
+                <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
                 {[
-                  { href: '#ai-summary',   label: '🤖 AI Summary',        show: !!data.analysis },
-                  { href: '#price',        label: '💰 Price',              show: true },
-                  { href: '#technicals',   label: '📈 Technicals',         show: true },
-                  { href: '#analysis',     label: '🔍 Analysis',           show: !!data.analysis },
-                  { href: '#smart-money',  label: '🐋 Smart Money',        show: !!(data.whales || data.insiders) },
-                  { href: '#astro',        label: '♄ Astro',               show: true },
-                  { href: '#news',         label: '📰 News',               show: true },
+                  { href: '#ai-summary',   label: '🤖 AI Summary',   show: !!data.analysis },
+                  { href: '#price',        label: '💰 Price',         show: true },
+                  { href: '#technicals',   label: '📈 Technicals',    show: true },
+                  { href: '#analysis',     label: '🔍 Analysis',      show: !!data.analysis },
+                  { href: '#smart-money',  label: '🐋 Smart Money',   show: !!(data.whales || data.insiders) },
+                  { href: '#astro',        label: '♄ Astro',          show: true },
+                  { href: '#news',         label: '📰 News',          show: true },
                 ].filter(s => s.show).map(s => (
                   <a key={s.href} href={s.href}
                     className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
@@ -450,16 +453,16 @@ const handleToggleAstro = () => {
             </div>
 
             {/* Price */}
-            <div id="price" className="grid grid-cols-1 lg:grid-cols-3 gap-4 fade-in">
-              <div className="lg:col-span-2">
-                <PriceCard price={data.price} />
-              </div>
-              {data.analysis && (
-                <div className="fade-in">
-                  <OpportunitiesRisks analysis={data.analysis} />
-                </div>
-              )}
+            <div id="price" className="fade-in">
+              <PriceCard price={data.price} />
             </div>
+
+            {/* Opportunities & Risks — shown below price once analysis is ready */}
+            {data.analysis && (
+              <div className="fade-in">
+                <OpportunitiesRisks analysis={data.analysis} />
+              </div>
+            )}
 
             {/* Technicals */}
             <div id="technicals" className="space-y-4">
