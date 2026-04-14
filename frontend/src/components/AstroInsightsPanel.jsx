@@ -68,24 +68,16 @@ function InsightCard({ insight }) {
       className="rounded-lg p-4 space-y-3"
       style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className="px-2 py-0.5 rounded text-xs font-bold tracking-wider"
-            style={{ background: cfg.border, color: cfg.color }}
-          >
-            {cfg.label}
-          </span>
-          <span
-            className="px-2 py-0.5 rounded text-xs tracking-wider"
-            style={{ background: '#111827', color: '#64748b', border: '1px solid #1e2d45' }}
-          >
-            {insight.topic?.toUpperCase()}
-          </span>
-          <span className="text-xs" style={{ color: '#475569' }}>
-            {insight.timeframe}
-          </span>
-        </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span
+          className="px-2 py-0.5 rounded text-xs font-bold tracking-wider"
+          style={{ background: cfg.border, color: cfg.color }}
+        >
+          {cfg.label}
+        </span>
+        <span className="text-xs" style={{ color: '#475569' }}>
+          {insight.timeframe}
+        </span>
       </div>
 
       <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
@@ -172,12 +164,11 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
   // When no direct match, "View All" shows everything
   const viewAllInsights = hasDirectMatch ? expandedInsights : insights
   const showViewAll     = viewAllInsights.length > 0
-  const matchLabel      = matchedTopics.map(t => t.toUpperCase()).join(' & ')
 
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ background: '#0b0f1e', border: hasDirectMatch ? '1px solid #3730a3' : '1px solid #1e2d45' }}
+      style={{ background: '#0b0f1e', border: '1px solid #1e2d45' }}
     >
       {/* Panel header */}
       <div
