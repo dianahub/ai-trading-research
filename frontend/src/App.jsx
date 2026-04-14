@@ -276,7 +276,7 @@ const handleToggleAstro = () => {
 
             {/* Quick tickers */}
             <div className="text-center space-y-2">
-              <p className="text-base font-semibold" style={{ color: '#94a3b8' }}>👇 Try a quick search below, or enter any symbol above in the search bar</p>
+              <p className="text-base font-semibold" style={{ color: '#94a3b8' }}>👇 Try a quick search below, or enter any symbol above in the search bar and click Analyze</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
                   <button key={t} onClick={() => handleSearch(t)}
