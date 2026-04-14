@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import SearchBar from './components/SearchBar'
 import PriceCard from './components/PriceCard'
@@ -98,7 +98,6 @@ export default function App() {
   const [data, setData]           = useState(null)
   const [ticker, setTicker]       = useState(null)
   const [astroData, setAstroData] = useState(null)
-  const analysisRef = useRef(null)
   const [showAstro, setShowAstro] = useState(() => {
     try { return localStorage.getItem('showAstro') !== 'false' } catch { return true }
   })
@@ -110,14 +109,7 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
-  // Scroll to AI analysis the moment it becomes available
-  useEffect(() => {
-    if (data?.analysis && analysisRef.current) {
-      analysisRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [data?.analysis])
-
-  const handleToggleAstro = () => {
+const handleToggleAstro = () => {
     setShowAstro(prev => {
       const next = !prev
       try { localStorage.setItem('showAstro', String(next)) } catch { /* storage unavailable */ }
@@ -314,7 +306,7 @@ export default function App() {
           <>
             {/* Sentiment banner — only once analysis is ready */}
             {data.analysis && (
-              <div ref={analysisRef} className="fade-in">
+              <div className="fade-in">
                 <SentimentBanner analysis={data.analysis} ticker={data.price?.ticker} />
               </div>
             )}

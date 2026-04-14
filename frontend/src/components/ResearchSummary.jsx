@@ -7,17 +7,20 @@ export default function ResearchSummary({ analysis, ticker }) {
   return (
     <div className="rounded-xl" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-6 py-4" style={{ borderBottom: '1px solid #1e2d45' }}>
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: '#06b6d422' }}>
-          <FileText size={14} style={{ color: '#06b6d4' }} />
-        </div>
-        <div>
+      <div className="px-6 py-4" style={{ borderBottom: '1px solid #1e2d45' }}>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{ background: '#06b6d422' }}>
+            <FileText size={14} style={{ color: '#06b6d4' }} />
+          </div>
           <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#475569' }}>
             {ticker} · Full Research Summary
           </h3>
-          <p className="text-sm font-semibold mt-0.5" style={{ color: '#f59e0b' }}>
-            ⚠ AI-generated analysis · Educational purposes only
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#f59e0b18', border: '1px solid #f59e0b55' }}>
+          <span className="text-lg">⚠</span>
+          <p className="text-sm font-bold" style={{ color: '#fbbf24' }}>
+            AI-generated analysis — For educational purposes only. Not financial advice.
           </p>
         </div>
       </div>
