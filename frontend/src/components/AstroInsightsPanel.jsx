@@ -201,6 +201,9 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </span>
               )}
             </div>
+            <div className="text-xs mt-0.5" style={{ color: '#64748b' }}>
+              Insights from Astrologers based on star positions · links to astrologer are included
+            </div>
             <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg" style={{ background: '#a5b4fc18', border: '1px solid #a5b4fc44' }}>
               <span className="text-lg">♄</span>
               <p className="text-sm font-bold" style={{ color: '#a5b4fc' }}>
