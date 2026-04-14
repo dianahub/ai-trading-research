@@ -34,10 +34,10 @@ function SentimentGauge({ score }) {
   const label   = clamped > 0.1 ? 'Bullish' : clamped < -0.1 ? 'Bearish' : 'Neutral'
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2 rounded-lg px-4 py-3" style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
       <div className="flex justify-between items-center">
-        <span className="text-xs" style={{ color: '#475569' }}>Overall Astro Sentiment</span>
-        <span className="text-xs font-semibold" style={{ color }}>{label} ({clamped > 0 ? '+' : ''}{clamped.toFixed(2)})</span>
+        <span className="text-sm font-bold" style={{ color: '#e2e8f0' }}>Overall Astro Sentiment</span>
+        <span className="text-sm font-bold px-2 py-0.5 rounded" style={{ color, background: `${color}22`, border: `1px solid ${color}66` }}>{label} ({clamped > 0 ? '+' : ''}{clamped.toFixed(2)})</span>
       </div>
       <div className="relative h-3 rounded-full overflow-hidden" style={{ background: '#1e2d45' }}>
         <div className="absolute top-0 bottom-0" style={{ left: '50%', width: 1, background: '#334155', zIndex: 1 }} />

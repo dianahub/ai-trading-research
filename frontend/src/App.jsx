@@ -246,23 +246,51 @@ const handleToggleAstro = () => {
 
         {/* Idle state */}
         {!loading && !data && !error && (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4 fade-in">
-            <div className="text-6xl mb-2">📊</div>
-            <h2 className="text-2xl font-semibold" style={{ color: '#94a3b8' }}>
-              Enter a ticker to begin
-            </h2>
-            <p style={{ color: '#475569' }} className="text-sm">
-              Try BTC, ETH, AAPL, TSLA, NVDA — powered by CoinGecko, Finnhub &amp; Claude AI
-            </p>
-            <div className="flex gap-2 mt-4">
-              {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA'].map(t => (
-                <button key={t} onClick={() => handleSearch(t)}
-                  className="px-3 py-1.5 rounded-full text-xs font-mono font-medium transition-all hover:scale-105 cursor-pointer"
-                  style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
-                  {t}
-                </button>
+          <div className="flex flex-col items-center justify-center py-20 space-y-6 fade-in">
+            {/* Hero */}
+            <div className="text-center space-y-3">
+              <div className="text-5xl mb-2">🔭 ♄</div>
+              <h2 className="text-3xl font-bold" style={{ color: '#e2e8f0' }}>
+                AI + Astro Trading Research
+              </h2>
+              <p className="text-base max-w-lg mx-auto" style={{ color: '#94a3b8' }}>
+                Enter any stock or crypto ticker to get an instant AI-powered research report — combining technical analysis, news sentiment, and astrological market signals.
+              </p>
+            </div>
+
+            {/* Feature pills */}
+            <div className="flex flex-wrap justify-center gap-3 text-xs">
+              {[
+                { icon: '📈', label: 'Technicals & Indicators' },
+                { icon: '📰', label: 'News Sentiment' },
+                { icon: '🐋', label: 'Whale & Smart Money' },
+                { icon: '♄', label: 'Astro Signals' },
+                { icon: '🤖', label: 'Claude AI Summary' },
+              ].map(f => (
+                <span key={f.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium"
+                  style={{ background: '#111827', border: '1px solid #1e2d45', color: '#64748b' }}>
+                  {f.icon} {f.label}
+                </span>
               ))}
             </div>
+
+            {/* Quick tickers */}
+            <div className="text-center space-y-2">
+              <p className="text-xs tracking-widest uppercase" style={{ color: '#334155' }}>Try a ticker</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
+                  <button key={t} onClick={() => handleSearch(t)}
+                    className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all hover:scale-105 hover:brightness-125 cursor-pointer"
+                    style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8' }}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-xs" style={{ color: '#1e2d45' }}>
+              Powered by CoinGecko · Finnhub · Claude AI · Financial Astrology
+            </p>
           </div>
         )}
 
