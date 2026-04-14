@@ -43,6 +43,13 @@ const ETF_TOPIC_MAP = {
   USO: 'oil', UCO: 'oil', SCO: 'oil', DBO: 'oil', BNO: 'oil',
   XLE: 'oil', XOP: 'oil', OIH: 'oil', DRIP: 'oil', GUSH: 'oil',
   FENY: 'oil', VDE: 'oil', IYE: 'oil',
+  // Oil / Energy stocks
+  XOM: 'oil', CVX: 'oil', COP: 'oil', EOG: 'oil', PXD: 'oil',
+  OXY: 'oil', DVN: 'oil', HES: 'oil', APA: 'oil', FANG: 'oil',
+  MPC: 'oil', VLO: 'oil', PSX: 'oil', PBF: 'oil', DK: 'oil',
+  SLB: 'oil', HAL: 'oil', BKR: 'oil', NOV: 'oil', HP: 'oil',
+  LNG: 'oil', CTRA: 'oil', RRC: 'oil', AR: 'oil', EQT: 'oil',
+  BP: 'oil', SHEL: 'oil', TTE: 'oil', E: 'oil', EC: 'oil',
   // Crypto ETFs
   GBTC: 'crypto', IBIT: 'crypto', FBTC: 'crypto', BITB: 'crypto',
   ETHA: 'crypto', EZBC: 'crypto', BTCO: 'crypto',
@@ -55,8 +62,17 @@ const ETF_TOPIC_MAP = {
   HBAN: 'banking', CFG: 'banking', MTB: 'banking', KEY: 'banking', ZION: 'banking',
   CMA: 'banking', FHN: 'banking', SNV: 'banking', ALLY: 'banking', SYF: 'banking',
   DFS: 'banking', AXP: 'banking', BX: 'banking', KKR: 'banking', APO: 'banking',
-  // Tech
+  // Tech ETFs
   QQQ: 'tech stocks', XLK: 'tech stocks', SMH: 'tech stocks', SOXX: 'tech stocks',
+  // Tech stocks
+  AAPL: 'tech stocks', MSFT: 'tech stocks', NVDA: 'tech stocks', GOOGL: 'tech stocks',
+  GOOG: 'tech stocks', META: 'tech stocks', AMZN: 'tech stocks', TSLA: 'tech stocks',
+  AMD: 'tech stocks', INTC: 'tech stocks', AVGO: 'tech stocks', QCOM: 'tech stocks',
+  MU: 'tech stocks', AMAT: 'tech stocks', LRCX: 'tech stocks', KLAC: 'tech stocks',
+  ASML: 'tech stocks', TSM: 'tech stocks', ORCL: 'tech stocks', CRM: 'tech stocks',
+  NOW: 'tech stocks', SNOW: 'tech stocks', PLTR: 'tech stocks', UBER: 'tech stocks',
+  SHOP: 'tech stocks', NET: 'tech stocks', CRWD: 'tech stocks', PANW: 'tech stocks',
+  ADBE: 'tech stocks', INTU: 'tech stocks', NFLX: 'tech stocks', SPOT: 'tech stocks',
   // Currency
   UUP: 'currency', FXE: 'currency', FXY: 'currency', FXB: 'currency', FXF: 'currency',
 }
