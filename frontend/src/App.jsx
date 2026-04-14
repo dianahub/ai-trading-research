@@ -69,6 +69,20 @@ async function apiFetch(path, opts = {}) {
   return json
 }
 
+const ANALYSIS_TTL_MS = 15 * 60 * 1000  // 15 minutes — mirrors backend cache
+const analysisCache = new Map()          // ticker → { result, cachedAt }
+
+function getCachedAnalysis(ticker) {
+  const entry = analysisCache.get(ticker?.toUpperCase())
+  if (!entry) return null
+  if (Date.now() - entry.cachedAt > ANALYSIS_TTL_MS) { analysisCache.delete(ticker.toUpperCase()); return null }
+  return entry.result
+}
+
+function setCachedAnalysis(ticker, result) {
+  analysisCache.set(ticker.toUpperCase(), { result, cachedAt: Date.now() })
+}
+
 export default function App() {
   const [loading, setLoading]     = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
@@ -136,28 +150,35 @@ export default function App() {
       setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type })
       setLoading(false)
 
-      // Only run AI analysis when core CoinGecko data is available
+      // Only run AI analysis when core data is available
       const hasCoreData = !price?._unavailable && !technicals?._unavailable
       if (hasCoreData) {
-        setAnalyzing(true)
-        try {
-          const analysis = await apiFetch('/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ticker,
-              price_data: price,
-              headlines: news.articles?.map(a => a.title) ?? [],
-              technical_data: technicals,
-              whale_data: whales ?? {},
-              insider_data: insiders ?? {},
-              options_data: options ?? {},
-              astro_signal: astroData?.astro_signal ?? null,
-            }),
-          })
-          setData(prev => ({ ...prev, analysis }))
-        } catch {
-          // Analysis failed — dashboard remains usable without AI summary
+        const cached = getCachedAnalysis(ticker)
+        if (cached) {
+          // Instant — no spinner shown
+          setData(prev => ({ ...prev, analysis: cached }))
+        } else {
+          setAnalyzing(true)
+          try {
+            const analysis = await apiFetch('/analyze', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ticker,
+                price_data: price,
+                headlines: news.articles?.map(a => a.title) ?? [],
+                technical_data: technicals,
+                whale_data: whales ?? {},
+                insider_data: insiders ?? {},
+                options_data: options ?? {},
+                astro_signal: astroData?.astro_signal ?? null,
+              }),
+            })
+            setCachedAnalysis(ticker, analysis)
+            setData(prev => ({ ...prev, analysis }))
+          } catch {
+            // Analysis failed — dashboard remains usable without AI summary
+          }
         }
       }
     } catch (err) {
