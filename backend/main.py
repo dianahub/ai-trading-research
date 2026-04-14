@@ -73,6 +73,12 @@ BLOCKCHAIN_INFO  = "https://blockchain.info"
 WHALE_ALERT_BASE = "https://api.whale-alert.io/v1"
 FINNHUB_BASE     = "https://finnhub.io/api/v1"
 
+# Congressional trading data (House/Senate Stock Watcher — public S3 buckets, no key needed)
+HOUSE_TRADES_URL  = "https://house-stock-watcher-data.s3-us-west-2.amazonaws.com/data/all_transactions.json"
+SENATE_TRADES_URL = "https://senate-stock-watcher-data.s3-us-west-2.amazonaws.com/aggregate/all_transactions.json"
+CONGRESS_TTL      = 4 * 60 * 60   # 4 hours — data updates daily
+_congress_cache: dict = {"house": None, "senate": None, "fetched_at": 0.0}
+
 # Tickers that live on Ethereum (Etherscan can provide on-chain data)
 ETH_CHAIN_TICKERS = frozenset({
     "ETH", "LINK", "UNI", "AAVE", "COMP", "WBTC", "SHIB",
@@ -542,6 +548,92 @@ def get_astro():
             "insights":        [],
         }
     return {"available": True, **data}
+
+
+def _fetch_congress_data() -> tuple[list, list]:
+    """Fetch and cache House + Senate trading data. Returns (house_trades, senate_trades)."""
+    now = time.time()
+    if _congress_cache["house"] is not None and (now - _congress_cache["fetched_at"]) < CONGRESS_TTL:
+        return _congress_cache["house"], _congress_cache["senate"]
+
+    house, senate = [], []
+    try:
+        r = requests.get(HOUSE_TRADES_URL, timeout=15, headers=_HEADERS)
+        if r.ok:
+            house = r.json()
+    except Exception:
+        pass
+
+    try:
+        r = requests.get(SENATE_TRADES_URL, timeout=15, headers=_HEADERS)
+        if r.ok:
+            senate = r.json()
+    except Exception:
+        pass
+
+    _congress_cache["house"]      = house
+    _congress_cache["senate"]     = senate
+    _congress_cache["fetched_at"] = now
+    return house, senate
+
+
+@app.get("/congress/{ticker}")
+def get_congress_trades(ticker: str):
+    """Return recent congressional stock trades for a given ticker (House + Senate)."""
+    upper = ticker.upper()
+    house_raw, senate_raw = _fetch_congress_data()
+
+    trades = []
+
+    for t in house_raw:
+        tx_ticker = (t.get("ticker") or "").strip().upper()
+        if tx_ticker != upper:
+            continue
+        tx_type = (t.get("type") or "").lower()
+        trades.append({
+            "member":    t.get("representative", "Unknown"),
+            "chamber":   "House",
+            "trade_type": "buy" if "purchase" in tx_type else "sell",
+            "amount":    t.get("amount", "—"),
+            "tx_date":   t.get("transaction_date") or t.get("disclosure_date") or "",
+            "disclosed": t.get("disclosure_date", ""),
+            "asset":     t.get("asset_description", ticker),
+            "link":      t.get("link", ""),
+        })
+
+    for t in senate_raw:
+        tx_ticker = (t.get("ticker") or "").strip().upper()
+        if tx_ticker != upper:
+            continue
+        tx_type = (t.get("type") or "").lower()
+        name = t.get("senator") or f"{t.get('first_name', '')} {t.get('last_name', '')}".strip() or "Unknown"
+        trades.append({
+            "member":    name,
+            "chamber":   "Senate",
+            "trade_type": "buy" if "purchase" in tx_type else "sell",
+            "amount":    t.get("amount", "—"),
+            "tx_date":   t.get("transaction_date") or t.get("date_received") or "",
+            "disclosed": t.get("date_received", ""),
+            "asset":     t.get("asset_name", ticker),
+            "link":      t.get("ptr_link", ""),
+        })
+
+    # Sort by transaction date descending, most recent first
+    def sort_key(x):
+        d = x.get("tx_date") or ""
+        try:
+            return datetime.strptime(d[:10], "%Y-%m-%d")
+        except Exception:
+            return datetime.min
+
+    trades.sort(key=sort_key, reverse=True)
+
+    return {
+        "ticker":       upper,
+        "total":        len(trades),
+        "trades":       trades[:30],
+        "data_current": _congress_cache["fetched_at"] > 0,
+    }
 
 
 @app.get("/search")

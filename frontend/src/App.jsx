@@ -11,6 +11,7 @@ import NewsSection from './components/NewsSection'
 import ResearchSummary from './components/ResearchSummary'
 import WhaleSection from './components/WhaleSection'
 import AstroInsightsPanel from './components/AstroInsightsPanel'
+import CongressPanel from './components/CongressPanel'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -176,7 +177,11 @@ const handleToggleAstro = () => {
       }
 
       const name = price?.name || detected.name || ticker.toUpperCase()
-      setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name })
+
+      // Congress trades — fire in parallel, silent failure
+      const congressData = await apiFetch(`/congress/${ticker}`).catch(() => null)
+
+      setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name, congressData })
       setLoading(false)
 
       // Only run AI analysis when core data is available
@@ -305,6 +310,7 @@ const handleToggleAstro = () => {
                 { icon: '📈', label: 'Technicals & Indicators' },
                 { icon: '📰', label: 'News Sentiment' },
                 { icon: '🐋', label: 'Whale & Smart Money' },
+                { icon: '🏛', label: 'Congressional Trades' },
                 { icon: '♄', label: 'Astro Signals' },
                 { icon: '🤖', label: 'Claude AI Summary' },
               ].map(f => (
@@ -445,6 +451,13 @@ const handleToggleAstro = () => {
                   whales={data.whales}
                   whaleAnalysis={data.analysis?.whale_sentiment_analysis}
                 />
+              </div>
+            )}
+
+            {/* Congressional trades */}
+            {data.congressData && (
+              <div className="fade-in">
+                <CongressPanel congressData={data.congressData} ticker={ticker} />
               </div>
             )}
 
