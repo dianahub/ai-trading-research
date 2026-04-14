@@ -97,7 +97,7 @@ function InsightCard({ insight }) {
 
       <div className="flex items-center justify-between pt-1">
         {insight.confidence != null && !isNaN(insight.confidence) && <ConfidenceBar value={insight.confidence} />}
-        <
+        <a
           href={insight.source_url}
           target="_blank"
           rel="noopener noreferrer"
