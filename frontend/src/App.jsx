@@ -73,15 +73,13 @@ const ANALYSIS_TTL_MS = 15 * 60 * 1000  // 15 minutes — mirrors backend cache
 const CACHE_PREFIX = 'analysis_cache_'
 
 function getCachedAnalysis(ticker) {
+  // Returns { result, stale } — stale=true means it's past TTL but usable while refreshing
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + ticker.toUpperCase())
     if (!raw) return null
     const entry = JSON.parse(raw)
-    if (Date.now() - entry.cachedAt > ANALYSIS_TTL_MS) {
-      localStorage.removeItem(CACHE_PREFIX + ticker.toUpperCase())
-      return null
-    }
-    return entry.result
+    const stale = Date.now() - entry.cachedAt > ANALYSIS_TTL_MS
+    return { result: entry.result, stale }
   } catch { return null }
 }
 
@@ -154,11 +152,15 @@ const handleToggleAstro = () => {
       const hasCoreData = !price?._unavailable && !technicals?._unavailable
       if (hasCoreData) {
         const cached = getCachedAnalysis(ticker)
+
+        // Show stale or fresh cache instantly — no spinner
         if (cached) {
-          // Instant — no spinner shown
-          setData(prev => ({ ...prev, analysis: cached }))
-        } else {
-          setAnalyzing(true)
+          setData(prev => ({ ...prev, analysis: cached.result }))
+        }
+
+        // If no cache or stale, fetch fresh in the background (no spinner if stale)
+        if (!cached || cached.stale) {
+          if (!cached) setAnalyzing(true)
           try {
             const analysis = await apiFetch('/analyze', {
               method: 'POST',
@@ -177,7 +179,7 @@ const handleToggleAstro = () => {
             setCachedAnalysis(ticker, analysis)
             setData(prev => ({ ...prev, analysis }))
           } catch {
-            // Analysis failed — dashboard remains usable without AI summary
+            // Analysis failed — keep showing stale result if available
           }
         }
       }

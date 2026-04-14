@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import threading
 import requests
 import anthropic
 import pandas as pd
@@ -797,9 +798,23 @@ def analyze(req: AnalyzeRequest):
     asset_type = req.asset_type
     upper      = req.ticker.upper()
 
-    # Return cached result if still fresh
     cached = _analyze_cache.get(upper)
-    if cached and (time.time() - cached["fetched_at"]) < ANALYZE_TTL:
+    age = time.time() - cached["fetched_at"] if cached else None
+    is_fresh = cached and age < ANALYZE_TTL
+    is_stale = cached and not is_fresh
+
+    # Fresh hit — return instantly
+    if is_fresh:
+        return AnalyzeResponse(**cached["result"])
+
+    # Stale hit — return instantly and refresh in background
+    if is_stale:
+        def _background_refresh():
+            try:
+                analyze(req)   # re-runs, populates cache, result discarded (side-effect only)
+            except Exception:
+                pass
+        threading.Thread(target=_background_refresh, daemon=True).start()
         return AnalyzeResponse(**cached["result"])
 
     # ── Shared formatters ──────────────────────────────────────────────────────
