@@ -145,7 +145,8 @@ const handleToggleAstro = () => {
       const [insiders, options] = isStock ? smartMoney : [null, null]
       const whales = isStock ? null : smartMoney
 
-      setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type })
+      const name = price?.name || detected.name || ticker.toUpperCase()
+      setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name })
       setLoading(false)
 
       // Only run AI analysis when core data is available
@@ -233,6 +234,14 @@ const handleToggleAstro = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-5">
+        {/* Symbol name header */}
+        {data && (
+          <div className="fade-in flex items-baseline gap-3">
+            <h1 className="text-3xl font-bold" style={{ color: '#f1f5f9' }}>{data.name}</h1>
+            <span className="text-lg font-mono" style={{ color: '#475569' }}>{ticker}</span>
+          </div>
+        )}
+
         {/* Astro panel — only shown after a ticker has been searched */}
         {astroData && data && (
           <div className="fade-in">
