@@ -636,12 +636,121 @@ def get_congress_trades(ticker: str):
     }
 
 
+# Common company name → ticker for instant lookup without hitting external APIs
+NAME_TO_TICKER: dict[str, tuple[str, str]] = {
+    # mega-cap tech
+    "apple": ("AAPL", "Apple Inc."),
+    "microsoft": ("MSFT", "Microsoft Corp."),
+    "nvidia": ("NVDA", "NVIDIA Corp."),
+    "google": ("GOOGL", "Alphabet Inc."),
+    "alphabet": ("GOOGL", "Alphabet Inc."),
+    "amazon": ("AMZN", "Amazon.com Inc."),
+    "meta": ("META", "Meta Platforms Inc."),
+    "facebook": ("META", "Meta Platforms Inc."),
+    "tesla": ("TSLA", "Tesla Inc."),
+    "netflix": ("NFLX", "Netflix Inc."),
+    "amd": ("AMD", "Advanced Micro Devices"),
+    "intel": ("INTC", "Intel Corp."),
+    "salesforce": ("CRM", "Salesforce Inc."),
+    "oracle": ("ORCL", "Oracle Corp."),
+    "adobe": ("ADBE", "Adobe Inc."),
+    "paypal": ("PYPL", "PayPal Holdings"),
+    "uber": ("UBER", "Uber Technologies"),
+    "airbnb": ("ABNB", "Airbnb Inc."),
+    "shopify": ("SHOP", "Shopify Inc."),
+    "snowflake": ("SNOW", "Snowflake Inc."),
+    "palantir": ("PLTR", "Palantir Technologies"),
+    "crowdstrike": ("CRWD", "CrowdStrike Holdings"),
+    "palo alto": ("PANW", "Palo Alto Networks"),
+    "cloudflare": ("NET", "Cloudflare Inc."),
+    "spotify": ("SPOT", "Spotify Technology"),
+    "coinbase": ("COIN", "Coinbase Global"),
+    "robinhood": ("HOOD", "Robinhood Markets"),
+    # banks & finance
+    "bank of america": ("BAC", "Bank of America Corp."),
+    "jpmorgan": ("JPM", "JPMorgan Chase & Co."),
+    "jp morgan": ("JPM", "JPMorgan Chase & Co."),
+    "wells fargo": ("WFC", "Wells Fargo & Co."),
+    "citigroup": ("C", "Citigroup Inc."),
+    "citi": ("C", "Citigroup Inc."),
+    "goldman sachs": ("GS", "Goldman Sachs Group"),
+    "morgan stanley": ("MS", "Morgan Stanley"),
+    "blackstone": ("BX", "Blackstone Inc."),
+    "charles schwab": ("SCHW", "Charles Schwab Corp."),
+    "american express": ("AXP", "American Express Co."),
+    # healthcare & pharma
+    "johnson & johnson": ("JNJ", "Johnson & Johnson"),
+    "johnson and johnson": ("JNJ", "Johnson & Johnson"),
+    "pfizer": ("PFE", "Pfizer Inc."),
+    "unitedhealth": ("UNH", "UnitedHealth Group"),
+    "abbvie": ("ABBV", "AbbVie Inc."),
+    "eli lilly": ("LLY", "Eli Lilly and Co."),
+    "merck": ("MRK", "Merck & Co."),
+    "bristol myers": ("BMY", "Bristol-Myers Squibb"),
+    # energy
+    "exxon": ("XOM", "Exxon Mobil Corp."),
+    "exxon mobil": ("XOM", "Exxon Mobil Corp."),
+    "chevron": ("CVX", "Chevron Corp."),
+    "conocophillips": ("COP", "ConocoPhillips"),
+    "schlumberger": ("SLB", "SLB (Schlumberger)"),
+    "halliburton": ("HAL", "Halliburton Co."),
+    # consumer
+    "walmart": ("WMT", "Walmart Inc."),
+    "costco": ("COST", "Costco Wholesale"),
+    "home depot": ("HD", "Home Depot Inc."),
+    "mcdonalds": ("MCD", "McDonald's Corp."),
+    "starbucks": ("SBUX", "Starbucks Corp."),
+    "coca cola": ("KO", "Coca-Cola Co."),
+    "coca-cola": ("KO", "Coca-Cola Co."),
+    "pepsi": ("PEP", "PepsiCo Inc."),
+    "pepsico": ("PEP", "PepsiCo Inc."),
+    "nike": ("NKE", "Nike Inc."),
+    "disney": ("DIS", "Walt Disney Co."),
+    # telecom & media
+    "at&t": ("T", "AT&T Inc."),
+    "verizon": ("VZ", "Verizon Communications"),
+    "t-mobile": ("TMUS", "T-Mobile US Inc."),
+    # semiconductor
+    "tsmc": ("TSM", "Taiwan Semiconductor"),
+    "taiwan semiconductor": ("TSM", "Taiwan Semiconductor"),
+    "broadcom": ("AVGO", "Broadcom Inc."),
+    "qualcomm": ("QCOM", "Qualcomm Inc."),
+    "micron": ("MU", "Micron Technology"),
+    # ETFs
+    "spy": ("SPY", "S&P 500 ETF"),
+    "qqq": ("QQQ", "Nasdaq 100 ETF"),
+    "gold etf": ("GLD", "SPDR Gold ETF"),
+    # crypto
+    "bitcoin": ("BTC", "Bitcoin"),
+    "ethereum": ("ETH", "Ethereum"),
+    "solana": ("SOL", "Solana"),
+    "ripple": ("XRP", "XRP / Ripple"),
+    "dogecoin": ("DOGE", "Dogecoin"),
+    "cardano": ("ADA", "Cardano"),
+    "avalanche": ("AVAX", "Avalanche"),
+    "chainlink": ("LINK", "Chainlink"),
+    "polygon": ("MATIC", "Polygon"),
+    "uniswap": ("UNI", "Uniswap"),
+    "litecoin": ("LTC", "Litecoin"),
+}
+
+
 @app.get("/search")
 def search_symbols(q: str):
     """Search for ticker symbols by name or symbol. Returns up to 8 suggestions from CoinGecko (crypto) and Finnhub (stocks)."""
     q = q.strip()
     if not q or len(q) < 2:
         return {"results": []}
+
+    # Fast path: check hardcoded name map (case-insensitive, partial match)
+    q_lower = q.lower()
+    name_hits: list[dict] = []
+    for name_key, (sym, display_name) in NAME_TO_TICKER.items():
+        if q_lower in name_key or name_key.startswith(q_lower):
+            asset_type = "crypto" if sym in {"BTC","ETH","SOL","XRP","DOGE","ADA","AVAX","LINK","MATIC","UNI","LTC","BNB","DOT","ATOM","NEAR","ARB","OP","SUI","APT","FIL"} else "stock"
+            name_hits.append({"symbol": sym, "name": display_name, "type": asset_type})
+    # Exact key match goes first
+    name_hits.sort(key=lambda x: (0 if NAME_TO_TICKER.get(q_lower, ("",))[0] == x["symbol"] else 1))
 
     results: list[dict] = []
 
@@ -679,10 +788,10 @@ def search_symbols(q: str):
         except Exception:
             pass
 
-    # Deduplicate by symbol, keep first occurrence, limit to 8
+    # Merge: name_hits first (most reliable), then API results
     seen: set[str] = set()
     deduped: list[dict] = []
-    for r in results:
+    for r in name_hits + results:
         if r["symbol"] and r["symbol"] not in seen:
             seen.add(r["symbol"])
             deduped.append(r)
@@ -1211,8 +1320,8 @@ Rules:
     try:
         client  = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         message = client.messages.create(
-            model="claude-sonnet-4-5",
-            max_tokens=4096,
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2048,
             system=system_prompt,
             messages=[{"role": "user", "content": prompt}],
         )
