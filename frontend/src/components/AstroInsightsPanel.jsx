@@ -54,7 +54,7 @@ function SentimentGauge({ score }) {
           }}
         />
       </div>
-      <div className="flex justify-between text-xs" style={{ color: '#334155' }}>
+      <div className="flex justify-between text-xs" style={{ color: '#64748b' }}>
         <span>−1 Bearish</span>
         <span>Neutral</span>
         <span>Bullish +1</span>
@@ -313,7 +313,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           )}
 
           {/* Disclaimer */}
-          <p className="text-xs pt-2" style={{ color: '#334155', borderTop: '1px solid #1e2d45', paddingTop: 12 }}>
+          <p className="text-xs pt-2" style={{ color: '#64748b', borderTop: '1px solid #1e2d45', paddingTop: 12 }}>
             ♄ Astrological insights are alternative data for informational purposes only and do not constitute investment advice.
           </p>
         </div>

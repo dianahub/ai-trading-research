@@ -29,7 +29,7 @@ function PageLayout({ title, children }) {
 
       <footer className="mt-16 px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
         <div className="max-w-3xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <span className="text-xs" style={{ color: '#475569' }}>© 2026 Futurotek LLC. All rights reserved.</span>
+          <span className="text-xs" style={{ color: '#475569' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
           <div className="flex items-center gap-4">
             <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
             <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>

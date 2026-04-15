@@ -147,7 +147,7 @@ export default function CongressPanel({ congressData, ticker }) {
               </button>
             )}
 
-            <p className="text-xs pt-1" style={{ color: '#334155', borderTop: '1px solid #1e2d45', paddingTop: 10 }}>
+            <p className="text-xs pt-1" style={{ color: '#64748b', borderTop: '1px solid #1e2d45', paddingTop: 10 }}>
               Data sourced from public House &amp; Senate financial disclosures (STOCK Act). Trades are disclosed up to 45 days after execution. Not a trading signal — for informational purposes only.
             </p>
           </>

@@ -309,8 +309,8 @@ const handleToggleAstro = () => {
             {/* Hero */}
             <div className="text-center space-y-3">
               <div className="text-5xl mb-2">🔭 ♄</div>
-              <p className="text-sm font-bold tracking-widest uppercase" style={{ color: '#64748b' }}>Starsignal.io</p>
-              <h2 className="text-3xl font-bold" style={{ color: '#e2e8f0' }}>
+              <p className="text-4xl md:text-5xl font-bold tracking-tight" style={{ color: '#e2e8f0' }}>Starsignal.io</p>
+              <h2 className="text-lg font-semibold" style={{ color: '#94a3b8' }}>
                 AI + Astro Trading Research
               </h2>
               <p className="text-base max-w-lg mx-auto" style={{ color: '#94a3b8' }}>
@@ -348,7 +348,7 @@ const handleToggleAstro = () => {
               </div>
             </div>
 
-            <p className="text-xs" style={{ color: '#1e2d45' }}>
+            <p className="text-xs" style={{ color: '#475569' }}>
               Powered by CoinGecko · Finnhub · Claude AI · Financial Astrology
             </p>
           </div>
@@ -406,7 +406,7 @@ const handleToggleAstro = () => {
             {/* Section nav */}
             <nav className="fade-in overflow-x-auto" style={{ background: '#0b0f1e', border: '1px solid #1e2d45', borderRadius: 12 }}>
               <div className="flex items-center gap-3 px-4 py-2.5 min-w-max">
-                <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#334155' }}>
+                <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#64748b' }}>
                   Menu · click to go to a section
                 </span>
                 <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
@@ -505,8 +505,8 @@ const handleToggleAstro = () => {
       </main>
 
       {/* Disclaimer strip */}
-      <p className="mt-12 px-6 text-center text-xs" style={{ color: '#334155' }}>
-        Star Signal is a product of Futurotek LLC. Astrological insights are for informational purposes only and do not constitute financial advice.
+      <p className="mt-12 px-6 text-center text-xs" style={{ color: '#64748b' }}>
+        Star Signal is a product of <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#64748b', textDecoration: 'underline' }}>Futurotek LLC</a>. Astrological insights are for informational purposes only and do not constitute financial advice.
       </p>
 
       {/* Site-wide footer */}
@@ -514,7 +514,7 @@ const handleToggleAstro = () => {
         <div className="max-w-7xl mx-auto space-y-4">
           {/* Top row: copyright left, links right */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <span className="text-xs" style={{ color: '#475569' }}>© 2026 Futurotek LLC. All rights reserved.</span>
+            <span className="text-xs" style={{ color: '#475569' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
             <div className="flex items-center gap-4">
               <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
               <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>
@@ -522,8 +522,8 @@ const handleToggleAstro = () => {
             </div>
           </div>
           {/* Bottom muted line */}
-          <p className="text-xs" style={{ color: '#334155' }}>
-            Star Signal is a product of Futurotek LLC. Astrological insights are for informational purposes only and do not constitute investment advice.
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Star Signal is a product of <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#64748b', textDecoration: 'underline' }}>Futurotek LLC</a>. Astrological insights are for informational purposes only and do not constitute investment advice.
           </p>
         </div>
       </footer>
