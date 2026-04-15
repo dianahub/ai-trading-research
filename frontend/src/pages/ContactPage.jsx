@@ -149,7 +149,7 @@ export default function ContactPage() {
       )}
 
       <div className="pt-4" style={{ borderTop: '1px solid #1e2d45' }}>
-        <p>You can also reach us directly at <strong style={{ color: '#cbd5e1' }}>dianahelene@gmail.com</strong>.</p>
+        <p>You can also reach us directly at <strong style={{ color: '#cbd5e1' }}>202-640-0054</strong>.</p>
       </div>
     </PageLayout>
   )
