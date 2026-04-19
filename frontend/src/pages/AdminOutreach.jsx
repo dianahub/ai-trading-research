@@ -205,7 +205,13 @@ export default function AdminOutreach() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail)
       setMessages(data)
-      setMsgEdits({ initial: data.initial, followup: data.followup, upgrade: data.upgrade })
+      setMsgEdits({
+        subject:          data.subject ?? '',
+        initial:          data.initial ?? '',
+        followup:         data.followup ?? '',
+        upgrade:          data.upgrade ?? '',
+        interest_followup: data.interest_followup ?? '',
+      })
     } catch (err) {
       setMessages({ error: err.message })
     } finally {
@@ -289,11 +295,15 @@ export default function AdminOutreach() {
     loadAnalytics()
   }
 
-  const handleMarkSent = async contact => {
+  const handleMarkSent = async (contact, messageTab) => {
     await fetch(`${API}/outreach/${contact.id}`, {
       method: 'PATCH',
       headers: adminHeaders(),
-      body: JSON.stringify({ status: 'sent', date_contacted: new Date().toISOString() }),
+      body: JSON.stringify({
+        status: 'sent',
+        last_message_sent: messageTab || 'initial',
+        date_contacted: new Date().toISOString(),
+      }),
     })
     loadContacts()
     loadFollowUps()
@@ -589,7 +599,7 @@ export default function AdminOutreach() {
                         return (
                           <tr key={c.id} style={{ borderBottom: '1px solid #1e2d45', background: '#0a0e1a' }}>
                             <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium" style={{ color: '#f1f5f9' }}>{c.name}</span>
                                 {needsFollowUp && (
                                   <span className="px-1.5 py-0.5 rounded text-xs font-bold"
@@ -598,6 +608,11 @@ export default function AdminOutreach() {
                                   </span>
                                 )}
                               </div>
+                              {c.last_message_sent && (
+                                <div className="text-xs mt-0.5" style={{ color: '#475569' }}>
+                                  Last sent: <span style={{ color: '#94a3b8' }}>{c.last_message_sent.replace(/_/g, ' ')}</span>
+                                </div>
+                              )}
                               {c.profile_url && (
                                 <a href={c.profile_url} target="_blank" rel="noopener noreferrer"
                                   className="text-xs hover:underline" style={{ color: '#06b6d4' }}>
@@ -664,7 +679,7 @@ export default function AdminOutreach() {
                                   </button>
                                 )}
                                 {c.status !== 'sent' && c.status !== 'partner' && c.status !== 'responded' && (
-                                  <button onClick={() => handleMarkSent(c)}
+                                  <button onClick={() => handleMarkSent(c, 'initial')}
                                     className="px-2.5 py-1 rounded text-xs font-medium cursor-pointer"
                                     style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #1e2d45' }}>
                                     Mark Sent
@@ -805,12 +820,13 @@ export default function AdminOutreach() {
             {messages && !messages.error && !msgLoading && (
               <>
                 {/* Message tabs */}
-                <div className="flex gap-1 mb-4 p-1 rounded-lg w-fit"
+                <div className="flex flex-wrap gap-1 mb-4 p-1 rounded-lg w-fit"
                   style={{ background: '#111827', border: '1px solid #1e2d45' }}>
                   {[
-                    { id: 'initial',  label: '1st Outreach' },
-                    { id: 'followup', label: 'Follow-Up' },
-                    { id: 'upgrade',  label: 'Partner Pitch' },
+                    { id: 'initial',           label: '1st Outreach' },
+                    { id: 'followup',          label: 'Follow-Up' },
+                    { id: 'upgrade',           label: 'Partner Pitch' },
+                    ...(messages.interest_followup ? [{ id: 'interest_followup', label: '💬 Interested (TikTok)' }] : []),
                   ].map(t => (
                     <button key={t.id} onClick={() => setMsgTab(t.id)}
                       className="px-3 py-1.5 rounded text-xs font-medium cursor-pointer transition-all"
@@ -875,13 +891,11 @@ export default function AdminOutreach() {
                 </div>
 
                 <div className="mt-3 flex gap-2">
-                  {msgModal.status !== 'sent' && (
-                    <button onClick={() => { handleMarkSent(msgModal); setMsgModal(null) }}
-                      className="px-3 py-1 rounded text-xs font-medium cursor-pointer"
-                      style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #1e2d45' }}>
-                      Mark as Sent
-                    </button>
-                  )}
+                  <button onClick={() => { handleMarkSent(msgModal, msgTab); setMsgModal(null) }}
+                    className="px-3 py-1 rounded text-xs font-medium cursor-pointer"
+                    style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #1e2d45' }}>
+                    Mark "{msgTab.replace('_', ' ')}" as Sent
+                  </button>
                 </div>
               </>
             )}
