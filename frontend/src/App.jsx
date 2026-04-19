@@ -380,7 +380,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
         {/* Astro panel — only shown after a ticker has been searched */}
         {astroData && data && (
-          <div id="astro" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
+          <div id="astro" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
             <AstroInsightsPanel
               astroData={astroData}
               visible={showAstro}
@@ -492,7 +492,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         {data && (
           <>
             {/* AI Sentiment banner */}
-            <div id="ai-summary" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
+            <div id="ai-summary" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
               {data.analysis && (
                 <div className="fade-in">
                   <SentimentBanner analysis={data.analysis} ticker={data.price?.ticker} />
@@ -518,7 +518,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             </div>
 
             {/* Price */}
-            <div id="price" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
+            <div id="price" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
               <PriceCard price={data.price} />
             </div>
 
@@ -530,7 +530,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             )}
 
             {/* Technicals */}
-            <div id="technicals" className="space-y-4" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
+            <div id="technicals" className="space-y-4" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
               <div className="fade-in">
                 <TechnicalGrid technicals={data.technicals} />
               </div>
@@ -541,13 +541,13 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
             {/* Analysis cards */}
             {data.analysis && (
-              <div id="analysis" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
+              <div id="analysis" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
                 <AnalysisCards analysis={data.analysis} />
               </div>
             )}
 
             {/* Smart money — whale (crypto) or insiders (stocks) */}
-            <div id="smart-money" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
+            <div id="smart-money" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
               {data.whales && (
                 <div className="fade-in">
                   <WhaleSection
@@ -559,7 +559,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             </div>
 
             {/* News */}
-            <div id="news" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
+            <div id="news" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
               <NewsSection news={data.news} newsSentiment={data.analysis?.news_sentiment} />
             </div>
 
