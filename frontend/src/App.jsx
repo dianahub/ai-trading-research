@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import './App.css'
 import SearchBar from './components/SearchBar'
@@ -123,9 +123,23 @@ export default function App() {
   const [data, setData]           = useState(null)
   const [ticker, setTicker]       = useState(null)
   const [astroData, setAstroData] = useState(null)
-  const [showAstro, setShowAstro] = useState(() => {
-    try { return localStorage.getItem('showAstro') !== 'false' } catch { return true }
-  })
+  const [navOpen, setNavOpen] = useState(false)
+  const [showAstro, setShowAstro] = useState(true)
+  const headerRef = useRef(null)
+
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        document.documentElement.style.setProperty(
+          '--header-h',
+          `${headerRef.current.offsetHeight}px`
+        )
+      }
+    }
+    updateHeaderHeight()
+    window.addEventListener('resize', updateHeaderHeight)
+    return () => window.removeEventListener('resize', updateHeaderHeight)
+  }, [])
 
   // Fetch astro data once on mount — independent of ticker searches
   useEffect(() => {
@@ -134,13 +148,7 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
-const handleToggleAstro = () => {
-    setShowAstro(prev => {
-      const next = !prev
-      try { localStorage.setItem('showAstro', String(next)) } catch { /* storage unavailable */ }
-      return next
-    })
-  }
+const handleToggleAstro = () => setShowAstro(prev => !prev)
 
   const handleSearch = async (ticker) => {
     setLoading(true)
@@ -243,12 +251,13 @@ const handleToggleAstro = () => {
   return (
     <div className="min-h-screen" style={{ background: '#0a0e1a' }}>
       {/* Header */}
-      <header style={{ background: '#0a0e1a', borderBottom: '1px solid #1e2d45' }}
+      <header ref={headerRef} style={{ background: '#0a0e1a', borderBottom: '1px solid #1e2d45' }}
         className="sticky top-0 z-50 px-4 md:px-6 py-3 md:py-4">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
           {/* Logo + title row — on mobile also holds the LIVE badge */}
           <div className="flex items-center justify-between md:justify-start gap-3 shrink-0">
-            <Link to="/" className="flex items-center gap-3" style={{ textDecoration: 'none' }}>
+            <Link to="/" className="flex items-center gap-3" style={{ textDecoration: 'none' }}
+              onClick={() => { setData(null); setTicker(null); setError(null); setNavOpen(false) }}>
               <div className="w-8 h-8 rounded-lg flex items-center justify-center"
                 style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
                 <span className="text-white text-xs font-bold">AI</span>
@@ -282,17 +291,96 @@ const handleToggleAstro = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-5">
-        {/* Symbol name header */}
+        {/* Symbol name header + section nav — sticky on mobile below the main header */}
         {data && (
-          <div className="fade-in flex items-baseline gap-3">
-            <h1 className="text-3xl font-bold" style={{ color: '#f1f5f9' }}>{data.name}</h1>
-            <span className="text-lg font-mono" style={{ color: '#475569' }}>{ticker}</span>
-          </div>
+          <>
+            <div className="sticky z-40 -mx-4 px-4 md:mx-0 md:px-0"
+              style={{ top: 'var(--header-h, 64px)', background: '#0a0e1a' }}>
+            <div className="fade-in flex items-baseline gap-3 py-2 md:py-0">
+              <h1 className="text-2xl md:text-3xl font-bold" style={{ color: '#f1f5f9' }}>{data.name}</h1>
+              <span className="text-lg font-mono" style={{ color: '#475569' }}>{ticker}</span>
+            </div>
+
+            {/* Section nav — hamburger on mobile, pill row on desktop */}
+            {(() => {
+              const navLinks = [
+                { href: '#ai-summary',  label: '🤖 AI Summary',  show: !!data.analysis },
+                { href: '#price',       label: '💰 Price',        show: true },
+                { href: '#technicals',  label: '📈 Technicals',   show: true },
+                { href: '#analysis',    label: '🔍 Analysis',     show: !!data.analysis },
+                { href: '#smart-money', label: '🐋 Smart Money',  show: !!(data.whales || data.insiders) },
+                { href: '#astro',       label: '♄ Astro',         show: true },
+                { href: '#news',        label: '📰 News',         show: true },
+              ].filter(s => s.show)
+
+              return (
+                <nav className="fade-in rounded-xl" style={{ background: '#0b0f1e', border: '1px solid #1e2d45' }}>
+                  {/* Mobile: hamburger header */}
+                  <div className="flex md:hidden items-center justify-between px-4 py-2.5">
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#64748b' }}>
+                      Jump to
+                    </span>
+                    <button
+                      onClick={() => setNavOpen(o => !o)}
+                      className="flex flex-col justify-center items-center gap-1 w-8 h-8 rounded-lg cursor-pointer transition-colors"
+                      style={{ background: navOpen ? '#1e2d45' : 'transparent', border: '1px solid #1e2d45' }}
+                      aria-label="Toggle navigation"
+                    >
+                      {navOpen ? (
+                        // X icon
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <line x1="1" y1="1" x2="13" y2="13" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="13" y1="1" x2="1" y2="13" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      ) : (
+                        // Hamburger icon
+                        <>
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#64748b' }} />
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#64748b' }} />
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#64748b' }} />
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Mobile: dropdown links */}
+                  {navOpen && (
+                    <div className="flex flex-col md:hidden px-4 pb-3 gap-1" style={{ borderTop: '1px solid #1e2d45' }}>
+                      {navLinks.map(s => (
+                        <a key={s.href} href={s.href}
+                          onClick={() => setNavOpen(false)}
+                          className="px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:brightness-125"
+                          style={{ color: '#94a3b8', background: '#111827', border: '1px solid #1e2d45' }}>
+                          {s.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Desktop: horizontal pill row */}
+                  <div className="hidden md:flex items-center gap-3 px-4 py-2.5 overflow-x-auto">
+                    <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#64748b' }}>
+                      Jump to
+                    </span>
+                    <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
+                    {navLinks.map(s => (
+                      <a key={s.href} href={s.href}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
+                        style={{ background: '#111827', color: '#64748b', border: '1px solid #1e2d45' }}>
+                        {s.label}
+                      </a>
+                    ))}
+                  </div>
+                </nav>
+              )
+            })()}
+            </div>
+          </>
         )}
 
         {/* Astro panel — only shown after a ticker has been searched */}
         {astroData && data && (
-          <div id="astro" className="fade-in">
+          <div id="astro" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
             <AstroInsightsPanel
               astroData={astroData}
               visible={showAstro}
@@ -305,7 +393,7 @@ const handleToggleAstro = () => {
 
         {/* Idle state */}
         {!loading && !data && !error && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-6 fade-in">
+          <div className="flex flex-col items-center justify-center py-6 md:py-20 space-y-6 fade-in">
             {/* Hero */}
             <div className="text-center space-y-3">
               <div className="text-5xl mb-2">🔭 ♄</div>
@@ -403,33 +491,8 @@ const handleToggleAstro = () => {
         {/* Data panels */}
         {data && (
           <>
-            {/* Section nav */}
-            <nav className="fade-in overflow-x-auto" style={{ background: '#0b0f1e', border: '1px solid #1e2d45', borderRadius: 12 }}>
-              <div className="flex items-center gap-3 px-4 py-2.5 min-w-max">
-                <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#64748b' }}>
-                  Menu · click to go to a section
-                </span>
-                <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
-                {[
-                  { href: '#ai-summary',   label: '🤖 AI Summary',   show: !!data.analysis },
-                  { href: '#price',        label: '💰 Price',         show: true },
-                  { href: '#technicals',   label: '📈 Technicals',    show: true },
-                  { href: '#analysis',     label: '🔍 Analysis',      show: !!data.analysis },
-                  { href: '#smart-money',  label: '🐋 Smart Money',   show: !!(data.whales || data.insiders) },
-                  { href: '#astro',        label: '♄ Astro',          show: true },
-                  { href: '#news',         label: '📰 News',          show: true },
-                ].filter(s => s.show).map(s => (
-                  <a key={s.href} href={s.href}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
-                    style={{ background: '#111827', color: '#64748b', border: '1px solid #1e2d45' }}>
-                    {s.label}
-                  </a>
-                ))}
-              </div>
-            </nav>
-
             {/* AI Sentiment banner */}
-            <div id="ai-summary">
+            <div id="ai-summary" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
               {data.analysis && (
                 <div className="fade-in">
                   <SentimentBanner analysis={data.analysis} ticker={data.price?.ticker} />
@@ -455,7 +518,7 @@ const handleToggleAstro = () => {
             </div>
 
             {/* Price */}
-            <div id="price" className="fade-in">
+            <div id="price" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
               <PriceCard price={data.price} />
             </div>
 
@@ -467,7 +530,7 @@ const handleToggleAstro = () => {
             )}
 
             {/* Technicals */}
-            <div id="technicals" className="space-y-4">
+            <div id="technicals" className="space-y-4" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
               <div className="fade-in">
                 <TechnicalGrid technicals={data.technicals} />
               </div>
@@ -478,13 +541,13 @@ const handleToggleAstro = () => {
 
             {/* Analysis cards */}
             {data.analysis && (
-              <div id="analysis" className="fade-in">
+              <div id="analysis" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
                 <AnalysisCards analysis={data.analysis} />
               </div>
             )}
 
             {/* Smart money — whale (crypto) or insiders (stocks) */}
-            <div id="smart-money">
+            <div id="smart-money" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
               {data.whales && (
                 <div className="fade-in">
                   <WhaleSection
@@ -496,18 +559,13 @@ const handleToggleAstro = () => {
             </div>
 
             {/* News */}
-            <div id="news" className="fade-in">
+            <div id="news" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 80px)' }}>
               <NewsSection news={data.news} newsSentiment={data.analysis?.news_sentiment} />
             </div>
 
           </>
         )}
       </main>
-
-      {/* Disclaimer strip */}
-      <p className="mt-12 px-6 text-center text-xs" style={{ color: '#64748b' }}>
-        Star Signal is a product of <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#64748b', textDecoration: 'underline' }}>Futurotek LLC</a>. Astrological insights are for informational purposes only and do not constitute financial advice.
-      </p>
 
       {/* Site-wide footer */}
       <footer className="mt-4 px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
@@ -516,6 +574,7 @@ const handleToggleAstro = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <span className="text-xs" style={{ color: '#475569' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
             <div className="flex items-center gap-4">
+              <Link to="/about" className="text-xs hover:underline" style={{ color: '#64748b' }}>About</Link>
               <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
               <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>
               <Link to="/contact" className="text-xs hover:underline" style={{ color: '#64748b' }}>Contact</Link>

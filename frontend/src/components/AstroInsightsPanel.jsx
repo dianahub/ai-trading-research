@@ -167,13 +167,81 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
   const matchedInsights = hasDirectMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
   const otherInsights   = hasDirectMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
 
-  // 3 preview cards shown above summary; rest shown on "View All"
-  const previewInsights  = matchedInsights.slice(0, 3)
-  // View All order: remaining matched first (no repeat of preview), then non-matched
-  const expandedInsights = [...matchedInsights.slice(3), ...otherInsights]
+  // Pick up to 3 preview cards, one per unique source_name (astrologer)
+  function pickOnePerAstrologer(pool, max = 3) {
+    const seen = new Set()
+    const picked = []
+    for (const insight of pool) {
+      if (!seen.has(insight.source_name)) {
+        seen.add(insight.source_name)
+        picked.push(insight)
+        if (picked.length === max) break
+      }
+    }
+    // If we still have slots and ran out of unique astrologers, fill from remainder
+    if (picked.length < max) {
+      for (const insight of pool) {
+        if (!picked.includes(insight)) {
+          picked.push(insight)
+          if (picked.length === max) break
+        }
+      }
+    }
+    return picked
+  }
 
-  // When no direct match, "View All" shows everything
-  const viewAllInsights = hasDirectMatch ? expandedInsights : insights
+  // Remove insights whose summary is very similar to one already kept.
+  // Two insights are considered duplicates if:
+  //   • same topic + outlook + timeframe, OR
+  //   • Jaccard word-overlap of their summaries exceeds 0.45
+  function deduplicateSimilar(pool) {
+    const JACCARD_THRESHOLD = 0.45
+    const CONFIDENCE_RANK = { high: 3, medium: 2, low: 1 }
+
+    function words(text) {
+      return new Set((text ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean))
+    }
+
+    function jaccard(a, b) {
+      const wa = words(a)
+      const wb = words(b)
+      const intersection = [...wa].filter(w => wb.has(w)).length
+      const union = new Set([...wa, ...wb]).size
+      return union === 0 ? 0 : intersection / union
+    }
+
+    function isSimilar(a, b) {
+      if (a.topic === b.topic && a.outlook === b.outlook && a.timeframe === b.timeframe) return true
+      return jaccard(a.summary, b.summary) >= JACCARD_THRESHOLD
+    }
+
+    // Sort by confidence desc so we keep the best version when there's a clash
+    const sorted = [...pool].sort(
+      (a, b) => (CONFIDENCE_RANK[b.confidence] ?? 0) - (CONFIDENCE_RANK[a.confidence] ?? 0)
+    )
+
+    const kept = []
+    for (const candidate of sorted) {
+      if (!kept.some(k => isSimilar(k, candidate))) {
+        kept.push(candidate)
+      }
+    }
+    return kept
+  }
+
+  const previewPool    = hasDirectMatch ? matchedInsights : insights
+  const previewInsights = pickOnePerAstrologer(previewPool, 3)
+
+  // View All: remaining matched (no repeat of preview) + others, deduplicated
+  const previewIds     = new Set(previewInsights.map(i => i.id ?? i.summary))
+  const expandedRaw    = [
+    ...matchedInsights.filter(i => !previewIds.has(i.id ?? i.summary)),
+    ...otherInsights,
+  ]
+  const expandedInsights = deduplicateSimilar(expandedRaw)
+
+  // When no direct match, "View All" shows everything (deduplicated)
+  const viewAllInsights = hasDirectMatch ? expandedInsights : deduplicateSimilar(insights.filter(i => !previewIds.has(i.id ?? i.summary)))
   const showViewAll     = viewAllInsights.length > 0
 
   return (

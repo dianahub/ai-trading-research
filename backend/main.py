@@ -2,18 +2,18 @@ import os
 import json
 import time
 import threading
-import smtplib
+import resend
 import requests
 import anthropic
 import pandas as pd
 import pandas_ta as ta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, Column, String, DateTime, text
+from sqlalchemy.orm import DeclarativeBase, Session
 from coingecko_client import coingecko, CoinGeckoError, PRICE_TTL, MARKET_TTL, SEARCH_TTL
 
 load_dotenv()
@@ -26,6 +26,9 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:5174",
         os.getenv("FRONTEND_URL", ""),
+        "https://starsignal-waitlist.vercel.app",
+        "https://starsignal.io",
+        "https://www.starsignal.io",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -33,8 +36,7 @@ app.add_middleware(
 )
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY")
-GMAIL_USER          = os.getenv("GMAIL_USER", "dianahelene@gmail.com")
-GMAIL_APP_PASSWORD  = os.getenv("GMAIL_APP_PASSWORD", "")
+RESEND_API_KEY      = os.getenv("RESEND_API_KEY", "")
 NEWS_API_KEY        = os.getenv("NEWS_API_KEY")
 ETHERSCAN_API_KEY   = os.getenv("ETHERSCAN_API_KEY", "")
 WHALE_ALERT_API_KEY = os.getenv("WHALE_ALERT_API_KEY", "")
@@ -44,6 +46,27 @@ POLYGON_API_KEY     = os.getenv("POLYGON_API_KEY", "")
 # Astro API integration
 ASTRO_API_URL          = os.getenv("ASTRO_API_URL", "http://localhost:3001")
 ASTRO_API_KEY_INTERNAL = os.getenv("ASTRO_API_KEY_INTERNAL", "")
+
+# ── Waitlist database ──────────────────────────────────────────────────────────
+_DB_URL = os.getenv("DATABASE_URL", "sqlite:///./waitlist.db")
+# SQLAlchemy requires postgresql:// not postgres://
+if _DB_URL.startswith("postgres://"):
+    _DB_URL = _DB_URL.replace("postgres://", "postgresql://", 1)
+
+_engine = create_engine(_DB_URL, pool_pre_ping=True)
+
+class _Base(DeclarativeBase): pass
+
+class WaitlistSignup(_Base):
+    __tablename__ = "waitlist_signups"
+    id              = Column(String, primary_key=True, default=lambda: __import__('uuid').uuid4().hex)
+    name            = Column(String, nullable=False)
+    email           = Column(String, nullable=False, unique=True)
+    trading_type    = Column(String, nullable=False)
+    referral_source = Column(String, nullable=False)
+    created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+_Base.metadata.create_all(_engine)  # creates table if it doesn't exist
 ASTRO_SIGNAL_WEIGHT    = float(os.getenv("ASTRO_SIGNAL_WEIGHT", "0.1"))
 
 # Astro cache — 30-minute TTL, shared across requests
@@ -1109,15 +1132,19 @@ def analyze(req: AnalyzeRequest):
     if is_fresh:
         return AnalyzeResponse(**{**cached["result"], "from_cache": True})
 
-    # Stale hit — return instantly and refresh in background
+    # Stale hit — return instantly and refresh in background.
+    # Evict the entry before the recursive call so it bypasses the stale check
+    # and actually reaches the Claude call instead of spawning infinite threads.
     if is_stale:
+        stale_result = cached["result"]
         def _background_refresh():
             try:
+                _analyze_cache.pop(upper, None)
                 analyze(req)
             except Exception:
                 pass
         threading.Thread(target=_background_refresh, daemon=True).start()
-        return AnalyzeResponse(**{**cached["result"], "from_cache": True})
+        return AnalyzeResponse(**{**stale_result, "from_cache": True})
 
     # ── Shared formatters ──────────────────────────────────────────────────────
     def _fmt(v):
@@ -2203,3 +2230,98 @@ def get_stock_options(ticker: str):
         "errors":                  errors or None,
         "disclaimer":              "This is educational research only. Not financial advice.",
     }
+
+
+# ── Waitlist endpoints ─────────────────────────────────────────────────────────
+
+VALID_TRADING  = {"crypto", "stocks", "both"}
+VALID_REFERRAL = {"twitter", "instagram", "tiktok", "youtube", "reddit", "friend", "google", "other"}
+
+class SignupRequest(BaseModel):
+    name:            str
+    email:           str
+    trading_type:    str
+    referral_source: str
+
+@app.post("/signup", status_code=201)
+def create_signup(req: SignupRequest):
+    if not req.name.strip():
+        raise HTTPException(400, "Name is required")
+    if not req.email.strip():
+        raise HTTPException(400, "Email is required")
+    if req.trading_type not in VALID_TRADING:
+        raise HTTPException(400, "Invalid trading type")
+    if req.referral_source not in VALID_REFERRAL:
+        raise HTTPException(400, "Invalid referral source")
+
+    with Session(_engine) as db:
+        existing = db.query(WaitlistSignup).filter_by(email=req.email.strip().lower()).first()
+        if existing:
+            raise HTTPException(409, "This email is already on the list!")
+        signup = WaitlistSignup(
+            name=req.name.strip(),
+            email=req.email.strip().lower(),
+            trading_type=req.trading_type,
+            referral_source=req.referral_source,
+        )
+        db.add(signup)
+        db.commit()
+        db.refresh(signup)
+
+    # Send notification email (non-blocking — don't fail the signup if email fails)
+    if RESEND_API_KEY:
+        def _notify():
+            try:
+                trading_label = {"crypto": "Crypto", "stocks": "Stocks", "both": "Both"}.get(req.trading_type, req.trading_type)
+                referral_label = {
+                    "twitter": "Twitter/X", "instagram": "Instagram", "tiktok": "TikTok",
+                    "youtube": "YouTube", "reddit": "Reddit", "friend": "Friend / Word of mouth",
+                    "google": "Google", "other": "Other",
+                }.get(req.referral_source, req.referral_source)
+
+                resend.api_key = RESEND_API_KEY
+                resend.Emails.send({
+                    "from": "Starsignal <onboarding@resend.dev>",
+                    "to": ["dianahelene@gmail.com"],
+                    "subject": f"⭐ New Starsignal Beta Signup: {req.name}",
+                    "text": (
+                        f"New beta signup on Starsignal.io!\n\n"
+                        f"Name:       {req.name}\n"
+                        f"Email:      {req.email}\n"
+                        f"Trades:     {trading_label}\n"
+                        f"Found via:  {referral_label}\n\n"
+                        f"View all signups: https://starsignal.io/admin"
+                    ),
+                })
+            except Exception as e:
+                print(f"[waitlist] Email notification failed: {e}")
+
+        threading.Thread(target=_notify, daemon=True).start()
+
+    return {"ok": True, "id": signup.id}
+
+@app.get("/signups")
+def list_signups(
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    admin_email    = os.getenv("ADMIN_EMAIL", "")
+    admin_password = os.getenv("ADMIN_PASSWORD", "")
+    if not admin_email or x_admin_email != admin_email or x_admin_password != admin_password:
+        raise HTTPException(401, "Unauthorized")
+    with Session(_engine) as db:
+        signups = db.query(WaitlistSignup).order_by(WaitlistSignup.created_at.desc()).all()
+        return {
+            "count": len(signups),
+            "signups": [
+                {
+                    "id":              s.id,
+                    "name":            s.name,
+                    "email":           s.email,
+                    "trading_type":    s.trading_type,
+                    "referral_source": s.referral_source,
+                    "createdAt":       s.created_at.isoformat() if s.created_at else None,
+                }
+                for s in signups
+            ],
+        }
