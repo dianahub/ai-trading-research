@@ -61,7 +61,7 @@ const FAQS = [
   },
   {
     q: 'How do I get paid / what do I get?',
-    a: 'Free tier partners get exposure and backlinks. Paid tiers give you enhanced placement, branding, and analytics. We're building toward direct revenue sharing for high-traffic partners — that's coming in a future update.',
+    a: "Free tier partners get exposure and backlinks. Paid tiers give you enhanced placement, branding, and analytics. We're building toward direct revenue sharing for high-traffic partners \u2014 that's coming in a future update.",
   },
   {
     q: 'How does the RSS feed work?',
