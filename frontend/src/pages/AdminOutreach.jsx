@@ -500,8 +500,11 @@ export default function AdminOutreach() {
                             <td className="px-4 py-3 max-w-xs" style={{ color: '#94a3b8' }}>
                               <span className="line-clamp-2 text-xs">{r.content_focus}</span>
                             </td>
-                            <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>
-                              {r.contact_email || '—'}
+                            <td className="px-4 py-3 text-xs">
+                              {r.contact_email
+                                ? <a href={`mailto:${r.contact_email}`} style={{ color: '#06b6d4', textDecoration: 'none' }}
+                                    title="Click to email">{r.contact_email}</a>
+                                : <span style={{ color: '#334155' }}>—</span>}
                             </td>
                             <td className="px-4 py-3">
                               <button
@@ -600,6 +603,14 @@ export default function AdminOutreach() {
                                   className="text-xs hover:underline" style={{ color: '#06b6d4' }}>
                                   {c.profile_url.length > 35 ? c.profile_url.slice(0, 35) + '…' : c.profile_url}
                                 </a>
+                              )}
+                              {c.contact_email && (
+                                <div className="mt-0.5">
+                                  <a href={`mailto:${c.contact_email}`} className="text-xs"
+                                    style={{ color: '#34d399', textDecoration: 'none' }}>
+                                    ✉ {c.contact_email}
+                                  </a>
+                                </div>
                               )}
                               {c.referral_code && (
                                 <div className="flex items-center gap-1 mt-0.5">
@@ -811,6 +822,23 @@ export default function AdminOutreach() {
                     </button>
                   ))}
                 </div>
+
+                {/* Subject line — shown for 1st Outreach tab */}
+                {msgTab === 'initial' && messages.subject && (
+                  <div className="mb-3">
+                    <div className="text-xs font-medium mb-1" style={{ color: '#475569' }}>Subject</div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={msgEdits.subject ?? messages.subject}
+                        onChange={e => setMsgEdits(prev => ({ ...prev, subject: e.target.value }))}
+                        className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                        style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }}
+                      />
+                      <CopyButton text={msgEdits.subject ?? messages.subject} />
+                    </div>
+                  </div>
+                )}
 
                 <textarea
                   rows={10}
