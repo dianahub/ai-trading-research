@@ -2339,12 +2339,44 @@ class OutreachContact(_Base):
     contact_email    = Column(String,   default="")
     content_focus    = Column(String,   default="")
     status           = Column(String,   default="new")  # new/drafted/sent/responded/partner/declined
+    last_message_sent = Column(String,  default="")    # initial/followup/upgrade/interest_followup
     date_contacted   = Column(DateTime, nullable=True)
     date_responded   = Column(DateTime, nullable=True)
     notes            = Column(String,   default="")
     referred_signups = Column(Integer,  default=0)
     referral_code    = Column(String,   default="")
     created_at       = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class ApiLead(_Base):
+    __tablename__ = "api_leads"
+    id               = Column(String,   primary_key=True, default=lambda: __import__('uuid').uuid4().hex)
+    company_name     = Column(String,   nullable=False)
+    contact_name     = Column(String,   default="")
+    contact_email    = Column(String,   default="")
+    platform         = Column(String,   default="")   # github/indiehackers/producthunt/crunchbase/jobpost/other
+    profile_url      = Column(String,   default="")
+    github_url       = Column(String,   default="")
+    what_they_build  = Column(String,   default="")
+    tech_stack       = Column(String,   default="")
+    stage            = Column(String,   default="")   # solo/early/seed/growth
+    status           = Column(String,   default="new")  # new/drafted/sent/responded/trialing/paying/declined
+    last_message_sent = Column(String,  default="")
+    mrr_potential    = Column(String,   default="")   # e.g. "$49", "$149"
+    notes            = Column(String,   default="")
+    date_contacted   = Column(DateTime, nullable=True)
+    date_responded   = Column(DateTime, nullable=True)
+    created_at       = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class ServiceJob(_Base):
+    __tablename__ = "service_jobs"
+    id           = Column(String,   primary_key=True, default=lambda: __import__('uuid').uuid4().hex)
+    company_name = Column(String,   nullable=False)
+    scope        = Column(String,   default="")
+    quoted_price = Column(Integer,  default=0)
+    status       = Column(String,   default="quoted")  # quoted/accepted/in_progress/complete/paid
+    hours_spent  = Column(Integer,  default=0)
+    notes        = Column(String,   default="")
+    created_at   = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 _Base.metadata.create_all(_engine)
 
@@ -2367,9 +2399,10 @@ def _contact_dict(c):
         "date_contacted":  c.date_contacted.isoformat() if c.date_contacted else None,
         "date_responded":  c.date_responded.isoformat() if c.date_responded else None,
         "notes":           c.notes,
-        "referred_signups": c.referred_signups or 0,
-        "referral_code":   c.referral_code,
-        "created_at":      c.created_at.isoformat() if c.created_at else None,
+        "referred_signups":  c.referred_signups or 0,
+        "referral_code":     c.referral_code,
+        "last_message_sent": c.last_message_sent or "",
+        "created_at":        c.created_at.isoformat() if c.created_at else None,
     }
 
 # ── CRUD ───────────────────────────────────────────────────────────────────────
@@ -2390,12 +2423,13 @@ class OutreachUpdateRequest(BaseModel):
     profile_url:    str | None = None
     contact_email:  str | None = None
     content_focus:  str | None = None
-    status:         str | None = None
-    date_contacted: str | None = None
-    date_responded: str | None = None
-    notes:          str | None = None
-    referred_signups: int | None = None
-    referral_code:  str | None = None
+    status:            str | None = None
+    last_message_sent: str | None = None
+    date_contacted:    str | None = None
+    date_responded:    str | None = None
+    notes:             str | None = None
+    referred_signups:  int | None = None
+    referral_code:     str | None = None
 
 @app.get("/outreach")
 def list_outreach(
@@ -2457,6 +2491,16 @@ def delete_outreach(
 
 # ── Prospect discovery ─────────────────────────────────────────────────────────
 
+SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+
+PLATFORM_SITE = {
+    "youtube":   "site:youtube.com",
+    "tiktok":    "site:tiktok.com",
+    "substack":  "site:substack.com",
+    "twitter":   "site:twitter.com OR site:x.com",
+    "instagram": "site:instagram.com",
+}
+
 class OutreachSearchRequest(BaseModel):
     keyword:  str
     platform: str  # youtube/substack/twitter/tiktok/instagram
@@ -2468,48 +2512,76 @@ def search_prospects(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
+    if not SERPER_API_KEY:
+        raise HTTPException(503, "Search API not configured")
+
+    site_filter = PLATFORM_SITE.get(req.platform, f"site:{req.platform}.com")
+    query = f"{req.keyword} {site_filter}"
+
+    # Fetch real results via Serper
+    raw_results = []
+    last_error = ""
+    for page in (1, 2):
+        try:
+            resp = requests.post(
+                "https://google.serper.dev/search",
+                headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
+                json={"q": query, "num": 10, "page": page},
+                timeout=15,
+            )
+            if resp.ok:
+                raw_results.extend(resp.json().get("organic", []))
+            else:
+                last_error = f"Serper {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:
+            last_error = str(e)
+
+    if not raw_results:
+        raise HTTPException(404, f"No results found — {last_error or 'try different keywords'}")
+
+    # Use Claude to parse real search results into structured prospect data
+    results_text = "\n\n".join(
+        f"Title: {r.get('title','')}\nURL: {r.get('link','')}\nSnippet: {r.get('snippet','')}"
+        for r in raw_results
+    )
+
     if not ANTHROPIC_API_KEY:
         raise HTTPException(503, "Anthropic API key not configured")
 
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    platform_hints = {
-        "youtube":   "YouTube channels",
-        "substack":  "Substack newsletters",
-        "twitter":   "Twitter/X accounts",
-        "tiktok":    "TikTok creators",
-        "instagram": "Instagram accounts",
-    }
-    platform_label = platform_hints.get(req.platform, req.platform)
+    prompt = f"""These are real Google search results for "{req.keyword}" on {req.platform}.
 
-    prompt = f"""Search for {platform_label} that cover "{req.keyword}". Find real, active creators with audiences interested in this topic.
+{results_text}
 
-For each creator found, extract:
-- name: their channel/account name
+Parse these into a structured list of content creators/accounts. For each result:
+- name: the creator/channel name (from the title, not the URL)
 - platform: "{req.platform}"
-- follower_count: approximate subscriber/follower count as a string (e.g. "12K", "450K", "1.2M")
-- profile_url: direct link to their profile/channel
-- contact_email: their public contact email if visible, otherwise empty string
-- content_focus: 1-2 sentence description of their content focus
+- follower_count: leave empty string "" — we don't have this data
+- profile_url: the profile URL (for TikTok keep only the @handle URL like https://tiktok.com/@handle, skip video or shop URLs)
+- contact_email: empty string "" unless the snippet explicitly shows an email address
+- content_focus: 1-2 sentences describing what they cover, inferred from the title and snippet
 
-Return ONLY a JSON object with a "prospects" array. Find at least 8-12 results. Example format:
+Skip results that are NOT creator profiles: skip shop pages, video pages, news articles, directories, aggregator sites.
+Only include results where the URL points to an actual creator profile/channel page.
+
+Return ONLY valid JSON, no markdown:
 {{"prospects": [{{"name": "...", "platform": "...", "follower_count": "...", "profile_url": "...", "contact_email": "...", "content_focus": "..."}}]}}"""
 
     try:
         response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system="You are a research assistant with deep knowledge of social media creators, influencers, and content publishers across YouTube, Substack, Twitter/X, TikTok, and Instagram. You know who the real creators are in financial astrology, mundane astrology, trading, and related niches. Always respond with valid JSON only — no markdown code fences, no explanation, just raw JSON.",
+            max_tokens=2048,
+            system="You parse search results into structured JSON. Return only raw JSON, no markdown, no explanation.",
             messages=[{"role": "user", "content": prompt}],
         )
         import re as _re
-        text_content = response.content[0].text.strip()
-        # Strip markdown code fences if present
-        text_content = _re.sub(r'^```(?:json)?\s*', '', text_content)
-        text_content = _re.sub(r'\s*```$', '', text_content.strip())
-        json_match = _re.search(r'\{[\s\S]*"prospects"[\s\S]*\}', text_content)
+        text = response.content[0].text.strip()
+        text = _re.sub(r'^```(?:json)?\s*', '', text)
+        text = _re.sub(r'\s*```$', '', text.strip())
+        json_match = _re.search(r'\{[\s\S]*"prospects"[\s\S]*\}', text)
         if json_match:
             return json.loads(json_match.group())
-        return json.loads(text_content)
+        return json.loads(text)
     except json.JSONDecodeError as e:
         raise HTTPException(500, f"Failed to parse response: {str(e)}")
     except Exception as e:
@@ -2547,10 +2619,38 @@ def generate_messages(
         except Exception:
             pass
 
-    is_dm_platform = contact["platform"] in ("tiktok", "instagram", "twitter")
-    style = "short DM (2-3 sentences, casual and direct)" if is_dm_platform else "email (3-4 short paragraphs, professional but warm)"
+    # TikTok creator with no website/RSS — needs special interest follow-up explaining how to join
+    is_tiktok_no_site = (
+        contact["platform"] == "tiktok" and
+        not contact.get("profile_url", "").strip().replace("https://www.tiktok.com", "").replace("https://tiktok.com", "")
+        or (contact["platform"] == "tiktok" and not contact.get("content_focus", "").lower().find("substack") > -1
+            and not any(x in (contact.get("profile_url") or "") for x in ["substack", "wordpress", "wix", "medium", "newsletter"]))
+    )
 
-    prompt = f"""You are writing partnership outreach messages for Starsignal.io — an AI + financial astrology trading research platform.
+    name_first = contact["name"].split()[0] if contact["name"] else contact["name"]
+
+    interest_followup_block = ""
+    if contact["platform"] == "tiktok":
+        interest_followup_block = f"""
+For the "interest_followup" (used when a TikTok creator says they're interested but has no newsletter/website):
+Write a warm, clear message explaining how they can get their content onto the platform without any tech knowledge.
+Use this exact structure:
+
+Hi {name_first},
+
+So glad you're interested! Since you're on TikTok the good news is there are a couple of really easy ways to get your insights into the platform — no tech stuff required.
+
+Option 1 — Start a free Substack (takes 5 minutes): Substack is basically just a free newsletter you write in, like an email. You sign up, write your astrology forecasts there, and we automatically pull them in. A lot of astrologers are already doing this. I can walk you through setting it up if you want — it's genuinely very simple.
+
+Option 2 — Paste directly on our site: You can go to starsignal.io/partners/submit and just paste your content straight into a form. No account needed, no feed setup. I'd just need you to drop your insights there whenever you post.
+
+Either way works great — just let me know which sounds easier and I'll help you get set up.
+
+Diana
+
+Rules: keep it friendly and non-technical. Never mention "RSS feed". The tone should feel like a helpful friend explaining something, not a tech onboarding guide."""
+
+    prompt = f"""You are writing partnership outreach messages for Star Signal — an AI + financial astrology trading research platform.
 
 Contact info:
 - Name: {contact['name']}
@@ -2562,27 +2662,39 @@ Contact info:
 Profile page excerpt (if available):
 {profile_content[:2000] if profile_content else '(not available)'}
 
-Write THREE outreach message variations as a JSON object. Style: {style}
+Write outreach messages as a JSON object.
 
-Starsignal.io context: AI-powered trading research combining technical analysis, news sentiment, whale tracking, and astrological market signals. Looking for content creator partners who get a referral link to share with their audience.
+IMPORTANT — The "initial" message MUST follow this exact template structure (fill in the bracketed parts):
 
-Rules:
-- Reference ONE specific piece of their content or their unique angle (make it feel personal, not copy-paste)
-- Keep the initial message SHORT — the goal is just to get a reply
-- Include a referral link placeholder: [REFERRAL_LINK]
-- If email style, include a Subject: line
+Hi [their first name],
 
-Return ONLY this JSON:
+I've been following your work for a while — [one specific, genuine thing you noticed about their content or approach — be concrete, not generic].
+
+I'm building a platform called Star Signal for traders who follow astrology. It combines real-time crypto and stock data with AI-extracted financial astrology insights — plain English conclusions served alongside market data.
+
+I'd love to get your feedback on it before we launch. Here's the link: https://ai-trading-research.vercel.app/
+
+If you think it's something your audience would find useful I'd also love to explore featuring your insights on the platform — but no pressure at all, genuinely just curious what you think.
+
+Diana
+
+Rules for the initial message:
+- Keep the specific compliment brief and genuine — one sentence, reference something real from their content focus or platform
+- Do NOT add extra paragraphs or change the structure
+- Do NOT include a subject line in the initial body (put it in the subject field separately)
+- Sign off as "Diana"
+
+For the followup (5-7 days later, no response): short, friendly, light touch — 2-3 sentences max referencing the first email.
+For the upgrade (after they join): pitch them on promoting to their audience — mention the referral link placeholder [REFERRAL_LINK].
+{interest_followup_block}
+
+Return ONLY this JSON (no markdown, no extra text):
 {{
+  "subject": "...",
   "initial": "...",
   "followup": "...",
-  "upgrade": "..."
-}}
-
-Where:
-- initial: First outreach message
-- followup: Follow-up after no response (5-7 days later, shorter, light humor ok)
-- upgrade: Message to send after they join as partner — pitch them on promoting to their audience with the referral link"""
+  "upgrade": "..."{',\n  "interest_followup": "..."' if contact["platform"] == "tiktok" else ""}
+}}"""
 
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     try:
@@ -2595,7 +2707,10 @@ Where:
         import re as _re
         json_match = _re.search(r'\{.*"initial".*\}', text, _re.DOTALL)
         if json_match:
-            return json.loads(json_match.group())
+            data = json.loads(json_match.group())
+            if "subject" not in data:
+                data["subject"] = "Quick question — Star Signal"
+            return data
         raise HTTPException(500, "Failed to parse message JSON")
     except HTTPException:
         raise
@@ -2727,4 +2842,456 @@ def outreach_analytics(
             "conversion_rate":  conversion_rate,
             "total_referred_signups": total_refs,
             "by_platform":      dict(platform_stats),
+        }
+
+# ── API Leads ──────────────────────────────────────────────────────────────────
+
+def _lead_dict(l):
+    return {
+        "id":             l.id,
+        "company_name":   l.company_name,
+        "contact_name":   l.contact_name,
+        "contact_email":  l.contact_email,
+        "platform":       l.platform,
+        "profile_url":    l.profile_url,
+        "github_url":     l.github_url,
+        "what_they_build": l.what_they_build,
+        "tech_stack":     l.tech_stack,
+        "stage":          l.stage,
+        "status":         l.status,
+        "last_message_sent": l.last_message_sent or "",
+        "mrr_potential":  l.mrr_potential,
+        "notes":          l.notes,
+        "date_contacted": l.date_contacted.isoformat() if l.date_contacted else None,
+        "date_responded": l.date_responded.isoformat() if l.date_responded else None,
+        "created_at":     l.created_at.isoformat() if l.created_at else None,
+    }
+
+class ApiLeadCreate(BaseModel):
+    company_name:   str
+    contact_name:   str = ""
+    contact_email:  str = ""
+    platform:       str = ""
+    profile_url:    str = ""
+    github_url:     str = ""
+    what_they_build: str = ""
+    tech_stack:     str = ""
+    stage:          str = ""
+    mrr_potential:  str = ""
+    notes:          str = ""
+
+class ApiLeadUpdate(BaseModel):
+    company_name:    str | None = None
+    contact_name:    str | None = None
+    contact_email:   str | None = None
+    platform:        str | None = None
+    profile_url:     str | None = None
+    github_url:      str | None = None
+    what_they_build: str | None = None
+    tech_stack:      str | None = None
+    stage:           str | None = None
+    status:          str | None = None
+    last_message_sent: str | None = None
+    mrr_potential:   str | None = None
+    notes:           str | None = None
+    date_contacted:  str | None = None
+    date_responded:  str | None = None
+
+@app.get("/api-leads")
+def list_api_leads(
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        leads = db.query(ApiLead).order_by(ApiLead.created_at.desc()).all()
+        return {"leads": [_lead_dict(l) for l in leads]}
+
+@app.post("/api-leads", status_code=201)
+def create_api_lead(
+    req: ApiLeadCreate,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        l = ApiLead(**req.model_dump())
+        db.add(l)
+        db.commit()
+        db.refresh(l)
+        return _lead_dict(l)
+
+@app.patch("/api-leads/{lead_id}")
+def update_api_lead(
+    lead_id: str,
+    req: ApiLeadUpdate,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        l = db.query(ApiLead).filter_by(id=lead_id).first()
+        if not l:
+            raise HTTPException(404, "Lead not found")
+        for field, val in req.model_dump(exclude_none=True).items():
+            if field in ("date_contacted", "date_responded") and isinstance(val, str):
+                val = datetime.fromisoformat(val) if val else None
+            setattr(l, field, val)
+        db.commit()
+        db.refresh(l)
+        return _lead_dict(l)
+
+@app.delete("/api-leads/{lead_id}", status_code=204)
+def delete_api_lead(
+    lead_id: str,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        l = db.query(ApiLead).filter_by(id=lead_id).first()
+        if not l:
+            raise HTTPException(404, "Lead not found")
+        db.delete(l)
+        db.commit()
+
+# ── API Lead discovery ─────────────────────────────────────────────────────────
+
+LEAD_PLATFORM_QUERY = {
+    "github":       "site:github.com",
+    "indiehackers": "site:indiehackers.com",
+    "producthunt":  "site:producthunt.com",
+    "crunchbase":   "site:crunchbase.com",
+    "jobpost":      "job posting financial data engineer OR fintech developer",
+}
+
+class ApiLeadSearchRequest(BaseModel):
+    keyword:  str
+    platform: str  # github/indiehackers/producthunt/crunchbase/jobpost
+
+@app.post("/api-leads/search")
+def search_api_leads(
+    req: ApiLeadSearchRequest,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    if not SERPER_API_KEY:
+        raise HTTPException(503, "Search API not configured")
+
+    site_filter = LEAD_PLATFORM_QUERY.get(req.platform, f"site:{req.platform}.com")
+    query = f"{req.keyword} {site_filter}"
+
+    raw_results = []
+    last_error = ""
+    for page in (1, 2):
+        try:
+            resp = requests.post(
+                "https://google.serper.dev/search",
+                headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
+                json={"q": query, "num": 10, "page": page},
+                timeout=15,
+            )
+            if resp.ok:
+                raw_results.extend(resp.json().get("organic", []))
+            else:
+                last_error = f"Serper {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:
+            last_error = str(e)
+
+    if not raw_results:
+        raise HTTPException(404, f"No results found — {last_error or 'try different keywords'}")
+
+    results_text = "\n\n".join(
+        f"Title: {r.get('title','')}\nURL: {r.get('link','')}\nSnippet: {r.get('snippet','')}"
+        for r in raw_results
+    )
+
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    prompt = f"""These are real search results for "{req.keyword}" on {req.platform}.
+
+{results_text}
+
+Parse into a list of potential API customers — companies, indie developers, or projects that are building trading tools, fintech dashboards, stock screeners, crypto apps, or anything that could use a financial astrology/signals API.
+
+For each result extract:
+- company_name: project or company name
+- contact_name: developer or founder name if visible
+- contact_email: email if visible in snippet, else empty string
+- platform: "{req.platform}"
+- profile_url: the URL as given
+- github_url: GitHub URL if this is a GitHub result, else empty string
+- what_they_build: 1-2 sentences on what they're building
+- tech_stack: any tech mentioned (e.g. "React, Node.js, Python") or empty string
+- stage: one of "solo", "early", "seed", "growth" based on signals in the snippet
+- mrr_potential: guess which Star Signal API tier they likely need — "$49" for small projects, "$149" for larger ones
+
+Skip results that are not actual projects or companies (skip tutorials, news articles, generic blog posts).
+
+Return ONLY valid JSON, no markdown:
+{{"leads": [{{"company_name":"...","contact_name":"...","contact_email":"...","platform":"...","profile_url":"...","github_url":"...","what_they_build":"...","tech_stack":"...","stage":"...","mrr_potential":"..."}}]}}"""
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            system="You parse search results into structured JSON. Return only raw JSON, no markdown, no explanation.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        import re as _re
+        text = response.content[0].text.strip()
+        text = _re.sub(r'^```(?:json)?\s*', '', text)
+        text = _re.sub(r'\s*```$', '', text.strip())
+        json_match = _re.search(r'\{[\s\S]*"leads"[\s\S]*\}', text)
+        if json_match:
+            return json.loads(json_match.group())
+        return json.loads(text)
+    except Exception as e:
+        raise HTTPException(500, f"Search failed: {str(e)}")
+
+# ── API Lead message generator ─────────────────────────────────────────────────
+
+@app.post("/api-leads/{lead_id}/generate-messages")
+def generate_lead_messages(
+    lead_id: str,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        l = db.query(ApiLead).filter_by(id=lead_id).first()
+        if not l:
+            raise HTTPException(404, "Lead not found")
+        lead = _lead_dict(l)
+
+    # Try to fetch GitHub README or website for context
+    page_content = ""
+    for url in [lead.get("github_url"), lead.get("profile_url")]:
+        if not url:
+            continue
+        try:
+            # For GitHub repos, fetch the README via raw API
+            raw_url = url
+            if "github.com/" in url and "/tree/" not in url and "/blob/" not in url:
+                parts = url.rstrip("/").replace("https://github.com/", "").split("/")
+                if len(parts) >= 2:
+                    raw_url = f"https://raw.githubusercontent.com/{parts[0]}/{parts[1]}/main/README.md"
+            resp = requests.get(raw_url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.ok:
+                import re as _re
+                text = _re.sub(r'<[^>]+>', ' ', resp.text)[:3000]
+                page_content = text
+                break
+        except Exception:
+            pass
+
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    prompt = f"""You are writing developer outreach messages for the Star Signal API — a financial astrology signals API that returns structured JSON market insights (topic, outlook, timeframe, confidence, source).
+
+Lead info:
+- Project/Company: {lead['company_name']}
+- Contact: {lead['contact_name'] or 'the developer'}
+- What they build: {lead['what_they_build']}
+- Tech stack: {lead['tech_stack']}
+- Stage: {lead['stage']}
+- Platform: {lead['platform']}
+- URL: {lead['profile_url']}
+
+README / page content (if available):
+{page_content[:2000] if page_content else '(not available)'}
+
+Write THREE outreach messages as JSON.
+
+Message 1 — cold_outreach:
+- Address them by name or "Hi," if unknown
+- Reference ONE specific thing about their project (from what_they_build or README)
+- Explain Star Signal API in one sentence: structured financial astrology signals as JSON — topic, outlook, timeframe, confidence
+- Say where it fits into their specific product (be concrete — e.g. "as an additional signal layer in your screener", "alongside your technical indicators")
+- Keep it under 150 words
+- Sign off as Diana
+- Include a subject line separately
+
+Message 2 — follow_up:
+- 5-7 days later, short, 2-3 sentences, reference first message, light touch
+
+Message 3 — implementation_offer:
+- Same as cold_outreach but add a paragraph:
+  "I also do integration work directly — if you want the API running in your stack without touching it yourself, I can have it live in a day or two. Flat fee, no ongoing commitment. Just let me know what you're working with."
+- Sign off as Diana
+
+Return ONLY this JSON:
+{{
+  "subject": "...",
+  "cold_outreach": "...",
+  "follow_up": "...",
+  "implementation_offer": "..."
+}}"""
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        import re as _re
+        text = response.content[0].text.strip()
+        text = _re.sub(r'^```(?:json)?\s*', '', text)
+        text = _re.sub(r'\s*```$', '', text.strip())
+        json_match = _re.search(r'\{.*"cold_outreach".*\}', text, _re.DOTALL)
+        if json_match:
+            data = json.loads(json_match.group())
+            if "subject" not in data:
+                data["subject"] = f"Quick question about {lead['company_name']}"
+            return data
+        raise HTTPException(500, "Failed to parse message JSON")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Message generation failed: {str(e)}")
+
+# ── Service Jobs ───────────────────────────────────────────────────────────────
+
+def _job_dict(j):
+    return {
+        "id":           j.id,
+        "company_name": j.company_name,
+        "scope":        j.scope,
+        "quoted_price": j.quoted_price,
+        "status":       j.status,
+        "hours_spent":  j.hours_spent,
+        "notes":        j.notes,
+        "created_at":   j.created_at.isoformat() if j.created_at else None,
+    }
+
+class ServiceJobCreate(BaseModel):
+    company_name: str
+    scope:        str = ""
+    quoted_price: int = 0
+    status:       str = "quoted"
+    hours_spent:  int = 0
+    notes:        str = ""
+
+class ServiceJobUpdate(BaseModel):
+    company_name: str | None = None
+    scope:        str | None = None
+    quoted_price: int | None = None
+    status:       str | None = None
+    hours_spent:  int | None = None
+    notes:        str | None = None
+
+@app.get("/service-jobs")
+def list_service_jobs(
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        jobs = db.query(ServiceJob).order_by(ServiceJob.created_at.desc()).all()
+        return {"jobs": [_job_dict(j) for j in jobs]}
+
+@app.post("/service-jobs", status_code=201)
+def create_service_job(
+    req: ServiceJobCreate,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        j = ServiceJob(**req.model_dump())
+        db.add(j)
+        db.commit()
+        db.refresh(j)
+        return _job_dict(j)
+
+@app.patch("/service-jobs/{job_id}")
+def update_service_job(
+    job_id: str,
+    req: ServiceJobUpdate,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        j = db.query(ServiceJob).filter_by(id=job_id).first()
+        if not j:
+            raise HTTPException(404, "Job not found")
+        for field, val in req.model_dump(exclude_none=True).items():
+            setattr(j, field, val)
+        db.commit()
+        db.refresh(j)
+        return _job_dict(j)
+
+@app.delete("/service-jobs/{job_id}", status_code=204)
+def delete_service_job(
+    job_id: str,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        j = db.query(ServiceJob).filter_by(id=job_id).first()
+        if not j:
+            raise HTTPException(404, "Job not found")
+        db.delete(j)
+        db.commit()
+
+# ── Combined analytics ─────────────────────────────────────────────────────────
+
+@app.get("/combined-analytics")
+def combined_analytics(
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        leads   = db.query(ApiLead).all()
+        jobs    = db.query(ServiceJob).all()
+        partners = db.query(OutreachContact).all()
+
+        total_leads    = len(leads)
+        leads_sent     = sum(1 for l in leads if l.status not in ("new", "drafted"))
+        leads_responded = sum(1 for l in leads if l.status in ("responded", "trialing", "paying"))
+        leads_paying   = sum(1 for l in leads if l.status == "paying")
+        leads_trialing = sum(1 for l in leads if l.status == "trialing")
+
+        mrr_from_leads = 0
+        for l in leads:
+            if l.status == "paying" and l.mrr_potential:
+                try:
+                    mrr_from_leads += int(l.mrr_potential.replace("$", "").strip())
+                except Exception:
+                    pass
+
+        response_rate  = round(leads_responded / leads_sent * 100, 1) if leads_sent > 0 else 0
+        trial_rate     = round(leads_trialing  / leads_responded * 100, 1) if leads_responded > 0 else 0
+        pay_rate       = round(leads_paying    / leads_trialing  * 100, 1) if leads_trialing > 0 else 0
+        avg_mrr        = round(mrr_from_leads  / leads_paying, 2) if leads_paying > 0 else 0
+
+        pipeline_value   = sum(j.quoted_price for j in jobs if j.status not in ("complete", "paid"))
+        completed_revenue = sum(j.quoted_price for j in jobs if j.status in ("complete", "paid"))
+
+        total_partners = sum(1 for p in partners if p.status == "partner")
+
+        return {
+            "api_leads": {
+                "total":          total_leads,
+                "contacted":      leads_sent,
+                "responded":      leads_responded,
+                "trialing":       leads_trialing,
+                "paying":         leads_paying,
+                "response_rate":  response_rate,
+                "trial_rate":     trial_rate,
+                "pay_rate":       pay_rate,
+                "mrr":            mrr_from_leads,
+                "avg_mrr":        avg_mrr,
+            },
+            "services": {
+                "total_jobs":         len(jobs),
+                "pipeline_value":     pipeline_value,
+                "completed_revenue":  completed_revenue,
+                "in_progress":        sum(1 for j in jobs if j.status == "in_progress"),
+            },
+            "partners": {
+                "total": total_partners,
+            },
         }

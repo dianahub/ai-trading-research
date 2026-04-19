@@ -62,6 +62,7 @@ export default function AdminOutreach() {
   const [authForm, setAuthForm]     = useState({ email: sessionStorage.getItem('admin_email') || '', password: sessionStorage.getItem('admin_pw') || '' })
   const [authError, setAuthError]   = useState('')
 
+  const [mode, setMode]             = useState('partners') // 'partners' | 'apileads'
   const [tab, setTab]               = useState('discover')
   const [contacts, setContacts]     = useState([])
   const [followUps, setFollowUps]   = useState([])
@@ -389,6 +390,27 @@ export default function AdminOutreach() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-6">
+        {/* Mode toggle */}
+        <div className="flex items-center gap-3 mb-6">
+          {[
+            { id: 'partners', label: '✦ Astrologer Partners' },
+            { id: 'apileads', label: '⚡ API Leads' },
+          ].map(m => (
+            <button key={m.id} onClick={() => setMode(m.id)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer"
+              style={{
+                background: mode === m.id ? 'linear-gradient(135deg,#06b6d4,#3b82f6)' : '#0f1a2e',
+                border: `1px solid ${mode === m.id ? '#06b6d4' : '#1e2d45'}`,
+                color: mode === m.id ? '#fff' : '#64748b',
+              }}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'apileads' && <ApiLeadsSection API={API} adminHeaders={adminHeaders} />}
+
+        {mode === 'partners' && <>
         {/* Tab bar */}
         <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit"
           style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
@@ -785,6 +807,7 @@ export default function AdminOutreach() {
         {tab === 'analytics' && !analytics && (
           <div className="p-12 text-center" style={{ color: '#475569' }}>Loading analytics…</div>
         )}
+        </>}
       </main>
 
       {/* ── Message modal ── */}
@@ -967,6 +990,638 @@ export default function AdminOutreach() {
                 style={{ background: '#1e2d45', color: '#64748b' }}>
                 Cancel
               </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+// ── API Leads Section ──────────────────────────────────────────────────────────
+
+const LEAD_PLATFORMS  = ['github', 'indiehackers', 'producthunt', 'crunchbase', 'jobpost']
+const LEAD_STATUSES   = ['new', 'drafted', 'sent', 'responded', 'trialing', 'paying', 'declined']
+const JOB_STATUSES    = ['quoted', 'accepted', 'in_progress', 'complete', 'paid']
+
+const LEAD_STATUS_STYLE = {
+  new:       { bg: '#1f2937', color: '#9ca3af' },
+  drafted:   { bg: '#1e3a5f', color: '#60a5fa' },
+  sent:      { bg: '#431407', color: '#fb923c' },
+  responded: { bg: '#1e1b4b', color: '#a78bfa' },
+  trialing:  { bg: '#0c2a1a', color: '#34d399' },
+  paying:    { bg: '#052e16', color: '#4ade80' },
+  declined:  { bg: '#450a0a', color: '#f87171' },
+}
+
+function LeadBadge({ status }) {
+  const s = LEAD_STATUS_STYLE[status] || LEAD_STATUS_STYLE.new
+  return <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: s.bg, color: s.color }}>{status}</span>
+}
+
+function ApiLeadsSection({ API, adminHeaders }) {
+  const [tab, setTab]               = useState('discover')
+  const [leads, setLeads]           = useState([])
+  const [jobs, setJobs]             = useState([])
+  const [combinedAnalytics, setCombined] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('all')
+
+  // Discover
+  const [keyword, setKeyword]       = useState('')
+  const [platform, setPlatform]     = useState('github')
+  const [searching, setSearching]   = useState(false)
+  const [results, setResults]       = useState([])
+  const [searchError, setSearchError] = useState('')
+  const [addedIds, setAddedIds]     = useState(new Set())
+
+  // Message modal
+  const [msgModal, setMsgModal]     = useState(null)
+  const [messages, setMessages]     = useState(null)
+  const [msgLoading, setMsgLoading] = useState(false)
+  const [msgTab, setMsgTab]         = useState('cold_outreach')
+  const [msgEdits, setMsgEdits]     = useState({})
+  const [sendingEmail, setSendingEmail] = useState(null)
+
+  // Edit lead modal
+  const [editModal, setEditModal]   = useState(null)
+  const [editForm, setEditForm]     = useState({})
+  const [saving, setSaving]         = useState(false)
+
+  // Service job modal
+  const [jobModal, setJobModal]     = useState(null) // null | 'new' | job object
+  const [jobForm, setJobForm]       = useState({ company_name: '', scope: '', quoted_price: '', status: 'quoted', hours_spent: '', notes: '' })
+  const [savingJob, setSavingJob]   = useState(false)
+
+  const loadLeads = useCallback(async () => {
+    const res = await fetch(`${API}/api-leads`, { headers: adminHeaders() })
+    if (res.ok) { const d = await res.json(); setLeads(d.leads || []) }
+  }, [API, adminHeaders])
+
+  const loadJobs = useCallback(async () => {
+    const res = await fetch(`${API}/service-jobs`, { headers: adminHeaders() })
+    if (res.ok) { const d = await res.json(); setJobs(d.jobs || []) }
+  }, [API, adminHeaders])
+
+  const loadCombined = useCallback(async () => {
+    const res = await fetch(`${API}/combined-analytics`, { headers: adminHeaders() })
+    if (res.ok) setCombined(await res.json())
+  }, [API, adminHeaders])
+
+  useEffect(() => {
+    loadLeads(); loadJobs(); loadCombined()
+  }, [loadLeads, loadJobs, loadCombined])
+
+  async function handleSearch(e) {
+    e.preventDefault()
+    setSearching(true); setResults([]); setSearchError('')
+    try {
+      const res = await fetch(`${API}/api-leads/search`, {
+        method: 'POST', headers: adminHeaders(),
+        body: JSON.stringify({ keyword, platform }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setSearchError(data.detail || 'Search failed'); return }
+      setResults(data.leads || [])
+    } catch { setSearchError('Network error') }
+    finally { setSearching(false) }
+  }
+
+  async function handleAddLead(lead) {
+    const res = await fetch(`${API}/api-leads`, {
+      method: 'POST', headers: adminHeaders(), body: JSON.stringify(lead),
+    })
+    if (res.ok) { setAddedIds(s => new Set([...s, lead.profile_url])); loadLeads() }
+  }
+
+  async function openMsgModal(lead) {
+    setMsgModal(lead); setMessages(null); setMsgEdits({}); setMsgTab('cold_outreach'); setMsgLoading(true)
+    try {
+      const res = await fetch(`${API}/api-leads/${lead.id}/generate-messages`, { method: 'POST', headers: adminHeaders() })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail)
+      setMessages(data)
+      setMsgEdits({ subject: data.subject || '', cold_outreach: data.cold_outreach || '', follow_up: data.follow_up || '', implementation_offer: data.implementation_offer || '' })
+    } catch (err) { setMessages({ error: err.message }) }
+    finally { setMsgLoading(false) }
+  }
+
+  async function handleMarkSent(lead, tab) {
+    await fetch(`${API}/api-leads/${lead.id}`, {
+      method: 'PATCH', headers: adminHeaders(),
+      body: JSON.stringify({ status: 'sent', last_message_sent: tab || 'cold_outreach', date_contacted: new Date().toISOString() }),
+    })
+    loadLeads()
+  }
+
+  async function handleSendEmail(lead, message) {
+    if (!lead.contact_email) return
+    setSendingEmail(lead.id)
+    try {
+      await fetch(`${API}/outreach/${lead.id}/send-email`, {
+        method: 'POST', headers: adminHeaders(),
+        body: JSON.stringify({ message, subject: msgEdits.subject || '' }),
+      })
+    } finally { setSendingEmail(null) }
+  }
+
+  function openEditModal(lead) {
+    setEditModal(lead)
+    setEditForm({ ...lead })
+  }
+
+  async function handleSaveEdit() {
+    setSaving(true)
+    await fetch(`${API}/api-leads/${editModal.id}`, {
+      method: 'PATCH', headers: adminHeaders(), body: JSON.stringify(editForm),
+    })
+    setSaving(false); setEditModal(null); loadLeads()
+  }
+
+  async function handleDeleteLead(lead) {
+    if (!confirm(`Delete ${lead.company_name}?`)) return
+    await fetch(`${API}/api-leads/${lead.id}`, { method: 'DELETE', headers: adminHeaders() })
+    loadLeads()
+  }
+
+  async function handleSaveJob() {
+    setSavingJob(true)
+    const payload = { ...jobForm, quoted_price: parseInt(jobForm.quoted_price) || 0, hours_spent: parseInt(jobForm.hours_spent) || 0 }
+    if (jobModal === 'new') {
+      await fetch(`${API}/service-jobs`, { method: 'POST', headers: adminHeaders(), body: JSON.stringify(payload) })
+    } else {
+      await fetch(`${API}/service-jobs/${jobModal.id}`, { method: 'PATCH', headers: adminHeaders(), body: JSON.stringify(payload) })
+    }
+    setSavingJob(false); setJobModal(null); loadJobs(); loadCombined()
+  }
+
+  async function handleDeleteJob(job) {
+    if (!confirm(`Delete job for ${job.company_name}?`)) return
+    await fetch(`${API}/service-jobs/${job.id}`, { method: 'DELETE', headers: adminHeaders() })
+    loadJobs(); loadCombined()
+  }
+
+  const filteredLeads = statusFilter === 'all' ? leads : leads.filter(l => l.status === statusFilter)
+  const ca = combinedAnalytics?.api_leads
+  const cs = combinedAnalytics?.services
+
+  return (
+    <div>
+      {/* Sub-tabs */}
+      <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+        {[
+          { id: 'discover',  label: '🔍 Discover' },
+          { id: 'leads',     label: '📋 Leads' + (leads.length ? ' (' + leads.length + ')' : '') },
+          { id: 'services',  label: '🔧 Services' + (jobs.length ? ' (' + jobs.length + ')' : '') },
+          { id: 'analytics', label: '📊 Analytics' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
+            style={{ background: tab === t.id ? '#1e3a5f' : 'transparent', color: tab === t.id ? '#e2e8f0' : '#64748b' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Discover ── */}
+      {tab === 'discover' && (
+        <div>
+          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 mb-6">
+            <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="e.g. crypto trading dashboard, stock screener, fintech app"
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
+            <select value={platform} onChange={e => setPlatform(e.target.value)}
+              className="px-3 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
+              style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}>
+              {LEAD_PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <button type="submit" disabled={searching || !keyword.trim()}
+              className="px-6 py-2.5 rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none' }}>
+              {searching ? 'Searching…' : 'Search'}
+            </button>
+          </form>
+          {searchError && <p className="text-sm mb-4" style={{ color: '#f87171' }}>{searchError}</p>}
+          {results.length > 0 && (
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
+                    {['Project', 'What they build', 'Tech', 'Stage', 'MRR', 'Email', ''].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#475569' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((r, i) => {
+                    const added = addedIds.has(r.profile_url)
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid #1e2d45', background: i % 2 === 0 ? '#070b16' : '#080d18' }}>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-sm" style={{ color: '#f1f5f9' }}>{r.company_name}</div>
+                          {r.contact_name && <div className="text-xs" style={{ color: '#475569' }}>{r.contact_name}</div>}
+                          {r.profile_url && <a href={r.profile_url} target="_blank" rel="noreferrer" className="text-xs" style={{ color: '#06b6d4' }}>{r.profile_url.replace(/^https?:\/\//, '').slice(0, 40)}</a>}
+                        </td>
+                        <td className="px-4 py-3 max-w-xs"><span className="text-xs line-clamp-2" style={{ color: '#94a3b8' }}>{r.what_they_build}</span></td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>{r.tech_stack || '—'}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>{r.stage || '—'}</td>
+                        <td className="px-4 py-3 text-xs font-bold" style={{ color: '#06b6d4' }}>{r.mrr_potential || '—'}</td>
+                        <td className="px-4 py-3 text-xs">
+                          {r.contact_email ? <a href={`mailto:${r.contact_email}`} style={{ color: '#34d399', textDecoration: 'none' }}>✉ {r.contact_email}</a> : <span style={{ color: '#334155' }}>—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => handleAddLead(r)} disabled={added}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50"
+                            style={{ background: added ? '#052e16' : 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: added ? '#34d399' : '#fff' }}>
+                            {added ? '✓ Added' : '+ Add'}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Leads ── */}
+      {tab === 'leads' && (
+        <div>
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            {['all', ...LEAD_STATUSES].map(s => (
+              <button key={s} onClick={() => setStatusFilter(s)}
+                className="px-3 py-1 rounded-lg text-xs font-medium capitalize cursor-pointer"
+                style={{ background: statusFilter === s ? 'linear-gradient(135deg,#06b6d4,#3b82f6)' : '#0f1a2e', border: `1px solid ${statusFilter === s ? '#06b6d4' : '#1e2d45'}`, color: statusFilter === s ? '#fff' : '#64748b' }}>
+                {s}
+              </button>
+            ))}
+          </div>
+          {filteredLeads.length === 0 ? (
+            <p className="text-sm py-12 text-center" style={{ color: '#475569' }}>No leads yet — use Discover to find prospects.</p>
+          ) : (
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
+                      {['Company', 'Platform', 'What they build', 'Stage', 'MRR', 'Status', 'Actions'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#475569', background: '#0f1a2e' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.map(l => (
+                      <tr key={l.id} style={{ borderBottom: '1px solid #1e2d45', background: '#0a0e1a' }}>
+                        <td className="px-4 py-3">
+                          <div className="font-medium" style={{ color: '#f1f5f9' }}>{l.company_name}</div>
+                          {l.contact_name && <div className="text-xs" style={{ color: '#475569' }}>{l.contact_name}</div>}
+                          {l.contact_email && <a href={`mailto:${l.contact_email}`} className="text-xs" style={{ color: '#34d399', textDecoration: 'none' }}>✉ {l.contact_email}</a>}
+                          {l.last_message_sent && <div className="text-xs mt-0.5" style={{ color: '#475569' }}>Last: <span style={{ color: '#94a3b8' }}>{l.last_message_sent.replace(/_/g, ' ')}</span></div>}
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{l.platform}</td>
+                        <td className="px-4 py-3 max-w-xs"><span className="text-xs line-clamp-2" style={{ color: '#94a3b8' }}>{l.what_they_build}</span></td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>{l.stage || '—'}</td>
+                        <td className="px-4 py-3 text-xs font-bold" style={{ color: '#06b6d4' }}>{l.mrr_potential || '—'}</td>
+                        <td className="px-4 py-3"><LeadBadge status={l.status} /></td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button onClick={() => openMsgModal(l)}
+                              className="px-2.5 py-1 rounded text-xs font-medium cursor-pointer"
+                              style={{ background: '#1e1b4b', color: '#a78bfa', border: '1px solid #3730a3' }}>
+                              Generate
+                            </button>
+                            <button onClick={() => handleMarkSent(l, 'cold_outreach')}
+                              className="px-2.5 py-1 rounded text-xs font-medium cursor-pointer"
+                              style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #1e2d45' }}>
+                              Mark Sent
+                            </button>
+                            <button onClick={() => openEditModal(l)}
+                              className="px-2.5 py-1 rounded text-xs font-medium cursor-pointer"
+                              style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #1e2d45' }}>
+                              Edit
+                            </button>
+                            <button onClick={() => handleDeleteLead(l)}
+                              className="px-2 py-1 rounded text-xs cursor-pointer"
+                              style={{ background: 'transparent', color: '#f87171', border: '1px solid #7f1d1d' }}>
+                              ✕
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Services Pipeline ── */}
+      {tab === 'services' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold" style={{ color: '#f1f5f9' }}>Services Pipeline</h2>
+            <button onClick={() => { setJobForm({ company_name: '', scope: '', quoted_price: '', status: 'quoted', hours_spent: '', notes: '' }); setJobModal('new') }}
+              className="px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer"
+              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none' }}>
+              + New Job
+            </button>
+          </div>
+
+          {cs && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: 'Pipeline Value',      value: `$${cs.pipeline_value}` },
+                { label: 'Completed Revenue',   value: `$${cs.completed_revenue}` },
+                { label: 'Total Jobs',          value: cs.total_jobs },
+                { label: 'In Progress',         value: cs.in_progress },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                  <div className="text-xs mb-1" style={{ color: '#475569' }}>{s.label}</div>
+                  <div className="text-xl font-black" style={{ color: '#06b6d4' }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {jobs.length === 0 ? (
+            <p className="text-sm py-12 text-center" style={{ color: '#475569' }}>No jobs yet.</p>
+          ) : (
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
+                    {['Company', 'Scope', 'Price', 'Status', 'Hours', ''].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#475569' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map((j, i) => (
+                    <tr key={j.id} style={{ borderBottom: '1px solid #1e2d45', background: i % 2 === 0 ? '#070b16' : '#080d18' }}>
+                      <td className="px-4 py-3 font-medium" style={{ color: '#f1f5f9' }}>{j.company_name}</td>
+                      <td className="px-4 py-3 text-xs max-w-xs" style={{ color: '#94a3b8' }}>{j.scope}</td>
+                      <td className="px-4 py-3 text-sm font-bold" style={{ color: '#06b6d4' }}>${j.quoted_price}</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold capitalize"
+                          style={{ background: j.status === 'paid' ? '#052e16' : j.status === 'in_progress' ? '#1e3a5f' : '#1e2d45', color: j.status === 'paid' ? '#4ade80' : j.status === 'in_progress' ? '#60a5fa' : '#94a3b8' }}>
+                          {j.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>{j.hours_spent}h</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1.5">
+                          <button onClick={() => { setJobForm({ ...j, quoted_price: String(j.quoted_price), hours_spent: String(j.hours_spent) }); setJobModal(j) }}
+                            className="px-2.5 py-1 rounded text-xs cursor-pointer"
+                            style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #1e2d45' }}>Edit</button>
+                          <button onClick={() => handleDeleteJob(j)}
+                            className="px-2 py-1 rounded text-xs cursor-pointer"
+                            style={{ background: 'transparent', color: '#f87171', border: '1px solid #7f1d1d' }}>✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Analytics ── */}
+      {tab === 'analytics' && ca && (
+        <div className="flex flex-col gap-6">
+          <div>
+            <h2 className="text-sm font-semibold mb-4" style={{ color: '#94a3b8' }}>API Lead Funnel</h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                { label: 'Total Leads',    value: ca.total },
+                { label: 'Contacted',      value: ca.contacted },
+                { label: 'Responded',      value: `${ca.responded} (${ca.response_rate}%)` },
+                { label: 'Trialing',       value: `${ca.trialing} (${ca.trial_rate}%)` },
+                { label: 'Paying',         value: `${ca.paying} (${ca.pay_rate}%)` },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                  <div className="text-xs mb-1" style={{ color: '#475569' }}>{s.label}</div>
+                  <div className="text-xl font-black" style={{ color: '#06b6d4' }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                <div className="text-xs mb-1" style={{ color: '#475569' }}>MRR from API</div>
+                <div className="text-2xl font-black" style={{ color: '#4ade80' }}>${ca.mrr}</div>
+              </div>
+              <div className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                <div className="text-xs mb-1" style={{ color: '#475569' }}>Avg MRR / Customer</div>
+                <div className="text-2xl font-black" style={{ color: '#4ade80' }}>${ca.avg_mrr}</div>
+              </div>
+            </div>
+          </div>
+          {cs && (
+            <div>
+              <h2 className="text-sm font-semibold mb-4" style={{ color: '#94a3b8' }}>Services</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: 'Pipeline Value',     value: `$${cs.pipeline_value}` },
+                  { label: 'Completed Revenue',  value: `$${cs.completed_revenue}` },
+                  { label: 'Total Jobs',         value: cs.total_jobs },
+                  { label: 'In Progress',        value: cs.in_progress },
+                ].map(s => (
+                  <div key={s.label} className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                    <div className="text-xs mb-1" style={{ color: '#475569' }}>{s.label}</div>
+                    <div className="text-xl font-black" style={{ color: '#06b6d4' }}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Message modal ── */}
+      {msgModal && (
+        <Modal onClose={() => setMsgModal(null)}>
+          <div className="p-6 flex flex-col gap-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-base font-bold" style={{ color: '#f1f5f9' }}>{msgModal.company_name}</h3>
+                <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{msgModal.what_they_build?.slice(0, 80)}</p>
+              </div>
+              <button onClick={() => setMsgModal(null)} style={{ color: '#475569', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+            {msgLoading && <p className="text-sm text-center py-6" style={{ color: '#475569' }}>Generating…</p>}
+            {messages?.error && <p className="text-sm" style={{ color: '#f87171' }}>{messages.error}</p>}
+            {messages && !messages.error && !msgLoading && (
+              <>
+                <div className="flex flex-wrap gap-1 p-1 rounded-lg w-fit" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+                  {[
+                    { id: 'cold_outreach',        label: 'Cold Outreach' },
+                    { id: 'follow_up',            label: 'Follow-Up' },
+                    { id: 'implementation_offer', label: '🔧 Implementation' },
+                  ].map(t => (
+                    <button key={t.id} onClick={() => setMsgTab(t.id)}
+                      className="px-3 py-1.5 rounded text-xs font-medium cursor-pointer transition-all"
+                      style={{ background: msgTab === t.id ? '#1e3a5f' : 'transparent', color: msgTab === t.id ? '#e2e8f0' : '#64748b' }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                {msgTab === 'cold_outreach' && messages.subject && (
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: '#475569' }}>Subject</div>
+                    <div className="flex items-center gap-2">
+                      <input type="text" value={msgEdits.subject ?? messages.subject}
+                        onChange={e => setMsgEdits(p => ({ ...p, subject: e.target.value }))}
+                        className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                        style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
+                      <CopyButton text={msgEdits.subject ?? messages.subject} />
+                    </div>
+                  </div>
+                )}
+                <textarea rows={10} value={msgEdits[msgTab] || ''}
+                  onChange={e => setMsgEdits(p => ({ ...p, [msgTab]: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-y"
+                  style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0', lineHeight: '1.6' }} />
+                <div className="flex items-center gap-2">
+                  <CopyButton text={msgEdits[msgTab] || ''} />
+                  {msgModal.contact_email && (
+                    <button onClick={() => handleSendEmail(msgModal, msgEdits[msgTab] || '')}
+                      disabled={sendingEmail === msgModal.id}
+                      className="px-3 py-1 rounded text-xs font-medium cursor-pointer disabled:opacity-50"
+                      style={{ background: '#052e16', color: '#34d399', border: '1px solid #065f46' }}>
+                      {sendingEmail === msgModal.id ? 'Sending…' : 'Send via Email'}
+                    </button>
+                  )}
+                </div>
+                <div className="mt-1">
+                  <button onClick={() => { handleMarkSent(msgModal, msgTab); setMsgModal(null) }}
+                    className="px-3 py-1 rounded text-xs font-medium cursor-pointer"
+                    style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #1e2d45' }}>
+                    Mark "{msgTab.replace(/_/g, ' ')}" as Sent
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Edit lead modal ── */}
+      {editModal && (
+        <Modal onClose={() => setEditModal(null)}>
+          <div className="p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold" style={{ color: '#f1f5f9' }}>Edit Lead</h3>
+              <button onClick={() => setEditModal(null)} style={{ color: '#475569', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+            {[
+              { key: 'company_name',  label: 'Company / Project', type: 'text' },
+              { key: 'contact_name',  label: 'Contact Name',      type: 'text' },
+              { key: 'contact_email', label: 'Email',             type: 'email' },
+              { key: 'profile_url',   label: 'Profile URL',       type: 'text' },
+              { key: 'github_url',    label: 'GitHub URL',        type: 'text' },
+              { key: 'tech_stack',    label: 'Tech Stack',        type: 'text' },
+              { key: 'mrr_potential', label: 'MRR Potential',     type: 'text' },
+            ].map(({ key, label, type }) => (
+              <div key={key}>
+                <label className="block text-xs mb-1" style={{ color: '#64748b' }}>{label}</label>
+                <input type={type} value={editForm[key] || ''}
+                  onChange={e => setEditForm(p => ({ ...p, [key]: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>What they build</label>
+              <textarea rows={3} value={editForm.what_they_build || ''}
+                onChange={e => setEditForm(p => ({ ...p, what_they_build: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Status</label>
+              <select value={editForm.status || 'new'} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
+                style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }}>
+                {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Notes</label>
+              <textarea rows={3} value={editForm.notes || ''}
+                onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleSaveEdit} disabled={saving}
+                className="px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none' }}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={() => setEditModal(null)}
+                className="px-4 py-2 rounded-lg text-sm cursor-pointer"
+                style={{ background: '#1e2d45', color: '#64748b', border: 'none' }}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Service job modal ── */}
+      {jobModal !== null && (
+        <Modal onClose={() => setJobModal(null)}>
+          <div className="p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold" style={{ color: '#f1f5f9' }}>{jobModal === 'new' ? 'New Job' : 'Edit Job'}</h3>
+              <button onClick={() => setJobModal(null)} style={{ color: '#475569', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+            {[
+              { key: 'company_name', label: 'Company', type: 'text' },
+              { key: 'quoted_price', label: 'Quoted Price ($)', type: 'number' },
+              { key: 'hours_spent',  label: 'Hours Spent', type: 'number' },
+            ].map(({ key, label, type }) => (
+              <div key={key}>
+                <label className="block text-xs mb-1" style={{ color: '#64748b' }}>{label}</label>
+                <input type={type} value={jobForm[key] || ''}
+                  onChange={e => setJobForm(p => ({ ...p, [key]: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Scope</label>
+              <textarea rows={3} value={jobForm.scope || ''}
+                onChange={e => setJobForm(p => ({ ...p, scope: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Status</label>
+              <select value={jobForm.status || 'quoted'} onChange={e => setJobForm(p => ({ ...p, status: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
+                style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }}>
+                {JOB_STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Notes</label>
+              <textarea rows={2} value={jobForm.notes || ''}
+                onChange={e => setJobForm(p => ({ ...p, notes: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
+                style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleSaveJob} disabled={savingJob}
+                className="px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none' }}>
+                {savingJob ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={() => setJobModal(null)}
+                className="px-4 py-2 rounded-lg text-sm cursor-pointer"
+                style={{ background: '#1e2d45', color: '#64748b', border: 'none' }}>Cancel</button>
             </div>
           </div>
         </Modal>
