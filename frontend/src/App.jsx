@@ -575,6 +575,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             <span className="text-xs" style={{ color: '#475569' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
             <div className="flex items-center gap-4">
               <Link to="/about" className="text-xs hover:underline" style={{ color: '#64748b' }}>About</Link>
+              <Link to="/partners" className="text-xs hover:underline" style={{ color: '#64748b' }}>Partners</Link>
               <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
               <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>
               <Link to="/contact" className="text-xs hover:underline" style={{ color: '#64748b' }}>Contact</Link>
