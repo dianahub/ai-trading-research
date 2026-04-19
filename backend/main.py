@@ -2498,21 +2498,20 @@ Return ONLY a JSON object with a "prospects" array. Find at least 8-12 results. 
         response = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=4096,
-            tools=[{"type": "web_search_20250305", "name": "web_search"}],
+            system="You are a research assistant with deep knowledge of social media creators, influencers, and content publishers across YouTube, Substack, Twitter/X, TikTok, and Instagram. You know who the real creators are in financial astrology, mundane astrology, trading, and related niches. Always respond with valid JSON only — no markdown code fences, no explanation, just raw JSON.",
             messages=[{"role": "user", "content": prompt}],
         )
-        # Extract text from response (may include tool use blocks)
-        text_content = ""
-        for block in response.content:
-            if hasattr(block, "text"):
-                text_content += block.text
-        # Parse JSON from response
         import re as _re
-        json_match = _re.search(r'\{.*"prospects".*\}', text_content, _re.DOTALL)
+        text_content = response.content[0].text.strip()
+        # Strip markdown code fences if present
+        text_content = _re.sub(r'^```(?:json)?\s*', '', text_content)
+        text_content = _re.sub(r'\s*```$', '', text_content.strip())
+        json_match = _re.search(r'\{[\s\S]*"prospects"[\s\S]*\}', text_content)
         if json_match:
-            data = json.loads(json_match.group())
-            return data
-        return {"prospects": [], "raw": text_content}
+            return json.loads(json_match.group())
+        return json.loads(text_content)
+    except json.JSONDecodeError as e:
+        raise HTTPException(500, f"Failed to parse response: {str(e)}")
     except Exception as e:
         raise HTTPException(500, f"Search failed: {str(e)}")
 

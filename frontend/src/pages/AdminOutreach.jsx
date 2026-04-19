@@ -450,6 +450,12 @@ export default function AdminOutreach() {
               </div>
             )}
 
+            {!searching && !searchError && results.length === 0 && keyword && (
+              <div className="p-6 rounded-xl text-center text-sm" style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#475569' }}>
+                No results returned. Try a different keyword or platform.
+              </div>
+            )}
+
             {results.length > 0 && (
               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
                 <div className="px-4 py-3" style={{ background: '#111827', borderBottom: '1px solid #1e2d45' }}>
