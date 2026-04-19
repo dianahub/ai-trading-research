@@ -1,27 +1,7 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-const ASTROLOGERS = [
-  {
-    name: 'AKxyz Astrology',
-    url: 'https://akxyz.blogspot.com',
-    description: 'Financial and mundane astrology blog covering market cycles and planetary influences on global economics.',
-  },
-  {
-    name: 'Astrodoc Anil',
-    url: 'https://astrodocanil.com',
-    description: 'Vedic astrology research with detailed analysis of planetary transits and their impact on financial markets.',
-  },
-  {
-    name: 'Cosmologer',
-    url: 'https://cosmologer.blogspot.com',
-    description: 'Long-running financial astrology blog analyzing stock market trends through planetary cycles and cosmic timing.',
-  },
-  {
-    name: "Rowan's Financial Astrology",
-    url: 'https://rowansfinancialastrology.com',
-    description: 'Dedicated financial astrology resource providing market forecasts, commodity outlooks, and cycle analysis.',
-  },
-]
+const ASTRO_API = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
 
 function PageLayout({ title, children }) {
   return (
@@ -63,6 +43,15 @@ function PageLayout({ title, children }) {
 }
 
 export default function AboutPage() {
+  const [sources, setSources] = useState([])
+
+  useEffect(() => {
+    fetch(`${ASTRO_API}/api/v1/sources`)
+      .then(r => r.json())
+      .then(d => setSources(d.sources ?? []))
+      .catch(() => {})
+  }, [])
+
   return (
     <PageLayout title="About Starsignal.io">
 
@@ -81,10 +70,13 @@ export default function AboutPage() {
       {/* Astrologers section */}
       <div className="pt-4">
         <h2 className="text-base font-bold mb-5" style={{ color: '#e2e8f0' }}>
-          ♄ Our Astrology Sources
+          ♄ Our Astrology Sources {sources.length > 0 && <span style={{ color: '#475569', fontWeight: 400 }}>({sources.length})</span>}
         </h2>
         <div className="space-y-4">
-          {ASTROLOGERS.map(a => (
+          {sources.length === 0 && (
+            <p style={{ color: '#475569', fontSize: '13px' }}>Loading sources…</p>
+          )}
+          {sources.map(a => (
             <div
               key={a.name}
               className="rounded-lg p-4 space-y-2"
@@ -99,7 +91,6 @@ export default function AboutPage() {
               >
                 {a.name} ↗
               </a>
-              <p className="text-xs" style={{ color: '#64748b' }}>{a.description}</p>
               <p className="text-xs font-mono" style={{ color: '#334155' }}>{a.url}</p>
             </div>
           ))}
