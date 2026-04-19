@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, String, DateTime, text
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, text
 from sqlalchemy.orm import DeclarativeBase, Session
 from coingecko_client import coingecko, CoinGeckoError, PRICE_TTL, MARKET_TTL, SEARCH_TTL
 
@@ -2324,4 +2324,408 @@ def list_signups(
                 }
                 for s in signups
             ],
+        }
+
+
+# ── Outreach management ────────────────────────────────────────────────────────
+
+class OutreachContact(_Base):
+    __tablename__ = "outreach_contacts"
+    id               = Column(String,   primary_key=True, default=lambda: __import__('uuid').uuid4().hex)
+    name             = Column(String,   nullable=False)
+    platform         = Column(String,   nullable=False)
+    follower_count   = Column(String,   default="")
+    profile_url      = Column(String,   default="")
+    contact_email    = Column(String,   default="")
+    content_focus    = Column(String,   default="")
+    status           = Column(String,   default="new")  # new/drafted/sent/responded/partner/declined
+    date_contacted   = Column(DateTime, nullable=True)
+    date_responded   = Column(DateTime, nullable=True)
+    notes            = Column(String,   default="")
+    referred_signups = Column(Integer,  default=0)
+    referral_code    = Column(String,   default="")
+    created_at       = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+_Base.metadata.create_all(_engine)
+
+def _require_admin(x_admin_email: str, x_admin_password: str):
+    ae = os.getenv("ADMIN_EMAIL", "")
+    ap = os.getenv("ADMIN_PASSWORD", "")
+    if not ae or x_admin_email != ae or x_admin_password != ap:
+        raise HTTPException(401, "Unauthorized")
+
+def _contact_dict(c):
+    return {
+        "id":              c.id,
+        "name":            c.name,
+        "platform":        c.platform,
+        "follower_count":  c.follower_count,
+        "profile_url":     c.profile_url,
+        "contact_email":   c.contact_email,
+        "content_focus":   c.content_focus,
+        "status":          c.status,
+        "date_contacted":  c.date_contacted.isoformat() if c.date_contacted else None,
+        "date_responded":  c.date_responded.isoformat() if c.date_responded else None,
+        "notes":           c.notes,
+        "referred_signups": c.referred_signups or 0,
+        "referral_code":   c.referral_code,
+        "created_at":      c.created_at.isoformat() if c.created_at else None,
+    }
+
+# ── CRUD ───────────────────────────────────────────────────────────────────────
+
+class OutreachCreateRequest(BaseModel):
+    name:           str
+    platform:       str
+    follower_count: str = ""
+    profile_url:    str = ""
+    contact_email:  str = ""
+    content_focus:  str = ""
+    notes:          str = ""
+
+class OutreachUpdateRequest(BaseModel):
+    name:           str | None = None
+    platform:       str | None = None
+    follower_count: str | None = None
+    profile_url:    str | None = None
+    contact_email:  str | None = None
+    content_focus:  str | None = None
+    status:         str | None = None
+    date_contacted: str | None = None
+    date_responded: str | None = None
+    notes:          str | None = None
+    referred_signups: int | None = None
+    referral_code:  str | None = None
+
+@app.get("/outreach")
+def list_outreach(
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        contacts = db.query(OutreachContact).order_by(OutreachContact.created_at.desc()).all()
+        return {"contacts": [_contact_dict(c) for c in contacts]}
+
+@app.post("/outreach", status_code=201)
+def create_outreach(
+    req: OutreachCreateRequest,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        c = OutreachContact(**req.model_dump())
+        db.add(c)
+        db.commit()
+        db.refresh(c)
+        return _contact_dict(c)
+
+@app.patch("/outreach/{contact_id}")
+def update_outreach(
+    contact_id: str,
+    req: OutreachUpdateRequest,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        c = db.query(OutreachContact).filter_by(id=contact_id).first()
+        if not c:
+            raise HTTPException(404, "Contact not found")
+        for field, val in req.model_dump(exclude_none=True).items():
+            if field in ("date_contacted", "date_responded") and isinstance(val, str):
+                val = datetime.fromisoformat(val) if val else None
+            setattr(c, field, val)
+        db.commit()
+        db.refresh(c)
+        return _contact_dict(c)
+
+@app.delete("/outreach/{contact_id}", status_code=204)
+def delete_outreach(
+    contact_id: str,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        c = db.query(OutreachContact).filter_by(id=contact_id).first()
+        if not c:
+            raise HTTPException(404, "Contact not found")
+        db.delete(c)
+        db.commit()
+
+# ── Prospect discovery ─────────────────────────────────────────────────────────
+
+class OutreachSearchRequest(BaseModel):
+    keyword:  str
+    platform: str  # youtube/substack/twitter/tiktok/instagram
+
+@app.post("/outreach/search")
+def search_prospects(
+    req: OutreachSearchRequest,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "Anthropic API key not configured")
+
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    platform_hints = {
+        "youtube":   "YouTube channels",
+        "substack":  "Substack newsletters",
+        "twitter":   "Twitter/X accounts",
+        "tiktok":    "TikTok creators",
+        "instagram": "Instagram accounts",
+    }
+    platform_label = platform_hints.get(req.platform, req.platform)
+
+    prompt = f"""Search for {platform_label} that cover "{req.keyword}". Find real, active creators with audiences interested in this topic.
+
+For each creator found, extract:
+- name: their channel/account name
+- platform: "{req.platform}"
+- follower_count: approximate subscriber/follower count as a string (e.g. "12K", "450K", "1.2M")
+- profile_url: direct link to their profile/channel
+- contact_email: their public contact email if visible, otherwise empty string
+- content_focus: 1-2 sentence description of their content focus
+
+Return ONLY a JSON object with a "prospects" array. Find at least 8-12 results. Example format:
+{{"prospects": [{{"name": "...", "platform": "...", "follower_count": "...", "profile_url": "...", "contact_email": "...", "content_focus": "..."}}]}}"""
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            tools=[{"type": "web_search_20250305", "name": "web_search"}],
+            messages=[{"role": "user", "content": prompt}],
+        )
+        # Extract text from response (may include tool use blocks)
+        text_content = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text_content += block.text
+        # Parse JSON from response
+        import re as _re
+        json_match = _re.search(r'\{.*"prospects".*\}', text_content, _re.DOTALL)
+        if json_match:
+            data = json.loads(json_match.group())
+            return data
+        return {"prospects": [], "raw": text_content}
+    except Exception as e:
+        raise HTTPException(500, f"Search failed: {str(e)}")
+
+# ── AI message generator ───────────────────────────────────────────────────────
+
+@app.post("/outreach/{contact_id}/generate-messages")
+def generate_messages(
+    contact_id: str,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        c = db.query(OutreachContact).filter_by(id=contact_id).first()
+        if not c:
+            raise HTTPException(404, "Contact not found")
+        contact = _contact_dict(c)
+
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(503, "Anthropic API key not configured")
+
+    # Try to fetch profile page for recent content
+    profile_content = ""
+    if contact["profile_url"]:
+        try:
+            resp = requests.get(contact["profile_url"], timeout=8,
+                                headers={"User-Agent": "Mozilla/5.0"})
+            if resp.ok:
+                text = resp.text[:6000]
+                # Strip HTML tags
+                import re as _re
+                profile_content = _re.sub(r'<[^>]+>', ' ', text)[:3000]
+        except Exception:
+            pass
+
+    is_dm_platform = contact["platform"] in ("tiktok", "instagram", "twitter")
+    style = "short DM (2-3 sentences, casual and direct)" if is_dm_platform else "email (3-4 short paragraphs, professional but warm)"
+
+    prompt = f"""You are writing partnership outreach messages for Starsignal.io — an AI + financial astrology trading research platform.
+
+Contact info:
+- Name: {contact['name']}
+- Platform: {contact['platform']}
+- Followers: {contact['follower_count']}
+- Content focus: {contact['content_focus']}
+- Profile URL: {contact['profile_url']}
+
+Profile page excerpt (if available):
+{profile_content[:2000] if profile_content else '(not available)'}
+
+Write THREE outreach message variations as a JSON object. Style: {style}
+
+Starsignal.io context: AI-powered trading research combining technical analysis, news sentiment, whale tracking, and astrological market signals. Looking for content creator partners who get a referral link to share with their audience.
+
+Rules:
+- Reference ONE specific piece of their content or their unique angle (make it feel personal, not copy-paste)
+- Keep the initial message SHORT — the goal is just to get a reply
+- Include a referral link placeholder: [REFERRAL_LINK]
+- If email style, include a Subject: line
+
+Return ONLY this JSON:
+{{
+  "initial": "...",
+  "followup": "...",
+  "upgrade": "..."
+}}
+
+Where:
+- initial: First outreach message
+- followup: Follow-up after no response (5-7 days later, shorter, light humor ok)
+- upgrade: Message to send after they join as partner — pitch them on promoting to their audience with the referral link"""
+
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.content[0].text.strip()
+        import re as _re
+        json_match = _re.search(r'\{.*"initial".*\}', text, _re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group())
+        raise HTTPException(500, "Failed to parse message JSON")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Message generation failed: {str(e)}")
+
+# ── Send email via Resend ──────────────────────────────────────────────────────
+
+class SendEmailRequest(BaseModel):
+    message: str
+    subject: str = ""
+
+@app.post("/outreach/{contact_id}/send-email")
+def send_outreach_email(
+    contact_id: str,
+    req: SendEmailRequest,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    if not RESEND_API_KEY:
+        raise HTTPException(503, "Resend API key not configured")
+    with Session(_engine) as db:
+        c = db.query(OutreachContact).filter_by(id=contact_id).first()
+        if not c:
+            raise HTTPException(404, "Contact not found")
+        if not c.contact_email:
+            raise HTTPException(400, "Contact has no email address")
+        try:
+            resend.api_key = RESEND_API_KEY
+            result = resend.Emails.send({
+                "from":    "Starsignal <onboarding@resend.dev>",
+                "to":      [c.contact_email],
+                "subject": req.subject or f"Partnership opportunity — Starsignal.io",
+                "text":    req.message,
+            })
+            # Mark as sent
+            c.status = "sent"
+            c.date_contacted = datetime.now(timezone.utc)
+            db.commit()
+            return {"ok": True, "email_id": result.get("id")}
+        except Exception as e:
+            raise HTTPException(500, f"Email send failed: {str(e)}")
+
+# ── Referral link generation ───────────────────────────────────────────────────
+
+@app.post("/outreach/{contact_id}/generate-referral")
+def generate_referral(
+    contact_id: str,
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        c = db.query(OutreachContact).filter_by(id=contact_id).first()
+        if not c:
+            raise HTTPException(404, "Contact not found")
+        import re as _re
+        slug = _re.sub(r'[^a-z0-9]', '', c.name.lower().replace(' ', ''))[:20]
+        c.referral_code = slug
+        c.status = "partner"
+        db.commit()
+        referral_url = f"https://starsignal.io?ref={slug}"
+        return {"referral_url": referral_url, "referral_code": slug}
+
+# ── Follow-up reminders ────────────────────────────────────────────────────────
+
+@app.get("/outreach/follow-ups")
+def get_follow_ups(
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=5)
+    with Session(_engine) as db:
+        contacts = (
+            db.query(OutreachContact)
+            .filter(
+                OutreachContact.status == "sent",
+                OutreachContact.date_contacted != None,
+                OutreachContact.date_contacted <= cutoff,
+                OutreachContact.date_responded == None,
+            )
+            .all()
+        )
+        return {"follow_ups": [_contact_dict(c) for c in contacts]}
+
+# ── Analytics ──────────────────────────────────────────────────────────────────
+
+@app.get("/outreach/analytics")
+def outreach_analytics(
+    x_admin_email:    str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        all_contacts = db.query(OutreachContact).all()
+
+        total        = len(all_contacts)
+        sent         = sum(1 for c in all_contacts if c.status in ("sent", "responded", "partner", "declined"))
+        responded    = sum(1 for c in all_contacts if c.status in ("responded", "partner"))
+        partners     = sum(1 for c in all_contacts if c.status == "partner")
+        declined     = sum(1 for c in all_contacts if c.status == "declined")
+        total_refs   = sum((c.referred_signups or 0) for c in all_contacts)
+
+        response_rate   = round(responded / sent  * 100, 1) if sent   > 0 else 0
+        conversion_rate = round(partners  / responded * 100, 1) if responded > 0 else 0
+
+        # Per-platform breakdown
+        from collections import defaultdict
+        platform_stats = defaultdict(lambda: {"total": 0, "sent": 0, "responded": 0, "partners": 0})
+        for c in all_contacts:
+            p = c.platform
+            platform_stats[p]["total"] += 1
+            if c.status in ("sent", "responded", "partner", "declined"):
+                platform_stats[p]["sent"] += 1
+            if c.status in ("responded", "partner"):
+                platform_stats[p]["responded"] += 1
+            if c.status == "partner":
+                platform_stats[p]["partners"] += 1
+
+        return {
+            "total_prospects":  total,
+            "messages_sent":    sent,
+            "responses":        responded,
+            "partners":         partners,
+            "declined":         declined,
+            "response_rate":    response_rate,
+            "conversion_rate":  conversion_rate,
+            "total_referred_signups": total_refs,
+            "by_platform":      dict(platform_stats),
         }
