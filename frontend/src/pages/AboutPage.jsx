@@ -3,6 +3,19 @@ import { Link } from 'react-router-dom'
 
 const ASTRO_API = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
 
+const KNOWN_SOURCES = [
+  { name: 'StockAstrologer',                    url: 'https://stockastrologer.com' },
+  { name: 'Invest By Cycles Newsletter',        url: 'https://investbycyclesnewsletter.substack.com' },
+  { name: "Rowan's Financial Astrology",        url: 'https://rowansfinancialastrology.com' },
+  { name: 'AuraWright Media',                   url: 'https://aurawrightmedia.substack.com' },
+  { name: 'LunaticTrader',                      url: 'https://blog.lunatictrader.com' },
+  { name: 'Financial Astrology by Rajeev Prakash', url: 'https://rajeevprakash.com' },
+  { name: 'The Weekly Stars',                   url: 'https://theweeklystars.substack.com' },
+  { name: 'AKxyz Astrology',                    url: 'https://akxyz.blogspot.com' },
+  { name: 'Astrodoc Anil',                      url: 'https://astrodocanil.com' },
+  { name: 'Cosmologer',                         url: 'https://cosmologer.blogspot.com' },
+]
+
 function PageLayout({ title, children }) {
   return (
     <div style={{ background: '#070b16', minHeight: '100vh', color: '#e2e8f0' }}>
@@ -43,12 +56,12 @@ function PageLayout({ title, children }) {
 }
 
 export default function AboutPage() {
-  const [sources, setSources] = useState([])
+  const [sources, setSources] = useState(KNOWN_SOURCES)
 
   useEffect(() => {
     fetch(`${ASTRO_API}/api/v1/sources`)
       .then(r => r.json())
-      .then(d => setSources(d.sources ?? []))
+      .then(d => { if (d.sources?.length) setSources(d.sources) })
       .catch(() => {})
   }, [])
 
@@ -73,9 +86,6 @@ export default function AboutPage() {
           ♄ Our Astrology Sources {sources.length > 0 && <span style={{ color: '#475569', fontWeight: 400 }}>({sources.length})</span>}
         </h2>
         <div className="space-y-4">
-          {sources.length === 0 && (
-            <p style={{ color: '#475569', fontSize: '13px' }}>Loading sources…</p>
-          )}
           {sources.map(a => (
             <div
               key={a.name}
