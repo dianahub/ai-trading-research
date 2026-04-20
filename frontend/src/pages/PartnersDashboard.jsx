@@ -485,6 +485,7 @@ export default function PartnersDashboard() {
           <div className="flex items-center gap-4 text-xs" style={{ color: '#475569' }}>
             <Link to="/terms" style={{ color: '#475569', textDecoration: 'none' }}>Terms</Link>
             <Link to="/privacy" style={{ color: '#475569', textDecoration: 'none' }}>Privacy</Link>
+            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'none' }}>LinkedIn</a>
           </div>
         </div>
       </footer>

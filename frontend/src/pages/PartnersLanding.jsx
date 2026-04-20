@@ -268,6 +268,7 @@ export default function PartnersLanding() {
             <Link to="/privacy" style={{ color: '#475569', textDecoration: 'none' }}>Privacy</Link>
             <Link to="/contact" style={{ color: '#475569', textDecoration: 'none' }}>Contact</Link>
             <Link to="/partners/dashboard" style={{ color: '#475569', textDecoration: 'none' }}>Partner Login</Link>
+            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'none' }}>LinkedIn</a>
           </div>
         </div>
       </footer>

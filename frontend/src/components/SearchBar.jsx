@@ -39,7 +39,7 @@ export default function SearchBar({ onSearch, loading, disabled = false }) {
       </div>
       <button
         onClick={submit}
-        disabled={loading || !input.trim() || disabled}
+        disabled={loading || disabled}
         className="px-5 py-3.5 md:py-2.5 rounded-lg text-base md:text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 cursor-pointer"
         style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', color: '#fff' }}
       >

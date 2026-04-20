@@ -31,6 +31,7 @@ function PageLayout({ title, children }) {
             <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
             <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>
             <Link to="/contact" className="text-xs hover:underline" style={{ color: '#64748b' }}>Contact</Link>
+            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" className="text-xs hover:underline" style={{ color: '#64748b' }}>LinkedIn</a>
           </div>
         </div>
       </footer>
