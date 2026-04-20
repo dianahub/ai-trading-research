@@ -289,7 +289,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           </div>
           {/* Search bar — full width on mobile */}
           <div className="flex-1">
-            <SearchBar onSearch={handleSearch} loading={loading} disabled={AUTH_ACTIVE && !authedUser} />
+            <SearchBar onSearch={handleSearch} loading={loading} disabled={false} />
           </div>
           {/* LIVE badge — desktop only */}
           <div className="hidden md:flex items-center gap-2 text-xs shrink-0"
