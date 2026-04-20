@@ -1,5 +1,12 @@
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+const PUBLIC_DOMAINS = ['ai-trading-research.vercel.app']
+
+export function isPublicDomain() {
+  if (typeof window === 'undefined') return false
+  return PUBLIC_DOMAINS.includes(window.location.hostname)
+}
+
 export async function getMe() {
   const r = await fetch(`${API}/auth/me`, { credentials: 'include' })
   if (!r.ok) return null

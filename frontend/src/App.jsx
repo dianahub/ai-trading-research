@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import './App.css'
 import SearchBar from './components/SearchBar'
 import AuthNav from './components/AuthNav'
-import { getMe } from './lib/auth'
+import { getMe, isPublicDomain } from './lib/auth'
 
 const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true'
+const AUTH_ACTIVE = AUTH_ENABLED && !isPublicDomain()
 import PriceCard from './components/PriceCard'
 import SentimentBanner from './components/SentimentBanner'
 import TechnicalGrid from './components/TechnicalGrid'
@@ -132,7 +133,7 @@ export default function App() {
   const [authedUser, setAuthedUser] = useState(null)
 
   useEffect(() => {
-    if (AUTH_ENABLED) getMe().then(setAuthedUser).catch(() => setAuthedUser(null))
+    if (AUTH_ACTIVE) getMe().then(setAuthedUser).catch(() => setAuthedUser(null))
   }, [])
   const headerRef = useRef(null)
 
@@ -288,7 +289,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           </div>
           {/* Search bar — full width on mobile */}
           <div className="flex-1">
-            <SearchBar onSearch={handleSearch} loading={loading} disabled={AUTH_ENABLED && !authedUser} />
+            <SearchBar onSearch={handleSearch} loading={loading} disabled={AUTH_ACTIVE && !authedUser} />
           </div>
           {/* LIVE badge — desktop only */}
           <div className="hidden md:flex items-center gap-2 text-xs shrink-0"
@@ -440,7 +441,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               <p className="text-base font-semibold" style={{ color: '#94a3b8' }}>👇 Try a quick search below, or enter any symbol above in the search bar and click Analyze</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => {
-                  const locked = AUTH_ENABLED && !authedUser
+                  const locked = AUTH_ACTIVE && !authedUser
                   return (
                     <button key={t}
                       onClick={() => !locked && handleSearch(t)}
@@ -459,7 +460,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                   )
                 })}
               </div>
-              {AUTH_ENABLED && !authedUser && (
+              {AUTH_ACTIVE && !authedUser && (
                 <p className="text-xs mt-1" style={{ color: '#334155' }}>
                   <a href="/login" style={{ color: '#06b6d4', textDecoration: 'none' }}>Sign in</a> or{' '}
                   <a href="/beta" style={{ color: '#06b6d4', textDecoration: 'none' }}>apply for beta</a> to search

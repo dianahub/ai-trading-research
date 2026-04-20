@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getMe, logout, tierLabel } from '../lib/auth'
+import { getMe, logout, tierLabel, isPublicDomain } from '../lib/auth'
 
 const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true'
 
@@ -27,7 +27,7 @@ export default function AuthNav() {
   const ref = useRef(null)
 
   useEffect(() => {
-    if (!AUTH_ENABLED) { setUser(null); return }
+    if (!AUTH_ENABLED || isPublicDomain()) { setUser(null); return }
     getMe().then(setUser).catch(() => setUser(null))
   }, [])
 
@@ -37,7 +37,7 @@ export default function AuthNav() {
     return () => document.removeEventListener('mousedown', close)
   }, [])
 
-  if (!AUTH_ENABLED) return null
+  if (!AUTH_ENABLED || isPublicDomain()) return null
   if (user === undefined) return null
 
   if (!user) return (
