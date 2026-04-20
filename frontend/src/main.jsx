@@ -12,6 +12,16 @@ import PartnersLanding from './pages/PartnersLanding.jsx'
 import PartnersApply from './pages/PartnersApply.jsx'
 import PartnersDashboard from './pages/PartnersDashboard.jsx'
 import AdminPartners from './pages/AdminPartners.jsx'
+import LoginPage from './pages/LoginPage.jsx'
+import SignupPage from './pages/SignupPage.jsx'
+import VerifyEmailPage from './pages/VerifyEmailPage.jsx'
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
+import MagicLoginPage from './pages/MagicLoginPage.jsx'
+import BetaPage from './pages/BetaPage.jsx'
+import AccountPage from './pages/AccountPage.jsx'
+import DashboardPage from './pages/DashboardPage.jsx'
+import ProtectedRoute from './components/ProtectedRoute.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -26,7 +36,20 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/partners" element={<AdminPartners />} />
         <Route path="/partners" element={<PartnersLanding />} />
         <Route path="/partners/apply" element={<PartnersApply />} />
-        <Route path="/partners/dashboard" element={<PartnersDashboard />} />
+        {/* Protected routes — require login when AUTH_ENABLED=true */}
+        <Route path="/partners/dashboard" element={<ProtectedRoute><PartnersDashboard /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+        <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+        {/* Auth pages */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/magic-login" element={<MagicLoginPage />} />
+        {/* Beta */}
+        <Route path="/beta" element={<BetaPage />} />
+        <Route path="/join" element={<BetaPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

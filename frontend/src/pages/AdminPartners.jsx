@@ -46,6 +46,389 @@ function StatCard({ label, value }) {
   )
 }
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+function betaAdminHeaders(email, password) {
+  return {
+    'Content-Type': 'application/json',
+    'x-admin-email':    email,
+    'x-admin-password': password,
+  }
+}
+
+function BetaApplicationsTab({ email, password }) {
+  const [apps, setApps] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [actioning, setActioning] = useState('')
+  const [rejectingId, setRejectingId] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
+
+  useEffect(() => {
+    fetch(`${API}/admin/beta-applications`, { headers: betaAdminHeaders(email, password) })
+      .then(r => r.json()).then(setApps).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  async function approve(id) {
+    setActioning(id)
+    await fetch(`${API}/admin/beta-applications/${id}/approve`, {
+      method: 'PATCH', headers: betaAdminHeaders(email, password),
+    })
+    setApps(a => a.map(x => x.id === id ? { ...x, status: 'approved' } : x))
+    setActioning('')
+  }
+
+  async function reject(id) {
+    if (!rejectReason.trim()) return
+    setActioning(id)
+    await fetch(`${API}/admin/beta-applications/${id}/reject`, {
+      method: 'PATCH',
+      headers: betaAdminHeaders(email, password),
+      body: JSON.stringify({ reason: rejectReason }),
+    })
+    setApps(a => a.map(x => x.id === id ? { ...x, status: 'rejected' } : x))
+    setActioning('')
+    setRejectingId(null)
+    setRejectReason('')
+  }
+
+  const pending = apps.filter(a => a.status === 'pending')
+  const done    = apps.filter(a => a.status !== 'pending')
+
+  if (loading) return <p style={{ color: '#475569', padding: '24px' }}>Loading…</p>
+
+  return (
+    <div>
+      <div className="flex items-center gap-4 mb-6">
+        <div className="text-sm font-semibold" style={{ color: '#f1f5f9' }}>Beta Applications</div>
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+          style={{ background: '#0e4d6b', color: '#7dd3fc' }}>
+          {pending.length} pending
+        </span>
+      </div>
+
+      {pending.length === 0 && done.length === 0 && (
+        <p style={{ color: '#475569', fontSize: '14px' }}>No applications yet.</p>
+      )}
+
+      {pending.length > 0 && (
+        <div className="space-y-3 mb-8">
+          {pending.map(app => (
+            <div key={app.id} className="rounded-xl p-5"
+              style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm mb-0.5" style={{ color: '#f1f5f9' }}>{app.name}</p>
+                  <p className="text-xs mb-2" style={{ color: '#64748b' }}>{app.email}</p>
+                  <div className="flex flex-wrap gap-3 text-xs mb-2">
+                    {app.trader_type && <span style={{ color: '#94a3b8' }}>📊 {app.trader_type}</span>}
+                    {app.how_heard && <span style={{ color: '#94a3b8' }}>📣 {app.how_heard}</span>}
+                  </div>
+                  {app.why_text && (
+                    <p className="text-xs rounded p-2" style={{ color: '#94a3b8', background: '#0f1a2e' }}>
+                      "{app.why_text}"
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={() => approve(app.id)} disabled={!!actioning}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                    style={{ background: '#052e16', border: '1px solid #166534', color: '#4ade80' }}>
+                    {actioning === app.id ? '…' : '✓ Approve'}
+                  </button>
+                  <button onClick={() => { setRejectingId(app.id); setRejectReason('') }}
+                    disabled={!!actioning}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                    style={{ background: '#1e0a0a', border: '1px solid #7f1d1d', color: '#f87171' }}>
+                    ✕ Reject
+                  </button>
+                </div>
+              </div>
+              {rejectingId === app.id && (
+                <div className="mt-3 flex flex-col gap-2">
+                  <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                    placeholder="Rejection reason (will be emailed to applicant)…"
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-lg text-xs outline-none resize-none"
+                    style={{ background: '#0a0e1a', border: '1px solid #7f1d1d', color: '#e2e8f0' }} />
+                  <div className="flex gap-2">
+                    <button onClick={() => reject(app.id)} disabled={!rejectReason.trim() || !!actioning}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                      style={{ background: '#7f1d1d', color: '#fff', border: 'none' }}>
+                      Send Rejection
+                    </button>
+                    <button onClick={() => setRejectingId(null)}
+                      className="px-3 py-1.5 rounded-lg text-xs"
+                      style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#64748b' }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              <p className="text-xs mt-2" style={{ color: '#334155' }}>
+                {app.created_at ? new Date(app.created_at).toLocaleString() : ''}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {done.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold mb-3" style={{ color: '#475569' }}>Processed</p>
+          <div className="space-y-2">
+            {done.map(app => (
+              <div key={app.id} className="rounded-lg px-4 py-3 flex items-center justify-between"
+                style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
+                <div>
+                  <span className="text-sm" style={{ color: '#94a3b8' }}>{app.name}</span>
+                  <span className="text-xs ml-2" style={{ color: '#475569' }}>{app.email}</span>
+                </div>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  style={{
+                    background: app.status === 'approved' ? '#052e16' : '#1e0a0a',
+                    color: app.status === 'approved' ? '#4ade80' : '#f87171',
+                  }}>
+                  {app.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const TIER_COLORS = {
+  free: '#64748b', beta: '#06b6d4', founding: '#f59e0b',
+  pro: '#3b82f6', premium: '#8b5cf6', partner_preview: '#22d3ee', platform: '#d4a847',
+}
+const ALL_TIERS = ['free', 'beta', 'founding', 'pro', 'premium', 'partner_preview', 'platform']
+
+function UsersTab({ email, password }) {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [changingTier, setChangingTier] = useState({})
+
+  useEffect(() => {
+    fetch(`${API}/admin/users`, { headers: betaAdminHeaders(email, password) })
+      .then(r => r.json()).then(setUsers).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  async function setTier(userId, tier) {
+    setChangingTier(c => ({ ...c, [userId]: true }))
+    const r = await fetch(`${API}/admin/users/${userId}/tier`, {
+      method: 'PATCH',
+      headers: betaAdminHeaders(email, password),
+      body: JSON.stringify({ tier }),
+    })
+    const updated = await r.json()
+    if (r.ok) setUsers(us => us.map(u => u.id === userId ? updated : u))
+    setChangingTier(c => ({ ...c, [userId]: false }))
+  }
+
+  if (loading) return <p style={{ color: '#475569', padding: '24px' }}>Loading…</p>
+
+  return (
+    <div>
+      <p className="text-sm font-semibold mb-4" style={{ color: '#f1f5f9' }}>
+        All Users <span style={{ color: '#475569', fontWeight: 400 }}>({users.length})</span>
+      </p>
+      <div className="rounded-xl overflow-x-auto" style={{ border: '1px solid #1e2d45' }}>
+        <table className="w-full text-xs">
+          <thead>
+            <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
+              {['Email', 'Name', 'Tier', 'Verified', 'Beta Expires', 'Last Login', 'Actions'].map(h => (
+                <th key={h} className="px-3 py-3 text-left font-semibold" style={{ color: '#475569' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u, i) => (
+              <tr key={u.id} style={{ borderBottom: '1px solid #1e2d45', background: i % 2 === 0 ? '#070b16' : '#080d18' }}>
+                <td className="px-3 py-3" style={{ color: '#e2e8f0' }}>{u.email}</td>
+                <td className="px-3 py-3" style={{ color: '#94a3b8' }}>
+                  {[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}
+                </td>
+                <td className="px-3 py-3">
+                  <span className="px-1.5 py-0.5 rounded font-bold"
+                    style={{ background: '#0f1a2e', color: TIER_COLORS[u.tier] || '#64748b', border: `1px solid ${TIER_COLORS[u.tier] || '#1e2d45'}` }}>
+                    {u.tier}
+                  </span>
+                </td>
+                <td className="px-3 py-3">
+                  <span style={{ color: u.email_verified ? '#4ade80' : '#f87171' }}>
+                    {u.email_verified ? '✓' : '✕'}
+                  </span>
+                </td>
+                <td className="px-3 py-3" style={{ color: '#64748b' }}>
+                  {u.beta_expires_at ? new Date(u.beta_expires_at).toLocaleDateString() : '—'}
+                </td>
+                <td className="px-3 py-3" style={{ color: '#64748b' }}>
+                  {u.last_login ? new Date(u.last_login).toLocaleDateString() : '—'}
+                </td>
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={u.tier}
+                      onChange={e => setTier(u.id, e.target.value)}
+                      disabled={changingTier[u.id]}
+                      className="px-2 py-1 rounded text-xs outline-none"
+                      style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0', cursor: 'pointer' }}>
+                      {ALL_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <button
+                      onClick={() => setTier(u.id, 'partner_preview')}
+                      disabled={changingTier[u.id] || u.tier === 'partner_preview'}
+                      className="px-2 py-1 rounded text-xs font-semibold"
+                      style={{ background: u.tier === 'partner_preview' ? '#0e3a4a' : '#0f1a2e',
+                        border: '1px solid #06b6d4', color: '#06b6d4', cursor: 'pointer' }}>
+                      Partner ✦
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function WaitlistImportTab({ email, password }) {
+  const [csvText, setCsvText] = useState('')
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  function parseCsv(text) {
+    return text.trim().split('\n')
+      .map(line => {
+        const parts = line.split(',').map(s => s.trim().replace(/^"|"$/g, ''))
+        const email = parts.find(p => /\S+@\S+\.\S+/.test(p)) || ''
+        const name = parts.find(p => p && !/\S+@\S+\.\S+/.test(p)) || ''
+        return { email, name }
+      })
+      .filter(r => r.email)
+  }
+
+  async function handleImport() {
+    const entries = parseCsv(csvText)
+    if (!entries.length) { setError('No valid email addresses found'); return }
+    setLoading(true); setError(''); setResult(null)
+    const r = await fetch(`${API}/admin/waitlist/import`, {
+      method: 'POST',
+      headers: betaAdminHeaders(email, password),
+      body: JSON.stringify({ emails: entries }),
+    })
+    const d = await r.json()
+    if (r.ok) setResult(d)
+    else setError(d.detail || 'Import failed')
+    setLoading(false)
+  }
+
+  return (
+    <div className="max-w-xl">
+      <p className="text-sm font-semibold mb-2" style={{ color: '#f1f5f9' }}>CSV Waitlist Import</p>
+      <p className="text-xs mb-4" style={{ color: '#64748b' }}>
+        Paste a CSV with email and name columns (any order, no header required).
+        Each person gets a magic link email — beta tier, 30 days free.
+      </p>
+      {error && (
+        <div className="mb-3 px-3 py-2 rounded-lg text-xs"
+          style={{ background: '#1e0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }}>
+          {error}
+        </div>
+      )}
+      <textarea value={csvText} onChange={e => setCsvText(e.target.value)}
+        placeholder={"jane@example.com, Jane Doe\njohn@example.com, John Smith"}
+        rows={8}
+        className="w-full px-3 py-2.5 rounded-lg text-xs outline-none resize-y mb-3"
+        style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0', fontFamily: 'monospace' }} />
+      <button onClick={handleImport} disabled={loading || !csvText.trim()}
+        className="px-5 py-2.5 rounded-lg text-sm font-semibold"
+        style={{ background: loading ? '#1e2d45' : 'linear-gradient(135deg,#06b6d4,#3b82f6)',
+          color: '#fff', border: 'none', cursor: loading ? 'not-allowed' : 'pointer' }}>
+        {loading ? 'Sending…' : 'Send Magic Links'}
+      </button>
+      {result && (
+        <div className="mt-4 rounded-xl p-4" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
+          <p className="text-sm font-semibold mb-2" style={{ color: '#4ade80' }}>
+            ✓ {result.sent} magic link{result.sent !== 1 ? 's' : ''} sent
+          </p>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {result.results?.map((r, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span style={{ color: '#94a3b8' }}>{r.email}</span>
+                <span style={{ color: r.status === 'sent' ? '#4ade80' : '#64748b' }}>{r.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AuthStatsTab({ email, password }) {
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`${API}/admin/stats`, { headers: betaAdminHeaders(email, password) })
+      .then(r => r.json()).then(setStats).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <p style={{ color: '#475569', padding: '24px' }}>Loading…</p>
+  if (!stats) return <p style={{ color: '#f87171', padding: '24px' }}>Failed to load stats.</p>
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <StatCard label="Total Users" value={stats.total_users} />
+        <StatCard label="Active Beta" value={stats.active_beta} />
+        <StatCard label="Expired Beta" value={stats.expired_beta} />
+        <StatCard label="Paid Users" value={stats.paid_users} />
+        <StatCard label="Pending Applications" value={stats.pending_applications} />
+        <StatCard label="Beta → Paid Rate" value={`${stats.conversion_rate}%`} />
+      </div>
+
+      {stats.beta_expiry_list?.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold mb-3" style={{ color: '#64748b' }}>Beta Expiry Countdown</p>
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
+            <table className="w-full text-xs">
+              <thead>
+                <tr style={{ background: '#0f1a2e' }}>
+                  {['Email', 'Name', 'Days Left'].map(h => (
+                    <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: '#475569' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {stats.beta_expiry_list.map((u, i) => (
+                  <tr key={u.id} style={{ borderTop: '1px solid #1e2d45', background: i % 2 === 0 ? '#070b16' : '#080d18' }}>
+                    <td className="px-3 py-2" style={{ color: '#94a3b8' }}>{u.email}</td>
+                    <td className="px-3 py-2" style={{ color: '#94a3b8' }}>
+                      {[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span style={{ color: u.days_left <= 5 ? '#f87171' : u.days_left <= 10 ? '#fbbf24' : '#4ade80', fontWeight: 600 }}>
+                        {u.days_left}d
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AdminPartners() {
   const [creds, setCreds] = useState(() => ({
     email:    sessionStorage.getItem('admin_email')    ?? '',
@@ -67,6 +450,7 @@ export default function AdminPartners() {
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [editTier, setEditTier] = useState('')
   const [editFeatured, setEditFeatured] = useState(false)
+  const [section, setSection] = useState('partners')
 
   async function login(e) {
     e.preventDefault()
@@ -226,13 +610,48 @@ export default function AdminPartners() {
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold" style={{ color: '#f1f5f9' }}>Partner Management</h1>
           <button onClick={loadData} className="text-xs px-3 py-1.5 rounded-lg"
             style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#94a3b8', cursor: 'pointer' }}>
             ↻ Refresh
           </button>
         </div>
+
+        {/* Section tabs */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {[
+            ['partners', 'Astrologer Partners'],
+            ['beta', 'Beta Applications'],
+            ['users', 'Users'],
+            ['waitlist', 'CSV Import'],
+            ['stats', 'Auth Stats'],
+          ].map(([k, label]) => (
+            <button key={k} onClick={() => setSection(k)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{
+                background: section === k ? 'linear-gradient(135deg,#06b6d4,#3b82f6)' : '#0f1a2e',
+                border: `1px solid ${section === k ? '#06b6d4' : '#1e2d45'}`,
+                color: section === k ? '#fff' : '#94a3b8', cursor: 'pointer',
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {section === 'beta' && (
+          <BetaApplicationsTab email={creds.email} password={creds.password} />
+        )}
+        {section === 'users' && (
+          <UsersTab email={creds.email} password={creds.password} />
+        )}
+        {section === 'waitlist' && (
+          <WaitlistImportTab email={creds.email} password={creds.password} />
+        )}
+        {section === 'stats' && (
+          <AuthStatsTab email={creds.email} password={creds.password} />
+        )}
+        {section === 'partners' && (
+          <>
 
         {/* Stats */}
         {stats && (
@@ -303,6 +722,8 @@ export default function AdminPartners() {
               </tbody>
             </table>
           </div>
+        )}
+          </>
         )}
       </div>
 

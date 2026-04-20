@@ -1,0 +1,184 @@
+import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+const TRADER_TYPES = ['Crypto', 'Stocks', 'Both', 'Just getting started']
+const HOW_HEARD = ['TikTok', 'Friend', 'Astrologer referral', 'Other']
+
+export default function BetaPage() {
+  const [params] = useSearchParams()
+  const ref = params.get('ref') || ''
+  const [form, setForm] = useState({
+    first_name: '', last_name: '', email: '',
+    trader_type: '', how_heard: '', agreed: false,
+  })
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
+  const setCheck = k => e => setForm(f => ({ ...f, [k]: e.target.checked }))
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    if (!form.first_name || !form.last_name) { setError('First and last name are required'); return }
+    if (!form.email) { setError('Email is required'); return }
+    if (!/\S+@\S+\.\S+/.test(form.email)) { setError('Invalid email address'); return }
+    if (!form.agreed) { setError('Please agree to the beta terms to continue'); return }
+    setLoading(true)
+    try {
+      const r = await fetch(`${API}/beta/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${form.first_name} ${form.last_name}`.trim(),
+          email: form.email,
+          trader_type: form.trader_type,
+          how_heard: form.how_heard,
+          ref,
+        }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.detail || 'Failed to submit')
+      setSubmitted(true)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen" style={{ background: '#060a14', color: '#e2e8f0' }}>
+      <header className="sticky top-0 z-50 px-6 py-4"
+        style={{ background: 'rgba(6,10,20,.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #1e2d45' }}>
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3" style={{ textDecoration: 'none' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
+              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)' }}>✦</div>
+            <span className="text-white font-bold tracking-widest text-sm">Star Signal</span>
+          </Link>
+          <Link to="/login" className="px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#94a3b8', textDecoration: 'none' }}>
+            Sign In
+          </Link>
+        </div>
+      </header>
+
+      <div className="max-w-lg mx-auto px-6 pt-20 pb-24">
+        {submitted ? (
+          <div className="text-center py-20">
+            <div className="text-6xl mb-6">🌟</div>
+            <h1 className="text-2xl font-bold mb-4" style={{ color: '#f1f5f9' }}>Application received!</h1>
+            <p className="text-base mb-8" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
+              We'll review your application and be in touch within 24 hours.
+            </p>
+            <Link to="/" className="inline-block px-6 py-3 rounded-xl font-semibold text-sm"
+              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
+              Back to Star Signal
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
+                style={{ background: '#0f1a2e', border: '1px solid #1e3a5f', color: '#06b6d4' }}>
+                ✦ Limited beta — 30 days free
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#f1f5f9', lineHeight: 1.2 }}>
+                Apply for Beta Access
+              </h1>
+              <p className="text-base" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
+                Full access free for 30 days. No credit card required.
+                After 30 days, lock in founding member pricing at{' '}
+                <strong style={{ color: '#e2e8f0' }}>$19/month forever</strong>.
+              </p>
+            </div>
+
+            <div className="rounded-2xl p-8" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
+              {error && (
+                <div className="rounded-lg px-4 py-3 mb-4 text-sm"
+                  style={{ background: '#1e0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }}>
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>First name *</label>
+                    <input value={form.first_name} onChange={set('first_name')} autoFocus
+                      className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                      style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
+                      placeholder="Jane" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Last name *</label>
+                    <input value={form.last_name} onChange={set('last_name')}
+                      className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                      style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
+                      placeholder="Doe" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Email *</label>
+                  <input type="email" value={form.email} onChange={set('email')}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                    style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
+                    placeholder="you@example.com" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>What kind of trader are you?</label>
+                  <select value={form.trader_type} onChange={set('trader_type')}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                    style={{ background: '#0f1a2e', border: '1px solid #1e2d45',
+                      color: form.trader_type ? '#e2e8f0' : '#64748b' }}>
+                    <option value="">Select one…</option>
+                    {TRADER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>How did you hear about us?</label>
+                  <select value={form.how_heard} onChange={set('how_heard')}
+                    className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                    style={{ background: '#0f1a2e', border: '1px solid #1e2d45',
+                      color: form.how_heard ? '#e2e8f0' : '#64748b' }}>
+                    <option value="">Select one…</option>
+                    {HOW_HEARD.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+
+                <label className="flex items-start gap-3 cursor-pointer rounded-lg p-3"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                  <input type="checkbox" checked={form.agreed} onChange={setCheck('agreed')}
+                    className="mt-0.5 flex-shrink-0" />
+                  <span className="text-xs leading-relaxed" style={{ color: '#94a3b8' }}>
+                    I understand my free beta access lasts 30 days. In return I agree to share honest
+                    feedback at 2 weeks and 30 days. After beta I can continue at the founding member
+                    rate of $19/month.
+                  </span>
+                </label>
+
+                <button type="submit" disabled={loading}
+                  className="w-full py-3.5 rounded-xl font-bold text-base transition-all"
+                  style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff',
+                    opacity: loading ? 0.7 : 1 }}>
+                  {loading ? 'Submitting…' : 'Apply for Beta Access'}
+                </button>
+
+                <p className="text-center text-xs" style={{ color: '#475569' }}>
+                  Limited spots · No credit card needed
+                </p>
+              </form>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

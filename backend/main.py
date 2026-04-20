@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import secrets
 import threading
 import resend
 import requests
@@ -8,13 +9,32 @@ import anthropic
 import pandas as pd
 import pandas_ta as ta
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, HTTPException, Header
+from typing import Optional
+from fastapi import FastAPI, HTTPException, Header, Cookie, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, String, DateTime, Integer, text
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Float, text
 from sqlalchemy.orm import DeclarativeBase, Session
 from coingecko_client import coingecko, CoinGeckoError, PRICE_TTL, MARKET_TTL, SEARCH_TTL
+
+try:
+    from passlib.context import CryptContext
+    _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    def _hash_password(pw: str) -> str: return _pwd_context.hash(pw)
+    def _verify_password(pw: str, hashed: str) -> bool:
+        try: return _pwd_context.verify(pw, hashed)
+        except Exception: return False
+except ImportError:
+    import hashlib, hmac
+    def _hash_password(pw: str) -> str: return hashlib.sha256(pw.encode()).hexdigest()
+    def _verify_password(pw: str, hashed: str) -> bool: return hmac.compare_digest(_hash_password(pw), hashed)
+
+try:
+    import stripe as _stripe
+    _stripe_available = True
+except ImportError:
+    _stripe_available = False
 
 load_dotenv()
 
@@ -46,6 +66,21 @@ POLYGON_API_KEY     = os.getenv("POLYGON_API_KEY", "")
 # Astro API integration
 ASTRO_API_URL          = os.getenv("ASTRO_API_URL", "http://localhost:3001")
 ASTRO_API_KEY_INTERNAL = os.getenv("ASTRO_API_KEY_INTERNAL", "")
+
+# Auth + monetization config
+SITE_URL                  = os.getenv("SITE_URL", "https://starsignal.io")
+ACCESS_MODE               = os.getenv("ACCESS_MODE", "open")   # open | invite | auth
+AUTH_ENABLED              = os.getenv("AUTH_ENABLED", "false").lower() == "true"
+SESSION_SECRET            = os.getenv("SESSION_SECRET", secrets.token_hex(32))
+PARTNER_JWT_SECRET        = os.getenv("PARTNER_JWT_SECRET", secrets.token_hex(32))
+PREVIEW_PASSWORD          = os.getenv("PREVIEW_PASSWORD", "")
+STRIPE_SECRET_KEY         = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET     = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRO_PRICE_ID       = os.getenv("STRIPE_PRO_PRICE_ID", "")
+STRIPE_PREMIUM_PRICE_ID   = os.getenv("STRIPE_PREMIUM_PRICE_ID", "")
+STRIPE_FOUNDING_PRICE_ID  = os.getenv("STRIPE_FOUNDING_PRICE_ID", "")
+if _stripe_available and STRIPE_SECRET_KEY:
+    _stripe.api_key = STRIPE_SECRET_KEY
 
 # ── Waitlist database ──────────────────────────────────────────────────────────
 _DB_URL = os.getenv("DATABASE_URL", "sqlite:///./waitlist.db")
@@ -3294,4 +3329,943 @@ def combined_analytics(
             "partners": {
                 "total": total_partners,
             },
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AUTH + BETA + MONETIZATION SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Models ─────────────────────────────────────────────────────────────────────
+
+class User(_Base):
+    __tablename__ = "users"
+    id                          = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    email                       = Column(String, unique=True, nullable=False)
+    password_hash               = Column(String, nullable=True)
+    first_name                  = Column(String, default="")
+    last_name                   = Column(String, default="")
+    tier                        = Column(String, default="free")  # free|beta|founding|pro|premium|partner_preview|platform
+    email_verified              = Column(Boolean, default=False)
+    email_verification_token    = Column(String, nullable=True)
+    email_verification_expires  = Column(DateTime, nullable=True)
+    password_reset_token        = Column(String, nullable=True)
+    password_reset_expires      = Column(DateTime, nullable=True)
+    beta_expires_at             = Column(DateTime, nullable=True)
+    beta_started_at             = Column(DateTime, nullable=True)
+    stripe_customer_id          = Column(String, nullable=True)
+    stripe_subscription_id      = Column(String, nullable=True)
+    stripe_subscription_end     = Column(DateTime, nullable=True)
+    referral_code               = Column(String, unique=True, nullable=True)
+    referred_by                 = Column(String, nullable=True)
+    login_attempts              = Column(Integer, default=0)
+    locked_until                = Column(DateTime, nullable=True)
+    grandfathered               = Column(Boolean, default=False)
+    last_login                  = Column(DateTime, nullable=True)
+    beta_day14_sent             = Column(Boolean, default=False)
+    beta_day25_sent             = Column(Boolean, default=False)
+    created_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                                         onupdate=lambda: datetime.now(timezone.utc))
+
+
+class UserSession(_Base):
+    __tablename__ = "user_sessions"
+    id         = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    user_id    = Column(String, nullable=False)
+    token_hash = Column(String, unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class BetaApplication(_Base):
+    __tablename__ = "beta_applications"
+    id           = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    name         = Column(String, nullable=False)
+    email        = Column(String, nullable=False)
+    how_heard    = Column(String, default="")
+    trader_type  = Column(String, default="")
+    why_text     = Column(String, default="")
+    status       = Column(String, default="pending")  # pending|approved|rejected
+    created_at   = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Referral(_Base):
+    __tablename__ = "referrals"
+    id             = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    referrer_id    = Column(String, nullable=False)
+    referred_email = Column(String, nullable=False)
+    referred_id    = Column(String, nullable=True)
+    converted      = Column(Boolean, default=False)
+    reward_applied = Column(Boolean, default=False)
+    created_at     = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+_Base.metadata.create_all(_engine)
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _generate_referral_code() -> str:
+    words = ["moon", "star", "solar", "lunar", "nova", "astro", "orbit", "comet",
+             "saturn", "venus", "mars", "cosmos", "zenith", "eclipse", "aurora"]
+    import random
+    return random.choice(words) + str(random.randint(10, 99))
+
+
+def _unique_referral_code(db: Session) -> str:
+    for _ in range(10):
+        code = _generate_referral_code()
+        if not db.query(User).filter(User.referral_code == code).first():
+            return code
+    return secrets.token_hex(4)
+
+
+def _create_session(db: Session, user_id: str, remember: bool = False) -> str:
+    raw = secrets.token_urlsafe(32)
+    token_hash = _hash_password(raw)
+    days = 30 if remember else 7
+    sess = UserSession(
+        user_id=user_id,
+        token_hash=token_hash,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=days),
+    )
+    db.add(sess)
+    db.commit()
+    return raw
+
+
+def _get_user_from_cookie(session_token: Optional[str], db: Session) -> Optional[User]:
+    if not session_token:
+        return None
+    for sess in db.query(UserSession).filter(UserSession.expires_at > datetime.now(timezone.utc)).all():
+        try:
+            if _verify_password(session_token, sess.token_hash):
+                return db.query(User).filter(User.id == sess.user_id).first()
+        except Exception:
+            continue
+    return None
+
+
+def _send_email(to: str, subject: str, html: str):
+    if not RESEND_API_KEY:
+        return
+    try:
+        resend.api_key = RESEND_API_KEY
+        resend.Emails.send({
+            "from": "Star Signal <onboarding@resend.dev>",
+            "to": [to],
+            "subject": subject,
+            "html": html,
+        })
+    except Exception as e:
+        print(f"[email] failed: {e}")
+
+
+def _user_dict(u: User) -> dict:
+    now = datetime.now(timezone.utc)
+    beta_expired = (u.tier == "beta" and u.beta_expires_at and
+                    u.beta_expires_at.replace(tzinfo=timezone.utc) < now)
+    return {
+        "id": u.id,
+        "email": u.email,
+        "first_name": u.first_name,
+        "last_name": u.last_name,
+        "tier": u.tier,
+        "email_verified": u.email_verified,
+        "beta_expires_at": u.beta_expires_at.isoformat() if u.beta_expires_at else None,
+        "beta_expired": beta_expired,
+        "referral_code": u.referral_code,
+        "stripe_customer_id": u.stripe_customer_id,
+        "last_login": u.last_login.isoformat() if u.last_login else None,
+        "created_at": u.created_at.isoformat() if u.created_at else None,
+    }
+
+
+# ── Access gate ────────────────────────────────────────────────────────────────
+
+@app.get("/auth/mode")
+def get_access_mode():
+    return {"mode": ACCESS_MODE, "auth_enabled": AUTH_ENABLED}
+
+
+# ── Signup ─────────────────────────────────────────────────────────────────────
+
+class AuthSignupRequest(BaseModel):
+    email: str
+    password: str
+    first_name: str = ""
+    last_name: str = ""
+    ref: Optional[str] = None   # referral code
+
+
+@app.post("/auth/signup", status_code=201)
+def auth_signup(req: AuthSignupRequest, response: Response):
+    with Session(_engine) as db:
+        if db.query(User).filter(User.email == req.email.lower()).first():
+            raise HTTPException(400, "Email already registered")
+
+        verification_token = secrets.token_urlsafe(32)
+        ref_code = _unique_referral_code(db)
+
+        referrer = None
+        if req.ref:
+            referrer = db.query(User).filter(User.referral_code == req.ref).first()
+
+        user = User(
+            email=req.email.lower(),
+            password_hash=_hash_password(req.password),
+            first_name=req.first_name,
+            last_name=req.last_name,
+            tier="free",
+            email_verified=False,
+            email_verification_token=_hash_password(verification_token),
+            email_verification_expires=datetime.now(timezone.utc) + timedelta(hours=24),
+            referral_code=ref_code,
+            referred_by=referrer.id if referrer else None,
+        )
+        db.add(user)
+        db.flush()
+
+        if referrer:
+            ref_row = Referral(referrer_id=referrer.id, referred_email=req.email.lower(), referred_id=user.id)
+            db.add(ref_row)
+
+        db.commit()
+
+        verify_link = f"{SITE_URL}/verify-email?token={verification_token}&email={req.email.lower()}"
+        _send_email(
+            req.email,
+            "Verify your Star Signal email",
+            f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px'>
+            <h2 style='color:#f1f5f9'>Verify your email</h2>
+            <p style='color:#94a3b8'>Click the button below to verify your email and activate your Star Signal account.</p>
+            <a href='{verify_link}' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>Verify Email</a>
+            <p style='color:#475569;font-size:12px'>Link expires in 24 hours.</p>
+            </div>""",
+        )
+
+        raw_token = _create_session(db, user.id)
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+                            secure=True, max_age=60*60*24*7)
+        return {"user": _user_dict(user), "message": "Account created. Please verify your email."}
+
+
+# ── Login ──────────────────────────────────────────────────────────────────────
+
+class AuthLoginRequest(BaseModel):
+    email: str
+    password: str
+    remember_me: bool = False
+
+
+@app.post("/auth/login")
+def auth_login(req: AuthLoginRequest, response: Response):
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.email == req.email.lower()).first()
+        now = datetime.now(timezone.utc)
+
+        if not user or not user.password_hash:
+            raise HTTPException(401, "Invalid email or password")
+
+        if user.locked_until and user.locked_until.replace(tzinfo=timezone.utc) > now:
+            mins = int((user.locked_until.replace(tzinfo=timezone.utc) - now).seconds / 60) + 1
+            raise HTTPException(429, f"Account locked for {mins} more minutes due to failed attempts")
+
+        if not _verify_password(req.password, user.password_hash):
+            user.login_attempts = (user.login_attempts or 0) + 1
+            if user.login_attempts >= 5:
+                user.locked_until = now + timedelta(minutes=15)
+                user.login_attempts = 0
+                db.commit()
+                _send_email(user.email, "Star Signal: account temporarily locked",
+                    f"<p>Your account was locked for 15 minutes after 5 failed login attempts. If this wasn't you, <a href='{SITE_URL}/forgot-password'>reset your password</a>.</p>")
+            db.commit()
+            raise HTTPException(401, "Invalid email or password")
+
+        user.login_attempts = 0
+        user.locked_until = None
+        user.last_login = now
+        db.commit()
+
+        raw_token = _create_session(db, user.id, req.remember_me)
+        max_age = 60*60*24*30 if req.remember_me else 60*60*24*7
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+                            secure=True, max_age=max_age)
+
+        beta_expired = (user.tier == "beta" and user.beta_expires_at and
+                        user.beta_expires_at.replace(tzinfo=timezone.utc) < now)
+        if beta_expired:
+            return {"user": _user_dict(user), "redirect": "/account", "beta_expired": True}
+
+        return {"user": _user_dict(user)}
+
+
+# ── Logout ─────────────────────────────────────────────────────────────────────
+
+@app.post("/auth/logout")
+def auth_logout(response: Response, ss_session: Optional[str] = Cookie(None)):
+    with Session(_engine) as db:
+        if ss_session:
+            for sess in db.query(UserSession).all():
+                try:
+                    if _verify_password(ss_session, sess.token_hash):
+                        db.delete(sess)
+                        break
+                except Exception:
+                    pass
+            db.commit()
+    response.delete_cookie("ss_session")
+    return {"ok": True}
+
+
+# ── Current user ───────────────────────────────────────────────────────────────
+
+@app.get("/auth/me")
+def auth_me(ss_session: Optional[str] = Cookie(None)):
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            return {"user": None}
+        return {"user": _user_dict(user)}
+
+
+# ── Email verification ─────────────────────────────────────────────────────────
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+    email: str
+
+
+@app.post("/auth/verify-email")
+def verify_email(req: VerifyEmailRequest):
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.email == req.email.lower()).first()
+        if not user or not user.email_verification_token:
+            raise HTTPException(400, "Invalid or expired link")
+        if user.email_verification_expires and \
+           user.email_verification_expires.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            raise HTTPException(400, "Verification link expired. Request a new one.")
+        if not _verify_password(req.token, user.email_verification_token):
+            raise HTTPException(400, "Invalid verification link")
+        user.email_verified = True
+        user.email_verification_token = None
+        user.email_verification_expires = None
+        db.commit()
+        return {"ok": True, "message": "Email verified successfully"}
+
+
+@app.post("/auth/resend-verification")
+def resend_verification(body: dict):
+    email = body.get("email", "").lower()
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.email == email).first()
+        if not user or user.email_verified:
+            return {"ok": True}  # silent
+        token = secrets.token_urlsafe(32)
+        user.email_verification_token = _hash_password(token)
+        user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+        db.commit()
+        link = f"{SITE_URL}/verify-email?token={token}&email={email}"
+        _send_email(email, "Verify your Star Signal email",
+            f"<p>Click to verify: <a href='{link}'>Verify Email</a></p>")
+        return {"ok": True}
+
+
+# ── Forgot / Reset password ────────────────────────────────────────────────────
+
+@app.post("/auth/forgot-password")
+def forgot_password(body: dict):
+    email = body.get("email", "").lower()
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            return {"ok": True}  # silent — don't reveal whether email exists
+        token = secrets.token_urlsafe(32)
+        user.password_reset_token = _hash_password(token)
+        user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+        db.commit()
+        link = f"{SITE_URL}/reset-password?token={token}&email={email}"
+        _send_email(email, "Reset your Star Signal password",
+            f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px'>
+            <h2 style='color:#f1f5f9'>Reset your password</h2>
+            <p style='color:#94a3b8'>Click the button below to reset your password. This link expires in 1 hour.</p>
+            <a href='{link}' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>Reset Password</a>
+            <p style='color:#475569;font-size:12px'>If you didn't request this, ignore this email.</p>
+            </div>""")
+        return {"ok": True}
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    email: str
+    new_password: str
+
+
+@app.post("/auth/reset-password")
+def reset_password(req: ResetPasswordRequest):
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.email == req.email.lower()).first()
+        if not user or not user.password_reset_token:
+            raise HTTPException(400, "Invalid or expired link")
+        if user.password_reset_expires and \
+           user.password_reset_expires.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            raise HTTPException(400, "Reset link expired. Request a new one.")
+        if not _verify_password(req.token, user.password_reset_token):
+            raise HTTPException(400, "Invalid reset link")
+        if len(req.new_password) < 8:
+            raise HTTPException(400, "Password must be at least 8 characters")
+        user.password_hash = _hash_password(req.new_password)
+        user.password_reset_token = None
+        user.password_reset_expires = None
+        user.login_attempts = 0
+        user.locked_until = None
+        db.commit()
+        return {"ok": True}
+
+
+# ── Beta application ───────────────────────────────────────────────────────────
+
+class BetaApplyRequest(BaseModel):
+    name: str
+    email: str
+    how_heard: str = ""
+    trader_type: str = ""
+    why_text: str = ""
+    ref: Optional[str] = None
+
+
+@app.post("/beta/apply", status_code=201)
+def beta_apply(req: BetaApplyRequest):
+    with Session(_engine) as db:
+        existing = db.query(BetaApplication).filter(BetaApplication.email == req.email.lower()).first()
+        if existing:
+            return {"ok": True, "message": "Application already received"}
+        app_row = BetaApplication(
+            name=req.name, email=req.email.lower(),
+            how_heard=req.how_heard, trader_type=req.trader_type,
+            why_text=req.why_text, status="pending",
+        )
+        db.add(app_row)
+        db.commit()
+        # Notify admin
+        admin_email = os.getenv("ADMIN_EMAIL", "")
+        if admin_email:
+            _send_email(admin_email, f"New beta application: {req.name}",
+                f"<p><b>{req.name}</b> ({req.email}) applied for beta access.<br>"
+                f"Trader type: {req.trader_type}<br>How heard: {req.how_heard}<br>"
+                f"Why: {req.why_text}</p>")
+        return {"ok": True, "message": "Application received! We'll review it within 48 hours."}
+
+
+@app.get("/admin/beta-applications")
+def list_beta_applications(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        apps = db.query(BetaApplication).order_by(BetaApplication.created_at.desc()).all()
+        return [{"id": a.id, "name": a.name, "email": a.email, "how_heard": a.how_heard,
+                 "trader_type": a.trader_type, "why_text": a.why_text, "status": a.status,
+                 "created_at": a.created_at.isoformat() if a.created_at else None} for a in apps]
+
+
+@app.patch("/admin/beta-applications/{app_id}/approve")
+def approve_beta_application(
+    app_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        app_row = db.query(BetaApplication).filter(BetaApplication.id == app_id).first()
+        if not app_row:
+            raise HTTPException(404, "Application not found")
+        app_row.status = "approved"
+
+        # Create or update user account
+        user = db.query(User).filter(User.email == app_row.email).first()
+        now = datetime.now(timezone.utc)
+        beta_expires = now + timedelta(days=30)
+
+        if not user:
+            magic_token = secrets.token_urlsafe(32)
+            ref_code = _unique_referral_code(db)
+            user = User(
+                email=app_row.email,
+                first_name=app_row.name.split()[0] if app_row.name else "",
+                last_name=" ".join(app_row.name.split()[1:]) if len(app_row.name.split()) > 1 else "",
+                tier="beta",
+                email_verified=True,
+                beta_started_at=now,
+                beta_expires_at=beta_expires,
+                referral_code=ref_code,
+                email_verification_token=_hash_password(magic_token),
+                email_verification_expires=now + timedelta(hours=72),
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={app_row.email}"
+        else:
+            user.tier = "beta"
+            user.beta_started_at = now
+            user.beta_expires_at = beta_expires
+            user.email_verified = True
+            magic_token = secrets.token_urlsafe(32)
+            user.email_verification_token = _hash_password(magic_token)
+            user.email_verification_expires = now + timedelta(hours=72)
+            db.commit()
+            magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={app_row.email}"
+
+        first = user.first_name or app_row.name.split()[0]
+        _send_email(
+            app_row.email,
+            "Your Star Signal access is ready",
+            f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b1120;color:#e2e8f0'>
+            <h2 style='color:#f1f5f9'>Welcome to Star Signal, {first}!</h2>
+            <p style='color:#94a3b8'>Your beta access is ready. One click and you're in — no password, no form.</p>
+            <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin:16px 0;font-size:16px'>Enter Star Signal →</a>
+            <p style='color:#94a3b8'>Your 30 days starts the moment you click. After that it's $19/month as a founding member — locked in forever.</p>
+            <p style='color:#475569;font-size:12px'>Link expires in 72 hours.</p>
+            </div>""",
+        )
+        return {"ok": True, "user_id": user.id, "magic_link_sent": True}
+
+
+class RejectBetaRequest(BaseModel):
+    reason: str = ""
+
+@app.patch("/admin/beta-applications/{app_id}/reject")
+def reject_beta_application(
+    app_id: str,
+    body: RejectBetaRequest = RejectBetaRequest(),
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        app_row = db.query(BetaApplication).filter(BetaApplication.id == app_id).first()
+        if not app_row:
+            raise HTTPException(404, "Application not found")
+        app_row.status = "rejected"
+        db.commit()
+        reason_html = f"<p style='color:#94a3b8'>Reason: {body.reason}</p>" if body.reason else ""
+        _send_email(
+            app_row.email,
+            "Your Star Signal beta application",
+            f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px'>
+            <h2 style='color:#f1f5f9'>Thanks for applying, {app_row.name.split()[0] if app_row.name else 'there'}</h2>
+            <p style='color:#94a3b8'>After reviewing your application, we weren't able to offer you a beta spot at this time.</p>
+            {reason_html}
+            <p style='color:#94a3b8'>We appreciate your interest and may reach out if spots open up.</p>
+            </div>""",
+        )
+        return {"ok": True}
+
+
+# ── Magic login (one-click from email) ────────────────────────────────────────
+
+@app.post("/auth/magic-login")
+def magic_login(body: dict, response: Response):
+    token = body.get("token", "")
+    email = body.get("email", "").lower()
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.email == email).first()
+        if not user or not user.email_verification_token:
+            raise HTTPException(400, "Invalid or expired magic link")
+        if user.email_verification_expires and \
+           user.email_verification_expires.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            raise HTTPException(400, "Magic link expired — request a new one")
+        if not _verify_password(token, user.email_verification_token):
+            raise HTTPException(400, "Invalid magic link")
+        user.email_verified = True
+        user.email_verification_token = None
+        user.email_verification_expires = None
+        db.commit()
+        raw_token = _create_session(db, user.id)
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+                            secure=True, max_age=60*60*24*7)
+        return {"user": _user_dict(user)}
+
+
+# ── Waitlist CSV import → magic link batch ────────────────────────────────────
+
+@app.post("/admin/waitlist/import")
+def waitlist_import(
+    body: dict,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """body: {emails: [{email, name}]} — creates pending accounts and sends magic links"""
+    _require_admin(x_admin_email, x_admin_password)
+    entries = body.get("emails", [])
+    results = []
+    with Session(_engine) as db:
+        for entry in entries:
+            email = entry.get("email", "").lower().strip()
+            name = entry.get("name", "").strip()
+            if not email:
+                continue
+            existing = db.query(User).filter(User.email == email).first()
+            if existing:
+                results.append({"email": email, "status": "already_exists"})
+                continue
+            magic_token = secrets.token_urlsafe(32)
+            ref_code = _unique_referral_code(db)
+            user = User(
+                email=email,
+                first_name=name.split()[0] if name else "",
+                last_name=" ".join(name.split()[1:]) if len(name.split()) > 1 else "",
+                tier="beta",
+                email_verified=True,
+                beta_started_at=datetime.now(timezone.utc),
+                beta_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+                referral_code=ref_code,
+                email_verification_token=_hash_password(magic_token),
+                email_verification_expires=datetime.now(timezone.utc) + timedelta(hours=72),
+            )
+            db.add(user)
+            db.commit()
+            magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={email}"
+            first = name.split()[0] if name else "there"
+            _send_email(
+                email,
+                "Your Star Signal access is ready",
+                f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b1120;color:#e2e8f0'>
+                <h2 style='color:#f1f5f9'>Hey {first} — your access is ready</h2>
+                <p style='color:#94a3b8'>You signed up to be first on Star Signal. That day is today.</p>
+                <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin:16px 0;font-size:16px'>Enter Star Signal →</a>
+                <p style='color:#94a3b8'>30 days free. No credit card. After that you lock in $19/month as a founding member.</p>
+                <p style='color:#475569;font-size:12px'>Link expires in 72 hours. If it expires, visit starsignal.io and click "Resend access link".</p>
+                </div>""",
+            )
+            results.append({"email": email, "status": "sent"})
+    return {"results": results, "sent": sum(1 for r in results if r["status"] == "sent")}
+
+
+# ── Stripe checkout ────────────────────────────────────────────────────────────
+
+@app.post("/stripe/checkout")
+def stripe_checkout(body: dict, ss_session: Optional[str] = Cookie(None)):
+    if not _stripe_available or not STRIPE_SECRET_KEY:
+        raise HTTPException(503, "Stripe not configured")
+    tier = body.get("tier", "pro")
+    price_id = STRIPE_PRO_PRICE_ID if tier == "pro" else STRIPE_PREMIUM_PRICE_ID
+    if not price_id:
+        raise HTTPException(503, f"Stripe price ID for {tier} not configured")
+
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        customer_id = user.stripe_customer_id if user else None
+        success_url = f"{SITE_URL}/account?success=1"
+        cancel_url = f"{SITE_URL}/account"
+
+        session = _stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            customer=customer_id,
+            customer_email=user.email if user and not customer_id else None,
+            metadata={"user_id": user.id if user else ""},
+        )
+        return {"url": session.url}
+
+
+@app.post("/stripe/portal")
+def stripe_portal(ss_session: Optional[str] = Cookie(None)):
+    if not _stripe_available or not STRIPE_SECRET_KEY:
+        raise HTTPException(503, "Stripe not configured")
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user or not user.stripe_customer_id:
+            raise HTTPException(400, "No billing account found")
+        portal = _stripe.billing_portal.Session.create(
+            customer=user.stripe_customer_id,
+            return_url=f"{SITE_URL}/account",
+        )
+        return {"url": portal.url}
+
+
+@app.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    if not _stripe_available or not STRIPE_SECRET_KEY:
+        raise HTTPException(503, "Stripe not configured")
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        event = _stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    except Exception:
+        raise HTTPException(400, "Invalid webhook signature")
+
+    with Session(_engine) as db:
+        if event["type"] == "checkout.session.completed":
+            sess = event["data"]["object"]
+            customer_id = sess.get("customer")
+            user_id = sess.get("metadata", {}).get("user_id")
+            sub_id = sess.get("subscription")
+            user = None
+            if user_id:
+                user = db.query(User).filter(User.id == user_id).first()
+            if not user and customer_id:
+                user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if user:
+                user.stripe_customer_id = customer_id
+                user.stripe_subscription_id = sub_id
+                # Determine tier from price
+                if sub_id:
+                    sub = _stripe.Subscription.retrieve(sub_id)
+                    price_id = sub["items"]["data"][0]["price"]["id"]
+                    user.tier = "premium" if price_id == STRIPE_PREMIUM_PRICE_ID else "pro"
+                db.commit()
+
+        elif event["type"] == "customer.subscription.updated":
+            sub = event["data"]["object"]
+            user = db.query(User).filter(User.stripe_subscription_id == sub["id"]).first()
+            if user:
+                status = sub.get("status")
+                price_id = sub["items"]["data"][0]["price"]["id"]
+                if status == "active":
+                    user.tier = "premium" if price_id == STRIPE_PREMIUM_PRICE_ID else "pro"
+                    user.stripe_subscription_end = None
+                elif status in ("canceled", "unpaid", "past_due"):
+                    end_ts = sub.get("current_period_end")
+                    if end_ts:
+                        user.stripe_subscription_end = datetime.fromtimestamp(end_ts, tz=timezone.utc)
+                db.commit()
+
+        elif event["type"] == "customer.subscription.deleted":
+            sub = event["data"]["object"]
+            user = db.query(User).filter(User.stripe_subscription_id == sub["id"]).first()
+            if user:
+                user.tier = "free"
+                user.stripe_subscription_id = None
+                db.commit()
+
+    return {"ok": True}
+
+
+# ── Feature gating ─────────────────────────────────────────────────────────────
+
+TIER_RANK = {"free": 0, "beta": 1, "founding": 2, "pro": 2, "partner_preview": 2, "premium": 3, "platform": 4}
+
+FEATURE_GATES = {
+    "insights_full":    "pro",      # beta sees last 5 only
+    "price_realtime":   "pro",      # beta gets 30-min delayed
+    "signals_full":     "pro",      # beta sees 3 max
+    "composite_score":  "premium",  # premium+ only
+    "api_access":       "premium",  # premium+ only
+    "alerts":           "premium",  # premium+ only
+}
+
+
+def _tier_rank(tier: str) -> int:
+    return TIER_RANK.get(tier, 0)
+
+
+@app.get("/auth/features")
+def get_features(ss_session: Optional[str] = Cookie(None)):
+    """Returns which features the current user can access."""
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        tier = "free"
+        if user:
+            now = datetime.now(timezone.utc)
+            beta_expired = (user.tier == "beta" and user.beta_expires_at and
+                            user.beta_expires_at.replace(tzinfo=timezone.utc) < now)
+            tier = "free" if beta_expired else user.tier
+        rank = _tier_rank(tier)
+        return {
+            "tier": tier,
+            "features": {k: rank >= _tier_rank(v) for k, v in FEATURE_GATES.items()},
+            "upgrade_url": f"{SITE_URL}/account",
+        }
+
+
+# ── Admin: users list ─────────────────────────────────────────────────────────
+
+@app.get("/admin/users")
+def list_users(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        users = db.query(User).order_by(User.created_at.desc()).all()
+        return [_user_dict(u) for u in users]
+
+
+@app.patch("/admin/users/{user_id}/tier")
+def set_user_tier(
+    user_id: str,
+    body: dict,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    new_tier = body.get("tier")
+    valid_tiers = ("free", "beta", "founding", "pro", "premium", "partner_preview", "platform")
+    if new_tier not in valid_tiers:
+        raise HTTPException(400, "Invalid tier")
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        user.tier = new_tier
+        if new_tier == "beta" and not user.beta_expires_at:
+            user.beta_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            user.beta_started_at = datetime.now(timezone.utc)
+        if new_tier == "partner_preview":
+            user.email_verified = True
+        db.commit()
+        return _user_dict(user)
+
+
+# ── Admin: stats ─────────────────────────────────────────────────────────────
+
+@app.get("/admin/stats")
+def admin_stats(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        now = datetime.now(timezone.utc)
+        all_users = db.query(User).all()
+        total_users = len(all_users)
+        beta_users = [u for u in all_users if u.tier == "beta"]
+        active_beta = [u for u in beta_users if u.beta_expires_at and
+                       u.beta_expires_at.replace(tzinfo=timezone.utc) > now]
+        expired_beta = [u for u in beta_users if u.beta_expires_at and
+                        u.beta_expires_at.replace(tzinfo=timezone.utc) <= now]
+        paid_users = [u for u in all_users if u.tier in ("founding", "pro", "premium", "platform")]
+        conversion_rate = round(len(paid_users) / max(len(beta_users) + len(paid_users), 1) * 100, 1)
+        beta_expiry_list = sorted([
+            {
+                "id": u.id, "email": u.email,
+                "first_name": u.first_name, "last_name": u.last_name,
+                "days_left": max(0, (u.beta_expires_at.replace(tzinfo=timezone.utc) - now).days),
+            }
+            for u in active_beta if u.beta_expires_at
+        ], key=lambda x: x["days_left"])
+        apps = db.query(BetaApplication).all()
+        pending_apps = sum(1 for a in apps if a.status == "pending")
+        return {
+            "total_users": total_users,
+            "active_beta": len(active_beta),
+            "expired_beta": len(expired_beta),
+            "paid_users": len(paid_users),
+            "pending_applications": pending_apps,
+            "conversion_rate": conversion_rate,
+            "beta_expiry_list": beta_expiry_list[:20],
+        }
+
+
+# ── Beta expiry email background task ─────────────────────────────────────────
+
+def _run_beta_expiry_emails():
+    import time as _time
+    while True:
+        try:
+            _check_beta_expiry_emails()
+        except Exception as e:
+            print(f"[beta-expiry] error: {e}")
+        _time.sleep(60 * 60 * 6)  # check every 6 hours
+
+
+def _check_beta_expiry_emails():
+    now = datetime.now(timezone.utc)
+    with Session(_engine) as db:
+        beta_users = db.query(User).filter(User.tier == "beta").all()
+        for user in beta_users:
+            if not user.beta_started_at or not user.beta_expires_at:
+                continue
+            started = user.beta_started_at.replace(tzinfo=timezone.utc)
+            expires = user.beta_expires_at.replace(tzinfo=timezone.utc)
+            days_used = (now - started).days
+            days_left = (expires - now).days
+
+            if days_used >= 14 and not user.beta_day14_sent:
+                _send_email(
+                    user.email,
+                    "Quick question about Star Signal",
+                    f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px'>
+                    <p style='color:#94a3b8'>Hey {user.first_name or 'there'},</p>
+                    <p style='color:#94a3b8'>You've had Star Signal for about 2 weeks — wanted to check in.</p>
+                    <p style='color:#94a3b8'>Three quick questions:</p>
+                    <ul style='color:#94a3b8'>
+                        <li>What feature do you use most?</li>
+                        <li>What's confusing or missing?</li>
+                        <li>What would make you pay for it?</li>
+                    </ul>
+                    <p style='color:#94a3b8'>Reply directly to this email — I read every response.</p>
+                    </div>""",
+                )
+                user.beta_day14_sent = True
+                db.commit()
+
+            if days_left <= 5 and days_left >= 0 and not user.beta_day25_sent:
+                _send_email(
+                    user.email,
+                    "Your Star Signal beta ends in 5 days",
+                    f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px'>
+                    <p style='color:#94a3b8'>Hey {user.first_name or 'there'},</p>
+                    <p style='color:#94a3b8'>Your free beta ends in {days_left} day{'s' if days_left != 1 else ''}.</p>
+                    <p style='color:#94a3b8'>Lock in the founding member rate of <strong style='color:#e2e8f0'>$19/month</strong> —
+                    35% less than what new users pay, locked in forever.</p>
+                    <a href='{SITE_URL}/account' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>
+                    Add card to keep access →</a>
+                    <p style='color:#475569;font-size:12px'>Add a card before your beta ends to keep uninterrupted access.</p>
+                    </div>""",
+                )
+                user.beta_day25_sent = True
+                db.commit()
+
+            if days_left < 0 and expires > started:
+                pass  # expired — frontend paywall handles UI
+
+
+_beta_expiry_thread = threading.Thread(target=_run_beta_expiry_emails, daemon=True)
+_beta_expiry_thread.start()
+
+
+# ── Referral stats ─────────────────────────────────────────────────────────────
+
+@app.get("/auth/referrals")
+def get_referrals(ss_session: Optional[str] = Cookie(None)):
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            raise HTTPException(401, "Not authenticated")
+        refs = db.query(Referral).filter(Referral.referrer_id == user.id).all()
+        return {
+            "referral_code": user.referral_code,
+            "referral_link": f"{SITE_URL}/join?ref={user.referral_code}",
+            "total_referred": len(refs),
+            "converted": sum(1 for r in refs if r.converted),
+        }
+
+
+# ── Account info ───────────────────────────────────────────────────────────────
+
+@app.get("/auth/account")
+def get_account(ss_session: Optional[str] = Cookie(None)):
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            raise HTTPException(401, "Not authenticated")
+        now = datetime.now(timezone.utc)
+        beta_days_left = None
+        if user.tier == "beta" and user.beta_expires_at:
+            delta = (user.beta_expires_at.replace(tzinfo=timezone.utc) - now).days
+            beta_days_left = max(0, delta)
+        refs = db.query(Referral).filter(Referral.referrer_id == user.id).all()
+        return {
+            **_user_dict(user),
+            "beta_days_left": beta_days_left,
+            "referral_link": f"{SITE_URL}/join?ref={user.referral_code}",
+            "referrals_total": len(refs),
+            "referrals_converted": sum(1 for r in refs if r.converted),
         }

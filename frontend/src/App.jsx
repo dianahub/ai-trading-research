@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import './App.css'
 import SearchBar from './components/SearchBar'
+import AuthNav from './components/AuthNav'
+import { getMe } from './lib/auth'
+
+const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true'
 import PriceCard from './components/PriceCard'
 import SentimentBanner from './components/SentimentBanner'
 import TechnicalGrid from './components/TechnicalGrid'
@@ -125,6 +129,11 @@ export default function App() {
   const [astroData, setAstroData] = useState(null)
   const [navOpen, setNavOpen] = useState(false)
   const [showAstro, setShowAstro] = useState(true)
+  const [authedUser, setAuthedUser] = useState(null)
+
+  useEffect(() => {
+    if (AUTH_ENABLED) getMe().then(setAuthedUser).catch(() => setAuthedUser(null))
+  }, [])
   const headerRef = useRef(null)
 
   useEffect(() => {
@@ -279,13 +288,17 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           </div>
           {/* Search bar — full width on mobile */}
           <div className="flex-1">
-            <SearchBar onSearch={handleSearch} loading={loading} />
+            <SearchBar onSearch={handleSearch} loading={loading} disabled={AUTH_ENABLED && !authedUser} />
           </div>
           {/* LIVE badge — desktop only */}
           <div className="hidden md:flex items-center gap-2 text-xs shrink-0"
             style={{ color: '#475569' }}>
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block pulse-glow" />
             LIVE
+          </div>
+          {/* Auth nav — only renders content when VITE_AUTH_ENABLED=true */}
+          <div className="flex shrink-0">
+            <AuthNav />
           </div>
         </div>
       </header>
@@ -426,14 +439,32 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             <div className="text-center space-y-2">
               <p className="text-base font-semibold" style={{ color: '#94a3b8' }}>👇 Try a quick search below, or enter any symbol above in the search bar and click Analyze</p>
               <div className="flex flex-wrap justify-center gap-2">
-                {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
-                  <button key={t} onClick={() => handleSearch(t)}
-                    className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all hover:scale-105 hover:brightness-125 cursor-pointer"
-                    style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8' }}>
-                    {t}
-                  </button>
-                ))}
+                {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => {
+                  const locked = AUTH_ENABLED && !authedUser
+                  return (
+                    <button key={t}
+                      onClick={() => !locked && handleSearch(t)}
+                      disabled={locked}
+                      title={locked ? 'Sign in to search' : undefined}
+                      className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all"
+                      style={{
+                        background: '#111827',
+                        border: '1px solid #1e3a5f',
+                        color: locked ? '#334155' : '#94a3b8',
+                        cursor: locked ? 'not-allowed' : 'pointer',
+                        opacity: locked ? 0.5 : 1,
+                      }}>
+                      {t}
+                    </button>
+                  )
+                })}
               </div>
+              {AUTH_ENABLED && !authedUser && (
+                <p className="text-xs mt-1" style={{ color: '#334155' }}>
+                  <a href="/login" style={{ color: '#06b6d4', textDecoration: 'none' }}>Sign in</a> or{' '}
+                  <a href="/beta" style={{ color: '#06b6d4', textDecoration: 'none' }}>apply for beta</a> to search
+                </p>
+              )}
             </div>
 
             <p className="text-xs" style={{ color: '#475569' }}>
