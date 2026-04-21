@@ -323,7 +323,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 { href: '#technicals',  label: '📈 Technicals',   show: true },
                 { href: '#analysis',    label: '🔍 Analysis',     show: !!data.analysis },
                 { href: '#smart-money', label: '🐋 Smart Money',  show: !!(data.whales || data.insiders) },
-                { href: '#astro',       label: '♄ Astro',         show: true },
+                { href: '#astro',       label: '♅ Astro',         show: true },
                 { href: '#news',        label: '📰 News',         show: true },
               ].filter(s => s.show)
 
@@ -410,7 +410,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           <div className="flex flex-col items-center justify-center py-6 md:py-20 space-y-6 fade-in">
             {/* Hero */}
             <div className="text-center space-y-3">
-              <div className="text-5xl mb-2">🔭 ♄</div>
+              <div className="text-5xl mb-2">🔭 ♅</div>
               <p className="text-4xl md:text-5xl font-bold tracking-tight" style={{ color: '#e2e8f0' }}>Starsignal.io</p>
               <h2 className="text-lg font-semibold" style={{ color: '#94a3b8' }}>
                 AI + Astro Trading Research
@@ -426,7 +426,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 { icon: '📈', label: 'Technicals & Indicators' },
                 { icon: '📰', label: 'News Sentiment' },
                 { icon: '🐋', label: 'Whale & Smart Money' },
-                { icon: '♄', label: 'Astro Signals' },
+                { icon: '♅', label: 'Astro Signals' },
                 { icon: '🤖', label: 'Claude AI Summary' },
               ].map(f => (
                 <span key={f.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium"

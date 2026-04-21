@@ -104,7 +104,7 @@ export default function PartnersLanding() {
       <section className="max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-6"
           style={{ background: '#0f1a2e', border: '1px solid #1e3a5f', color: '#06b6d4' }}>
-          ♄ Now accepting partner applications
+          ♅ Now accepting partner applications
         </div>
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6" style={{ color: '#f1f5f9', lineHeight: 1.1 }}>
           Get Your Financial Astrology Insights<br />

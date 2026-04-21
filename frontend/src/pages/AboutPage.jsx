@@ -84,7 +84,7 @@ export default function AboutPage() {
       {/* Astrologers section */}
       <div className="pt-4">
         <h2 className="text-base font-bold mb-5" style={{ color: '#e2e8f0' }}>
-          ♄ Our Astrology Sources {sources.length > 0 && <span style={{ color: '#475569', fontWeight: 400 }}>({sources.length})</span>}
+          ♅ Our Astrology Sources {sources.length > 0 && <span style={{ color: '#475569', fontWeight: 400 }}>({sources.length})</span>}
         </h2>
         <div className="space-y-4">
           {sources.map(a => (

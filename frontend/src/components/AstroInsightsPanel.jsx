@@ -148,7 +148,7 @@ function DirectMatchHeader({ ticker, topic, insights, breakdown }) {
           className="px-2.5 py-1 rounded-full text-xs font-bold tracking-widest uppercase"
           style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
         >
-          ♄ Direct Astro Coverage
+          ♅ Direct Astro Coverage
         </span>
         <span className="text-xs font-mono font-semibold" style={{ color: '#94a3b8' }}>
           {ticker} → {topic.toUpperCase()}
@@ -271,7 +271,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
             className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
             style={{ background: 'linear-gradient(135deg, #1e1b4b, #312e81)', border: '1px solid #3730a3' }}
           >
-            ♄
+            ♅
           </div>
           <div>
             <div className="flex items-center">
@@ -288,7 +288,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
               Insights from Astrologers based on star positions · links to astrologer are included
             </div>
             <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg" style={{ background: '#a5b4fc18', border: '1px solid #a5b4fc44' }}>
-              <span className="text-lg">♄</span>
+              <span className="text-lg">♅</span>
               <p className="text-sm font-bold" style={{ color: '#a5b4fc' }}>
                 Astro Insights are best used alongside the technical &amp; fundamental analysis below.
               </p>
@@ -338,7 +338,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   style={{ background: 'linear-gradient(135deg, #1e1b4b, #0f1a2e)', border: '1px solid #4338ca', boxShadow: '0 0 18px #3730a322' }}
                 >
                   <p className="text-sm font-bold tracking-wide" style={{ color: '#a5b4fc' }}>
-                    ♄ Astrological Market Outlook Summary
+                    ♅ Astrological Market Outlook Summary
                   </p>
                   <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
                     {overall_summary}
@@ -385,7 +385,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                       boxShadow: '0 0 16px #3730a344',
                     }}
                   >
-                    ♄ View All Astro Insights ({total_insights}) ↓
+                    ♅ View All Astro Insights ({total_insights}) ↓
                   </button>
                 )
               )}
@@ -394,7 +394,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
           {/* Disclaimer */}
           <p className="text-xs pt-2" style={{ color: '#64748b', borderTop: '1px solid #1e2d45', paddingTop: 12 }}>
-            ♄ Astrological insights are alternative data for informational purposes only and do not constitute investment advice.
+            ♅ Astrological insights are alternative data for informational purposes only and do not constitute investment advice.
           </p>
         </div>
       )}
