@@ -197,6 +197,7 @@ export default function PartnersApply() {
     // Step 1
     name: '',
     email: '',
+    phone: '',
     website: '',
     astrologerType: '',
     bio: '',
@@ -262,6 +263,7 @@ export default function PartnersApply() {
       const payload = {
         name:             form.name,
         email:            form.email,
+        phone:            form.phone,
         website:          form.website,
         bio:              form.bio,
         photoUrl:         form.photoUrl,
@@ -349,6 +351,7 @@ export default function PartnersApply() {
                 <InputField label="Full Name" name="name" value={form.name} onChange={handle} placeholder="Your name" required />
                 <InputField label="Email" name="email" value={form.email} onChange={handle} type="email" placeholder="you@example.com" required />
               </div>
+              <InputField label="Phone Number" name="phone" value={form.phone} onChange={handle} type="tel" placeholder="+1 (555) 000-0000" />
               <div className="grid md:grid-cols-2 gap-5">
                 <InputField label="Website" name="website" value={form.website} onChange={handle} placeholder="https://yoursite.com" required hint="Your main site or blog" />
                 <SelectField
