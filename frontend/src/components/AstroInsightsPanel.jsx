@@ -323,7 +323,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
             </p>
           ) : total_insights === 0 ? (
             <p className="text-sm text-center py-6" style={{ color: '#475569' }}>
-              No insights collected yet. Check back after the next ingestion cycle.
+              We're currently updating our astro insights — check back in a few minutes.
             </p>
           ) : (
             <>
