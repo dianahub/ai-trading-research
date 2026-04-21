@@ -42,7 +42,7 @@ function PageLayout({ title, children }) {
 
       <footer className="mt-16 px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
         <div className="max-w-3xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <span className="text-xs" style={{ color: '#475569' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
+          <span className="text-xs" style={{ color: '#94a3b8' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
           <div className="flex items-center gap-4">
             <Link to="/about" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>About</Link>
             <Link to="/terms" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Terms of Service</Link>
@@ -84,7 +84,7 @@ export default function AboutPage() {
       {/* Astrologers section */}
       <div className="pt-4">
         <h2 className="text-base font-bold mb-5" style={{ color: '#e2e8f0' }}>
-          ♅ Our Astrology Sources {sources.length > 0 && <span style={{ color: '#475569', fontWeight: 400 }}>({sources.length})</span>}
+          ♅ Our Astrology Sources {sources.length > 0 && <span style={{ color: '#94a3b8', fontWeight: 400 }}>({sources.length})</span>}
         </h2>
         <div className="space-y-4">
           {sources.map(a => (
@@ -109,7 +109,7 @@ export default function AboutPage() {
       </div>
 
       <div className="pt-2" style={{ borderTop: '1px solid #1e2d45' }}>
-        <p className="text-xs" style={{ color: '#475569' }}>
+        <p className="text-xs" style={{ color: '#94a3b8' }}>
           Astrological insights are alternative data for informational purposes only and do not
           constitute investment advice. Always do your own research.
         </p>

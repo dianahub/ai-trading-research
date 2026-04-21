@@ -6,7 +6,7 @@ const ASTRO_URL = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-productio
 function StatCard({ label, value, sub }) {
   return (
     <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-      <div className="text-xs font-medium mb-1" style={{ color: '#475569' }}>{label}</div>
+      <div className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>{label}</div>
       <div className="text-2xl font-black mb-0.5" style={{ color: '#06b6d4' }}>{value}</div>
       {sub && <div className="text-xs" style={{ color: '#94a3b8' }}>{sub}</div>}
     </div>
@@ -93,7 +93,7 @@ function LoginPrompt({ onLogin }) {
             className="py-2.5 rounded-lg text-sm font-semibold"
             style={{
               background: loading ? '#1e2d45' : 'linear-gradient(135deg, #06b6d4, #3b82f6)',
-              color: loading ? '#475569' : '#fff',
+              color: loading ? '#94a3b8' : '#fff',
               cursor: loading ? 'not-allowed' : 'pointer',
               border: 'none',
             }}>
@@ -101,7 +101,7 @@ function LoginPrompt({ onLogin }) {
           </button>
         </form>
       </div>
-      <p className="text-xs text-center mt-4" style={{ color: '#475569' }}>
+      <p className="text-xs text-center mt-4" style={{ color: '#94a3b8' }}>
         Not a partner yet?{' '}
         <Link to="/partners/apply" style={{ color: '#06b6d4', textDecoration: 'none' }}>Apply to join →</Link>
       </p>
@@ -245,7 +245,7 @@ export default function PartnersDashboard() {
             </div>
             <div>
               <div className="text-sm font-bold tracking-widest text-white">Starsignal.io</div>
-              <div className="text-xs" style={{ color: '#475569' }}>Partner Dashboard</div>
+              <div className="text-xs" style={{ color: '#94a3b8' }}>Partner Dashboard</div>
             </div>
           </Link>
           {partner && (
@@ -263,7 +263,7 @@ export default function PartnersDashboard() {
         )}
 
         {loading && (
-          <div className="text-center py-24 text-sm" style={{ color: '#475569' }}>Loading…</div>
+          <div className="text-center py-24 text-sm" style={{ color: '#94a3b8' }}>Loading…</div>
         )}
 
         {authError && !loading && !partner && (
@@ -289,7 +289,7 @@ export default function PartnersDashboard() {
                     style={{ border: '2px solid #1e2d45' }} />
                 ) : (
                   <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold"
-                    style={{ background: '#1e2d45', color: '#475569' }}>
+                    style={{ background: '#1e2d45', color: '#94a3b8' }}>
                     {partner.name?.[0]?.toUpperCase() ?? '?'}
                   </div>
                 )}
@@ -298,11 +298,11 @@ export default function PartnersDashboard() {
                     <span className="text-xl font-bold" style={{ color: '#f1f5f9' }}>{partner.name}</span>
                     <Badge tier={partner.tier} />
                   </div>
-                  <div className="text-xs mt-0.5" style={{ color: '#475569' }}>{partner.email}</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>{partner.email}</div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className="w-1.5 h-1.5 rounded-full inline-block"
-                      style={{ background: statusColor[partner.status] ?? '#475569' }} />
-                    <span className="text-xs capitalize" style={{ color: statusColor[partner.status] ?? '#475569' }}>
+                      style={{ background: statusColor[partner.status] ?? '#94a3b8' }} />
+                    <span className="text-xs capitalize" style={{ color: statusColor[partner.status] ?? '#94a3b8' }}>
                       {partner.status}
                     </span>
                   </div>
@@ -355,13 +355,13 @@ export default function PartnersDashboard() {
                     <div key={i} className="rounded-xl px-5 py-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold uppercase tracking-wide" style={{ color: '#06b6d4' }}>{ins.topic}</span>
-                        <span className="text-xs" style={{ color: '#475569' }}>{ins.published_date}</span>
+                        <span className="text-xs" style={{ color: '#94a3b8' }}>{ins.published_date}</span>
                       </div>
                       <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{ins.summary}</p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="text-xs px-2 py-0.5 rounded-full"
                           style={{ background: '#0f2a1a', color: '#22d3ee' }}>{ins.outlook}</span>
-                        <span className="text-xs" style={{ color: '#475569' }}>{ins.timeframe}</span>
+                        <span className="text-xs" style={{ color: '#94a3b8' }}>{ins.timeframe}</span>
                       </div>
                     </div>
                   ))}
@@ -385,7 +385,7 @@ export default function PartnersDashboard() {
                       Cancel
                     </button>
                     <button onClick={saveProfile} disabled={saving} className="text-xs px-3 py-1.5 rounded-lg"
-                      style={{ background: saving ? '#1e2d45' : 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: saving ? '#475569' : '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer' }}>
+                      style={{ background: saving ? '#1e2d45' : 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: saving ? '#94a3b8' : '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer' }}>
                       {saving ? 'Saving…' : 'Save'}
                     </button>
                   </div>
@@ -439,19 +439,19 @@ export default function PartnersDashboard() {
                     <div className="grid grid-cols-2 gap-3 text-xs pt-2" style={{ borderTop: '1px solid #1e2d45' }}>
                       {partner.website && (
                         <div>
-                          <span style={{ color: '#475569' }}>Website </span>
+                          <span style={{ color: '#94a3b8' }}>Website </span>
                           <a href={partner.website} target="_blank" rel="noreferrer" style={{ color: '#06b6d4' }}>{partner.website}</a>
                         </div>
                       )}
                       {partner.rssUrl && (
                         <div>
-                          <span style={{ color: '#475569' }}>RSS </span>
+                          <span style={{ color: '#94a3b8' }}>RSS </span>
                           <a href={partner.rssUrl} target="_blank" rel="noreferrer" style={{ color: '#06b6d4' }}>{partner.rssUrl}</a>
                         </div>
                       )}
                       {partner.twitterUrl && (
                         <div>
-                          <span style={{ color: '#475569' }}>Twitter </span>
+                          <span style={{ color: '#94a3b8' }}>Twitter </span>
                           <a href={partner.twitterUrl} target="_blank" rel="noreferrer" style={{ color: '#06b6d4' }}>@{partner.twitterUrl.replace(/.*\//, '')}</a>
                         </div>
                       )}
@@ -481,11 +481,11 @@ export default function PartnersDashboard() {
 
       <footer className="px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="text-xs" style={{ color: '#475569' }}>© 2026 Futurotek LLC. All rights reserved.</span>
-          <div className="flex items-center gap-4 text-xs" style={{ color: '#475569' }}>
-            <Link to="/terms" style={{ color: '#475569', textDecoration: 'none' }}>Terms</Link>
-            <Link to="/privacy" style={{ color: '#475569', textDecoration: 'none' }}>Privacy</Link>
-            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'none' }}>LinkedIn</a>
+          <span className="text-xs" style={{ color: '#94a3b8' }}>© 2026 Futurotek LLC. All rights reserved.</span>
+          <div className="flex items-center gap-4 text-xs" style={{ color: '#94a3b8' }}>
+            <Link to="/terms" style={{ color: '#94a3b8', textDecoration: 'none' }}>Terms</Link>
+            <Link to="/privacy" style={{ color: '#94a3b8', textDecoration: 'none' }}>Privacy</Link>
+            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none' }}>LinkedIn</a>
           </div>
         </div>
       </footer>

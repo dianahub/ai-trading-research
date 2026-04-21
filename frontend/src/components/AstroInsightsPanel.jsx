@@ -25,7 +25,7 @@ function ConfidenceBar({ value }) {
         </div>
         <span className="text-xs font-mono" style={{ color, minWidth: 32 }}>{pct}%</span>
       </div>
-      <span className="text-xs" style={{ color: '#475569' }}>Astrologer's confidence in this signal</span>
+      <span className="text-xs" style={{ color: '#94a3b8' }}>Astrologer's confidence in this signal</span>
     </div>
   )
 }
@@ -155,7 +155,7 @@ function DirectMatchHeader({ ticker, topic, insights, breakdown }) {
         </span>
       </div>
       <div className="flex items-center gap-3 text-xs">
-        <span style={{ color: '#475569' }}>{topicInsights.length} signal{topicInsights.length !== 1 ? 's' : ''}</span>
+        <span style={{ color: '#94a3b8' }}>{topicInsights.length} signal{topicInsights.length !== 1 ? 's' : ''}</span>
         <span className="font-semibold" style={{ color: scoreColor }}>
           {scoreLabel} ({score > 0 ? '+' : ''}{score.toFixed(2)})
         </span>
@@ -279,7 +279,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 Astro Insights
               </span>
               {available && total_insights > 0 && (
-                <span className="ml-2 text-xs" style={{ color: '#475569' }}>
+                <span className="ml-2 text-xs" style={{ color: '#94a3b8' }}>
                   {total_insights} signal{total_insights !== 1 ? 's' : ''}
                 </span>
               )}
@@ -295,7 +295,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
             </div>
           </div>
           {!available && (
-            <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#1e2d45', color: '#475569' }}>
+            <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#1e2d45', color: '#94a3b8' }}>
               Service offline
             </span>
           )}
@@ -318,11 +318,11 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
       {visible && (
         <div className="p-5 space-y-5">
           {!available ? (
-            <p className="text-sm text-center py-6" style={{ color: '#475569' }}>
+            <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
               Astro API is currently unreachable. Insights will appear when the service is available.
             </p>
           ) : total_insights === 0 ? (
-            <p className="text-sm text-center py-6" style={{ color: '#475569' }}>
+            <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
               We're currently updating our astro insights — check back in a few minutes.
             </p>
           ) : (
@@ -370,7 +370,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   <button
                     onClick={() => setShowAll(false)}
                     className="w-full text-xs py-2 rounded transition-colors cursor-pointer"
-                    style={{ background: '#111827', color: '#475569', border: '1px solid #1e2d45' }}
+                    style={{ background: '#111827', color: '#94a3b8', border: '1px solid #1e2d45' }}
                   >
                     Show less
                   </button>

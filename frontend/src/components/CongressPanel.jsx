@@ -35,7 +35,7 @@ function TradeRow({ trade }) {
           <div className="text-sm font-semibold truncate" style={{ color: '#e2e8f0' }}>
             {trade.member}
           </div>
-          <div className="text-xs" style={{ color: '#475569' }}>
+          <div className="text-xs" style={{ color: '#94a3b8' }}>
             {trade.chamber} · {fmt_date(trade.tx_date)}
           </div>
         </div>
@@ -58,7 +58,7 @@ function TradeRow({ trade }) {
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs hover:underline shrink-0"
-            style={{ color: '#475569' }}
+            style={{ color: '#94a3b8' }}
           >
             ↗
           </a>
@@ -102,7 +102,7 @@ export default function CongressPanel({ congressData, ticker }) {
               Congressional Trades
             </span>
             {total > 0 && (
-              <span className="ml-2 text-xs" style={{ color: '#475569' }}>
+              <span className="ml-2 text-xs" style={{ color: '#94a3b8' }}>
                 {total} disclosure{total !== 1 ? 's' : ''}
               </span>
             )}
@@ -120,11 +120,11 @@ export default function CongressPanel({ congressData, ticker }) {
       {/* Body */}
       <div className="p-5 space-y-3">
         {unavailable ? (
-          <p className="text-sm text-center py-6" style={{ color: '#475569' }}>
+          <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
             Congressional data unavailable — the backend may need a restart to load this feature.
           </p>
         ) : total === 0 ? (
-          <p className="text-sm text-center py-6" style={{ color: '#475569' }}>
+          <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
             No congressional disclosures found for <span className="font-mono text-white">{ticker}</span>.
           </p>
         ) : (

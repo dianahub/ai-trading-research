@@ -12,7 +12,7 @@ function fmt(n, decimals = 2) {
 function StatBox({ label, value }) {
   return (
     <div className="rounded-lg p-3" style={{ background: '#0a0e1a', border: '1px solid #1e2d45' }}>
-      <div className="text-xs uppercase tracking-widest mb-1" style={{ color: '#475569' }}>{label}</div>
+      <div className="text-xs uppercase tracking-widest mb-1" style={{ color: '#94a3b8' }}>{label}</div>
       <div className="text-sm font-mono font-semibold" style={{ color: '#e2e8f0' }}>{value}</div>
     </div>
   )
@@ -40,7 +40,7 @@ export default function PriceCard({ price }) {
           <p className="text-sm font-medium" style={{ color: '#94a3b8' }}>
             Price data temporarily unavailable
           </p>
-          <p className="text-xs mt-1" style={{ color: '#475569' }}>
+          <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
             CoinGecko rate limit reached — retrying automatically
           </p>
         </div>
@@ -64,7 +64,7 @@ export default function PriceCard({ price }) {
                 style={{ background: '#1e2d45', color: '#06b6d4' }}>
                 {price.ticker}
               </span>
-              <span className="text-xs" style={{ color: '#475569' }}>{price.name}</span>
+              <span className="text-xs" style={{ color: '#94a3b8' }}>{price.name}</span>
             </div>
             <div className="text-4xl font-mono font-bold tracking-tight" style={{ color: '#f1f5f9' }}>
               {fmt(price.price_usd)}
@@ -100,7 +100,7 @@ export default function PriceCard({ price }) {
                 <Tooltip content={<SparkTooltip />} />
               </AreaChart>
             </ResponsiveContainer>
-            <div className="flex justify-between text-xs mt-0.5 px-1" style={{ color: '#475569' }}>
+            <div className="flex justify-between text-xs mt-0.5 px-1" style={{ color: '#94a3b8' }}>
               <span>7 days ago</span>
               <span>Now</span>
             </div>
@@ -115,7 +115,7 @@ export default function PriceCard({ price }) {
 
         {/* Timestamp */}
         {price.last_updated && (
-          <div className="flex items-center gap-1.5 mt-3 text-xs" style={{ color: '#475569' }}>
+          <div className="flex items-center gap-1.5 mt-3 text-xs" style={{ color: '#94a3b8' }}>
             <Clock size={11} />
             Updated {new Date(price.last_updated).toLocaleTimeString()}
           </div>

@@ -26,8 +26,8 @@ export default function NewsSection({ news, newsSentiment }) {
       <div className="flex items-center justify-between px-5 py-4"
         style={{ borderBottom: '1px solid #1e2d45' }}>
         <div className="flex items-center gap-2">
-          <Newspaper size={15} style={{ color: '#475569' }} />
-          <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#475569' }}>
+          <Newspaper size={15} style={{ color: '#94a3b8' }} />
+          <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
             {ticker} · Recent News
           </h3>
         </div>
@@ -43,7 +43,7 @@ export default function NewsSection({ news, newsSentiment }) {
       {/* Articles */}
       <div className="divide-y" style={{ borderColor: '#1e2d45' }}>
         {articles.length === 0 ? (
-          <div className="px-5 py-8 text-center text-sm" style={{ color: '#475569' }}>
+          <div className="px-5 py-8 text-center text-sm" style={{ color: '#94a3b8' }}>
             No articles found. Check NEWS_API_KEY configuration.
           </div>
         ) : articles.map((article, i) => (
@@ -69,7 +69,7 @@ export default function NewsSection({ news, newsSentiment }) {
                 <span className="text-xs font-medium" style={{ color: '#94a3b8' }}>
                   {article.source}
                 </span>
-                <span className="text-xs" style={{ color: '#475569' }}>
+                <span className="text-xs" style={{ color: '#94a3b8' }}>
                   {timeAgo(article.published_at)}
                 </span>
               </div>

@@ -1,7 +1,7 @@
 function Card({ title, children }) {
   return (
     <div className="rounded-xl p-4" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
-      <div className="text-xs uppercase tracking-widest mb-3 font-semibold" style={{ color: '#475569' }}>
+      <div className="text-xs uppercase tracking-widest mb-3 font-semibold" style={{ color: '#94a3b8' }}>
         {title}
       </div>
       {children}
@@ -44,7 +44,7 @@ function RsiGauge({ value }) {
           style={{ left: `${clamped}%`, background: color, boxShadow: `0 0 6px ${color}` }}
         />
       </div>
-      <div className="flex justify-between text-xs mt-1" style={{ color: '#475569' }}>
+      <div className="flex justify-between text-xs mt-1" style={{ color: '#94a3b8' }}>
         <span>0</span><span>30</span><span>70</span><span>100</span>
       </div>
     </div>
@@ -64,7 +64,7 @@ function MacdCard({ data }) {
           { label: 'Histogram', value: histogram, color: histColor },
         ].map(({ label, value, color }) => (
           <div key={label} className="text-center rounded-lg p-2" style={{ background: '#0a0e1a' }}>
-            <div className="text-xs mb-1" style={{ color: '#475569' }}>{label}</div>
+            <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>{label}</div>
             <div className="text-sm font-mono font-bold" style={{ color: color ?? '#94a3b8' }}>
               {value != null ? value.toFixed(2) : '—'}
             </div>
@@ -74,7 +74,7 @@ function MacdCard({ data }) {
       {/* Mini histogram bar */}
       {histogram != null && (
         <div className="flex items-center gap-2">
-          <div className="text-xs" style={{ color: '#475569' }}>Hist</div>
+          <div className="text-xs" style={{ color: '#94a3b8' }}>Hist</div>
           <div className="flex-1 h-1.5 rounded-full" style={{ background: '#1e2d45' }}>
             <div className="h-full rounded-full transition-all duration-500"
               style={{
@@ -116,7 +116,7 @@ function SmaCard({ data, currentPrice }) {
         ].map(({ label, value, pct }) => (
           <div key={label} className="flex items-center justify-between rounded-lg px-3 py-2"
             style={{ background: '#0a0e1a' }}>
-            <span className="text-xs" style={{ color: '#475569' }}>{label}</span>
+            <span className="text-xs" style={{ color: '#94a3b8' }}>{label}</span>
             <span className="text-sm font-mono" style={{ color: '#e2e8f0' }}>
               {value != null ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
             </span>
@@ -156,7 +156,7 @@ function BollingerCard({ data, currentPrice }) {
           <div key={label} className="flex justify-between text-xs items-center">
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-              <span style={{ color: '#475569' }}>{label}</span>
+              <span style={{ color: '#94a3b8' }}>{label}</span>
             </div>
             <span className="font-mono" style={{ color: '#94a3b8' }}>{fmt(value)}</span>
           </div>
@@ -165,7 +165,7 @@ function BollingerCard({ data, currentPrice }) {
       {/* Price position within bands */}
       {upper && lower && (
         <div className="mt-3">
-          <div className="text-xs mb-1" style={{ color: '#475569' }}>Price position in bands</div>
+          <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>Price position in bands</div>
           <div className="relative h-2 rounded-full" style={{ background: '#1e2d45' }}>
             <div className="absolute inset-y-0 left-0 right-0 rounded-full opacity-20"
               style={{ background: 'linear-gradient(90deg, #10b981, #06b6d4, #ef4444)' }} />
@@ -174,7 +174,7 @@ function BollingerCard({ data, currentPrice }) {
               style={{ left: `${position}%`, background: '#06b6d4', borderColor: '#0a0e1a' }}
             />
           </div>
-          <div className="flex justify-between text-xs mt-1" style={{ color: '#475569' }}>
+          <div className="flex justify-between text-xs mt-1" style={{ color: '#94a3b8' }}>
             <span>Lower</span><span>Middle</span><span>Upper</span>
           </div>
         </div>
@@ -200,13 +200,13 @@ function VolumeCard({ data }) {
     <Card title="Volume Analysis">
       <div className="flex items-end justify-between mb-3">
         <div>
-          <div className="text-xs mb-0.5" style={{ color: '#475569' }}>Current Volume</div>
+          <div className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Current Volume</div>
           <div className="text-lg font-mono font-bold" style={{ color: '#e2e8f0' }}>
             {fmtVol(current)}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xs mb-0.5" style={{ color: '#475569' }}>vs 30d Avg</div>
+          <div className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>vs 30d Avg</div>
           <div className="text-2xl font-mono font-bold" style={{ color }}>
             {ratio.toFixed(2)}x
           </div>
@@ -222,7 +222,7 @@ function VolumeCard({ data }) {
           }}
         />
       </div>
-      <div className="text-xs mb-2" style={{ color: '#475569' }}>
+      <div className="text-xs mb-2" style={{ color: '#94a3b8' }}>
         30d avg: {fmtVol(avg_30d)}
       </div>
       <Interpretation text={interpretation} />
@@ -236,7 +236,7 @@ export default function TechnicalGrid({ technicals }) {
   if (technicals._unavailable) {
     return (
       <div>
-        <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#475569' }}>
+        <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#94a3b8' }}>
           Technical Indicators
         </h3>
         <div className="rounded-xl p-4 flex items-center gap-3"
@@ -255,7 +255,7 @@ export default function TechnicalGrid({ technicals }) {
 
   return (
     <div>
-      <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#475569' }}>
+      <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#94a3b8' }}>
         Technical Indicators
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

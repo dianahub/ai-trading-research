@@ -87,7 +87,7 @@ export default function PartnersLanding() {
             </div>
             <div>
               <div className="text-sm font-bold tracking-widest text-white">Starsignal.io</div>
-              <div className="text-xs" style={{ color: '#475569' }}>AI Astro Trading</div>
+              <div className="text-xs" style={{ color: '#94a3b8' }}>AI Astro Trading</div>
             </div>
           </Link>
           <div className="flex items-center gap-4">
@@ -120,7 +120,7 @@ export default function PartnersLanding() {
           style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', color: '#fff', textDecoration: 'none' }}>
           Apply to Join →
         </Link>
-        <p className="text-sm mt-4" style={{ color: '#475569' }}>Free tier available · No financial license required</p>
+        <p className="text-sm mt-4" style={{ color: '#94a3b8' }}>Free tier available · No financial license required</p>
       </section>
 
       {/* How It Works */}
@@ -155,7 +155,7 @@ export default function PartnersLanding() {
           ].map(s => (
             <div key={s.label}>
               <div className="text-3xl font-black mb-1" style={{ color: '#06b6d4' }}>{s.value}</div>
-              <div className="text-xs" style={{ color: '#475569' }}>{s.label}</div>
+              <div className="text-xs" style={{ color: '#94a3b8' }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -181,7 +181,7 @@ export default function PartnersLanding() {
                   {tier.badge}
                 </div>
               )}
-              <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#475569' }}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#94a3b8' }}>
                 {tier.name}
               </div>
               <div className="mb-1">
@@ -232,7 +232,7 @@ export default function PartnersLanding() {
               <summary className="px-5 py-4 text-sm font-medium cursor-pointer list-none flex items-center justify-between"
                 style={{ color: '#e2e8f0' }}>
                 {faq.q}
-                <span className="ml-4 text-xs" style={{ color: '#475569' }}>▾</span>
+                <span className="ml-4 text-xs" style={{ color: '#94a3b8' }}>▾</span>
               </summary>
               <div className="px-5 pb-4 text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
                 {faq.a}
@@ -260,15 +260,15 @@ export default function PartnersLanding() {
       {/* Footer */}
       <footer className="px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="text-xs" style={{ color: '#475569' }}>
+          <span className="text-xs" style={{ color: '#94a3b8' }}>
             © 2026 Futurotek LLC. All rights reserved.
           </span>
-          <div className="flex items-center gap-4 text-xs" style={{ color: '#475569' }}>
-            <Link to="/terms"   style={{ color: '#475569', textDecoration: 'none' }}>Terms</Link>
-            <Link to="/privacy" style={{ color: '#475569', textDecoration: 'none' }}>Privacy</Link>
-            <Link to="/contact" style={{ color: '#475569', textDecoration: 'none' }}>Contact</Link>
-            <Link to="/partners/dashboard" style={{ color: '#475569', textDecoration: 'none' }}>Partner Login</Link>
-            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'none' }}>LinkedIn</a>
+          <div className="flex items-center gap-4 text-xs" style={{ color: '#94a3b8' }}>
+            <Link to="/terms"   style={{ color: '#94a3b8', textDecoration: 'none' }}>Terms</Link>
+            <Link to="/privacy" style={{ color: '#94a3b8', textDecoration: 'none' }}>Privacy</Link>
+            <Link to="/contact" style={{ color: '#94a3b8', textDecoration: 'none' }}>Contact</Link>
+            <Link to="/partners/dashboard" style={{ color: '#94a3b8', textDecoration: 'none' }}>Partner Login</Link>
+            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none' }}>LinkedIn</a>
           </div>
         </div>
       </footer>

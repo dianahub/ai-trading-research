@@ -84,7 +84,7 @@ export default function VerifyEmailPage() {
             )}
           </>
         )}
-        <Link to="/login" className="block mt-8 text-sm" style={{ color: '#475569', textDecoration: 'none' }}>
+        <Link to="/login" className="block mt-8 text-sm" style={{ color: '#94a3b8', textDecoration: 'none' }}>
           ← Back to login
         </Link>
       </div>

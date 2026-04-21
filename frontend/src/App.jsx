@@ -276,13 +276,13 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 <div className="text-sm font-bold tracking-widest text-white">
                   Starsignal.io
                 </div>
-                <div className="text-xs" style={{ color: '#475569' }}>
+                <div className="text-xs" style={{ color: '#94a3b8' }}>
                   Ai Astro Trading
                 </div>
               </div>
             </Link>
             {/* LIVE badge shown in title row on mobile */}
-            <div className="flex md:hidden items-center gap-2 text-xs" style={{ color: '#475569' }}>
+            <div className="flex md:hidden items-center gap-2 text-xs" style={{ color: '#94a3b8' }}>
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block pulse-glow" />
               LIVE
             </div>
@@ -293,7 +293,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           </div>
           {/* LIVE badge — desktop only */}
           <div className="hidden md:flex items-center gap-2 text-xs shrink-0"
-            style={{ color: '#475569' }}>
+            style={{ color: '#94a3b8' }}>
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block pulse-glow" />
             LIVE
           </div>
@@ -312,7 +312,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               style={{ top: 'var(--header-h, 64px)', background: '#0a0e1a' }}>
             <div className="fade-in flex items-baseline gap-3 py-2 md:py-0">
               <h1 className="text-2xl md:text-3xl font-bold" style={{ color: '#f1f5f9' }}>{data.name}</h1>
-              <span className="text-lg font-mono" style={{ color: '#475569' }}>{ticker}</span>
+              <span className="text-lg font-mono" style={{ color: '#94a3b8' }}>{ticker}</span>
             </div>
 
             {/* Section nav — hamburger on mobile, pill row on desktop */}
@@ -468,7 +468,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               )}
             </div>
 
-            <p className="text-xs" style={{ color: '#475569' }}>
+            <p className="text-xs" style={{ color: '#94a3b8' }}>
               Powered by CoinGecko · Finnhub · Claude AI · Financial Astrology
             </p>
           </div>
@@ -604,7 +604,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         <div className="max-w-7xl mx-auto space-y-4">
           {/* Top row: copyright left, links right */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <span className="text-xs" style={{ color: '#475569' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
+            <span className="text-xs" style={{ color: '#94a3b8' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
             <div className="flex items-center gap-4">
               <Link to="/about" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>About</Link>
               <Link to="/partners" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Partners</Link>

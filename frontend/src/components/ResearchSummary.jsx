@@ -13,7 +13,7 @@ export default function ResearchSummary({ analysis, ticker }) {
             style={{ background: '#06b6d422' }}>
             <FileText size={14} style={{ color: '#06b6d4' }} />
           </div>
-          <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#475569' }}>
+          <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
             {ticker} · Full Research Summary
           </h3>
         </div>
@@ -48,8 +48,8 @@ export default function ResearchSummary({ analysis, ticker }) {
       {/* Disclaimer strip */}
       <div className="flex items-center gap-2 px-6 py-3 rounded-b-xl"
         style={{ background: '#0a0e1a', borderTop: '1px solid #1e2d45' }}>
-        <Shield size={13} style={{ color: '#475569' }} />
-        <p className="text-xs" style={{ color: '#475569' }}>
+        <Shield size={13} style={{ color: '#94a3b8' }} />
+        <p className="text-xs" style={{ color: '#94a3b8' }}>
           {analysis.disclaimer}
         </p>
       </div>

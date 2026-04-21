@@ -21,7 +21,7 @@ function PasswordStrength({ password }) {
             style={{ background: i < score ? colors[score - 1] : '#1e2d45' }} />
         ))}
       </div>
-      <p className="text-xs" style={{ color: score > 0 ? colors[score - 1] : '#475569' }}>
+      <p className="text-xs" style={{ color: score > 0 ? colors[score - 1] : '#94a3b8' }}>
         {score > 0 ? labels[score - 1] : ''}
       </p>
     </div>
@@ -139,7 +139,7 @@ export default function SignupPage() {
           </form>
         </div>
 
-        <p className="text-center text-sm mt-6" style={{ color: '#475569' }}>
+        <p className="text-center text-sm mt-6" style={{ color: '#94a3b8' }}>
           Already have an account?{' '}
           <Link to="/login" style={{ color: '#06b6d4', textDecoration: 'none' }}>Sign in</Link>
         </p>

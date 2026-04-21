@@ -30,8 +30,8 @@ function StatusDot({ status }) {
   const c = { pending: '#fbbf24', approved: '#22d3ee', rejected: '#f87171' }
   return (
     <span className="flex items-center gap-1.5 text-xs capitalize"
-      style={{ color: c[status] ?? '#475569' }}>
-      <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: c[status] ?? '#475569' }} />
+      style={{ color: c[status] ?? '#94a3b8' }}>
+      <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: c[status] ?? '#94a3b8' }} />
       {status}
     </span>
   )
@@ -40,7 +40,7 @@ function StatusDot({ status }) {
 function StatCard({ label, value }) {
   return (
     <div className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-      <div className="text-xs mb-1" style={{ color: '#475569' }}>{label}</div>
+      <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>{label}</div>
       <div className="text-2xl font-black" style={{ color: '#06b6d4' }}>{value}</div>
     </div>
   )
@@ -94,7 +94,7 @@ function BetaApplicationsTab({ email, password }) {
   const pending = apps.filter(a => a.status === 'pending')
   const done    = apps.filter(a => a.status !== 'pending')
 
-  if (loading) return <p style={{ color: '#475569', padding: '24px' }}>Loading…</p>
+  if (loading) return <p style={{ color: '#94a3b8', padding: '24px' }}>Loading…</p>
 
   return (
     <div>
@@ -107,7 +107,7 @@ function BetaApplicationsTab({ email, password }) {
       </div>
 
       {pending.length === 0 && done.length === 0 && (
-        <p style={{ color: '#475569', fontSize: '14px' }}>No applications yet.</p>
+        <p style={{ color: '#94a3b8', fontSize: '14px' }}>No applications yet.</p>
       )}
 
       {pending.length > 0 && (
@@ -174,14 +174,14 @@ function BetaApplicationsTab({ email, password }) {
 
       {done.length > 0 && (
         <div>
-          <p className="text-xs font-semibold mb-3" style={{ color: '#475569' }}>Processed</p>
+          <p className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>Processed</p>
           <div className="space-y-2">
             {done.map(app => (
               <div key={app.id} className="rounded-lg px-4 py-3 flex items-center justify-between"
                 style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
                 <div>
                   <span className="text-sm" style={{ color: '#94a3b8' }}>{app.name}</span>
-                  <span className="text-xs ml-2" style={{ color: '#475569' }}>{app.email}</span>
+                  <span className="text-xs ml-2" style={{ color: '#94a3b8' }}>{app.email}</span>
                 </div>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                   style={{
@@ -227,19 +227,19 @@ function UsersTab({ email, password }) {
     setChangingTier(c => ({ ...c, [userId]: false }))
   }
 
-  if (loading) return <p style={{ color: '#475569', padding: '24px' }}>Loading…</p>
+  if (loading) return <p style={{ color: '#94a3b8', padding: '24px' }}>Loading…</p>
 
   return (
     <div>
       <p className="text-sm font-semibold mb-4" style={{ color: '#f1f5f9' }}>
-        All Users <span style={{ color: '#475569', fontWeight: 400 }}>({users.length})</span>
+        All Users <span style={{ color: '#94a3b8', fontWeight: 400 }}>({users.length})</span>
       </p>
       <div className="rounded-xl overflow-x-auto" style={{ border: '1px solid #1e2d45' }}>
         <table className="w-full text-xs">
           <thead>
             <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
               {['Email', 'Name', 'Tier', 'Verified', 'Beta Expires', 'Last Login', 'Actions'].map(h => (
-                <th key={h} className="px-3 py-3 text-left font-semibold" style={{ color: '#475569' }}>{h}</th>
+                <th key={h} className="px-3 py-3 text-left font-semibold" style={{ color: '#94a3b8' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -380,7 +380,7 @@ function AuthStatsTab({ email, password }) {
       .then(r => r.json()).then(setStats).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <p style={{ color: '#475569', padding: '24px' }}>Loading…</p>
+  if (loading) return <p style={{ color: '#94a3b8', padding: '24px' }}>Loading…</p>
   if (!stats) return <p style={{ color: '#f87171', padding: '24px' }}>Failed to load stats.</p>
 
   return (
@@ -402,7 +402,7 @@ function AuthStatsTab({ email, password }) {
               <thead>
                 <tr style={{ background: '#0f1a2e' }}>
                   {['Email', 'Name', 'Days Left'].map(h => (
-                    <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: '#475569' }}>{h}</th>
+                    <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: '#94a3b8' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -558,7 +558,7 @@ export default function AdminPartners() {
         <div className="w-full max-w-sm mx-4">
           <div className="rounded-xl p-8" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
             <h1 className="text-xl font-bold mb-1 text-center" style={{ color: '#f1f5f9' }}>Partner Admin</h1>
-            <p className="text-xs text-center mb-6" style={{ color: '#475569' }}>Admin access only</p>
+            <p className="text-xs text-center mb-6" style={{ color: '#94a3b8' }}>Admin access only</p>
             {loginErr && (
               <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ background: '#2d1515', border: '1px solid #f87171', color: '#fca5a5' }}>
                 {loginErr}
@@ -597,10 +597,10 @@ export default function AdminPartners() {
                 style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)' }}>AI</div>
               <span className="text-sm font-bold tracking-widest text-white">Starsignal</span>
             </Link>
-            <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#1e2d45', color: '#475569' }}>Admin</span>
+            <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#1e2d45', color: '#94a3b8' }}>Admin</span>
           </div>
-          <div className="flex items-center gap-3 text-xs" style={{ color: '#475569' }}>
-            <Link to="/admin/outreach" style={{ color: '#475569', textDecoration: 'none' }}>Outreach</Link>
+          <div className="flex items-center gap-3 text-xs" style={{ color: '#94a3b8' }}>
+            <Link to="/admin/outreach" style={{ color: '#94a3b8', textDecoration: 'none' }}>Outreach</Link>
             <button onClick={logout} className="px-3 py-1.5 rounded-lg"
               style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
               Log out
@@ -682,16 +682,16 @@ export default function AdminPartners() {
 
         {/* Partners table */}
         {loading ? (
-          <div className="text-sm text-center py-12" style={{ color: '#475569' }}>Loading…</div>
+          <div className="text-sm text-center py-12" style={{ color: '#94a3b8' }}>Loading…</div>
         ) : partners.length === 0 ? (
-          <div className="text-sm text-center py-12" style={{ color: '#475569' }}>No partners in this status.</div>
+          <div className="text-sm text-center py-12" style={{ color: '#94a3b8' }}>No partners in this status.</div>
         ) : (
           <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
                   {['Name', 'Email', 'Tier', 'Status', 'RSS', 'Applied', ''].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#475569' }}>{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#94a3b8' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -707,7 +707,7 @@ export default function AdminPartners() {
                         ? <a href={p.rssUrl} target="_blank" rel="noreferrer" style={{ color: '#06b6d4' }}>{p.rssUrl.replace(/^https?:\/\//, '')}</a>
                         : <span style={{ color: '#334155' }}>—</span>}
                     </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#475569' }}>
+                    <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>
                       {new Date(p.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
@@ -736,7 +736,7 @@ export default function AdminPartners() {
             <div className="px-6 py-5" style={{ borderBottom: '1px solid #1e2d45' }}>
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold" style={{ color: '#f1f5f9' }}>{selected.name}</h2>
-                <button onClick={() => setSelected(null)} className="text-xl" style={{ color: '#475569', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+                <button onClick={() => setSelected(null)} className="text-xl" style={{ color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <Badge tier={selected.tier} />
@@ -756,7 +756,7 @@ export default function AdminPartners() {
                 </div>
               )}
 
-              {detailLoading && <div className="text-sm text-center py-8" style={{ color: '#475569' }}>Loading details…</div>}
+              {detailLoading && <div className="text-sm text-center py-8" style={{ color: '#94a3b8' }}>Loading details…</div>}
 
               {detail && !detailLoading && (
                 <>
@@ -771,7 +771,7 @@ export default function AdminPartners() {
                       { label: 'Frequency', val: detail.publishFrequency },
                     ].map(({ label, val, link }) => val ? (
                       <div key={label}>
-                        <div style={{ color: '#475569' }}>{label}</div>
+                        <div style={{ color: '#94a3b8' }}>{label}</div>
                         {link ? (
                           <a href={val} target="_blank" rel="noreferrer" style={{ color: '#06b6d4' }}>{val}</a>
                         ) : (
@@ -783,14 +783,14 @@ export default function AdminPartners() {
 
                   {detail.bio && (
                     <div>
-                      <div className="text-xs mb-1" style={{ color: '#475569' }}>Bio</div>
+                      <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>Bio</div>
                       <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{detail.bio}</p>
                     </div>
                   )}
 
                   {detail.contentTypes?.length > 0 && (
                     <div>
-                      <div className="text-xs mb-2" style={{ color: '#475569' }}>Content Types</div>
+                      <div className="text-xs mb-2" style={{ color: '#94a3b8' }}>Content Types</div>
                       <div className="flex flex-wrap gap-1.5">
                         {detail.contentTypes.map(ct => (
                           <span key={ct} className="px-2 py-0.5 rounded-full text-xs"
@@ -805,14 +805,14 @@ export default function AdminPartners() {
                   {/* RSS feed preview */}
                   {detail.feedPreview?.length > 0 && (
                     <div>
-                      <div className="text-xs mb-2" style={{ color: '#475569' }}>Feed Preview (last 5)</div>
+                      <div className="text-xs mb-2" style={{ color: '#94a3b8' }}>Feed Preview (last 5)</div>
                       <div className="flex flex-col gap-2">
                         {detail.feedPreview.map((item, i) => (
                           <div key={i} className="rounded-lg px-3 py-2" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
                             <a href={item.link} target="_blank" rel="noreferrer" className="text-xs font-medium" style={{ color: '#06b6d4', textDecoration: 'none' }}>
                               {item.title}
                             </a>
-                            <div className="text-xs mt-0.5" style={{ color: '#475569' }}>
+                            <div className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>
                               {item.pubDate ? new Date(item.pubDate).toLocaleDateString() : ''}
                             </div>
                           </div>

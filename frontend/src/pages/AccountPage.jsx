@@ -8,7 +8,7 @@ function StatCard({ label, value, color }) {
   return (
     <div className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
       <div className="text-2xl font-black mb-1" style={{ color: color || '#06b6d4' }}>{value}</div>
-      <div className="text-xs" style={{ color: '#475569' }}>{label}</div>
+      <div className="text-xs" style={{ color: '#94a3b8' }}>{label}</div>
     </div>
   )
 }
@@ -89,7 +89,7 @@ export default function AccountPage() {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#060a14' }}>
-      <p style={{ color: '#475569' }}>Loading…</p>
+      <p style={{ color: '#94a3b8' }}>Loading…</p>
     </div>
   )
 
@@ -185,7 +185,7 @@ export default function AccountPage() {
                 <div className="text-2xl font-black" style={{ color: account.beta_days_left < 5 ? '#f97316' : '#06b6d4' }}>
                   {account.beta_days_left}
                 </div>
-                <div className="text-xs" style={{ color: '#475569' }}>days left</div>
+                <div className="text-xs" style={{ color: '#94a3b8' }}>days left</div>
               </div>
             )}
           </div>

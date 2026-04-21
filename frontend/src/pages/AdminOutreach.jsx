@@ -383,7 +383,7 @@ export default function AdminOutreach() {
             </span>
           </div>
           <button onClick={() => { sessionStorage.clear(); setAuthed(false) }}
-            className="text-xs cursor-pointer" style={{ color: '#475569' }}>
+            className="text-xs cursor-pointer" style={{ color: '#94a3b8' }}>
             Sign out
           </button>
         </div>
@@ -483,7 +483,7 @@ export default function AdminOutreach() {
             )}
 
             {!searching && !searchError && results.length === 0 && keyword && (
-              <div className="p-6 rounded-xl text-center text-sm" style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#475569' }}>
+              <div className="p-6 rounded-xl text-center text-sm" style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#94a3b8' }}>
                 No results returned. Try a different keyword or platform.
               </div>
             )}
@@ -501,7 +501,7 @@ export default function AdminOutreach() {
                       <tr style={{ borderBottom: '1px solid #1e2d45' }}>
                         {['Name', 'Platform', 'Followers', 'Content Focus', 'Contact', ''].map(h => (
                           <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-widest"
-                            style={{ color: '#475569', background: '#0f1a2e' }}>{h}</th>
+                            style={{ color: '#94a3b8', background: '#0f1a2e' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -597,7 +597,7 @@ export default function AdminOutreach() {
 
             {filteredContacts.length === 0 && (
               <div className="p-12 rounded-xl text-center" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-                <p className="text-sm" style={{ color: '#475569' }}>
+                <p className="text-sm" style={{ color: '#94a3b8' }}>
                   {contacts.length === 0 ? 'No contacts yet. Use Discover to find prospects.' : 'No contacts with this status.'}
                 </p>
               </div>
@@ -611,7 +611,7 @@ export default function AdminOutreach() {
                       <tr style={{ borderBottom: '1px solid #1e2d45' }}>
                         {['Name', 'Platform', 'Followers', 'Status', 'Contacted', 'Referrals', 'Actions'].map(h => (
                           <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-widest"
-                            style={{ color: '#475569', background: '#0f1a2e' }}>{h}</th>
+                            style={{ color: '#94a3b8', background: '#0f1a2e' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -631,7 +631,7 @@ export default function AdminOutreach() {
                                 )}
                               </div>
                               {c.last_message_sent && (
-                                <div className="text-xs mt-0.5" style={{ color: '#475569' }}>
+                                <div className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>
                                   Last sent: <span style={{ color: '#94a3b8' }}>{c.last_message_sent.replace(/_/g, ' ')}</span>
                                 </div>
                               )}
@@ -772,7 +772,7 @@ export default function AdminOutreach() {
                       <tr style={{ borderBottom: '1px solid #1e2d45' }}>
                         {['Platform', 'Prospects', 'Contacted', 'Responded', 'Partners', 'Response %'].map(h => (
                           <th key={h} className="text-left pb-3 pr-6 text-xs font-semibold uppercase tracking-widest"
-                            style={{ color: '#475569' }}>{h}</th>
+                            style={{ color: '#94a3b8' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -805,7 +805,7 @@ export default function AdminOutreach() {
         )}
 
         {tab === 'analytics' && !analytics && (
-          <div className="p-12 text-center" style={{ color: '#475569' }}>Loading analytics…</div>
+          <div className="p-12 text-center" style={{ color: '#94a3b8' }}>Loading analytics…</div>
         )}
         </>}
       </main>
@@ -824,7 +824,7 @@ export default function AdminOutreach() {
                 </p>
               </div>
               <button onClick={() => { setMsgModal(null); setMessages(null) }}
-                className="text-lg cursor-pointer" style={{ color: '#475569' }}>✕</button>
+                className="text-lg cursor-pointer" style={{ color: '#94a3b8' }}>✕</button>
             </div>
 
             {msgLoading && (
@@ -865,7 +865,7 @@ export default function AdminOutreach() {
                 {/* Subject line — shown for 1st Outreach tab */}
                 {msgTab === 'initial' && messages.subject && (
                   <div className="mb-3">
-                    <div className="text-xs font-medium mb-1" style={{ color: '#475569' }}>Subject</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>Subject</div>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
@@ -932,7 +932,7 @@ export default function AdminOutreach() {
           <div className="p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold" style={{ color: '#f1f5f9' }}>Edit Contact</h3>
-              <button onClick={() => setEditModal(null)} className="cursor-pointer" style={{ color: '#475569' }}>✕</button>
+              <button onClick={() => setEditModal(null)} className="cursor-pointer" style={{ color: '#94a3b8' }}>✕</button>
             </div>
 
             {[
@@ -1207,7 +1207,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                 <thead>
                   <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
                     {['Project', 'What they build', 'Tech', 'Stage', 'MRR', 'Email', ''].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#475569' }}>{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#94a3b8' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1218,7 +1218,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                       <tr key={i} style={{ borderBottom: '1px solid #1e2d45', background: i % 2 === 0 ? '#070b16' : '#080d18' }}>
                         <td className="px-4 py-3">
                           <div className="font-medium text-sm" style={{ color: '#f1f5f9' }}>{r.company_name}</div>
-                          {r.contact_name && <div className="text-xs" style={{ color: '#475569' }}>{r.contact_name}</div>}
+                          {r.contact_name && <div className="text-xs" style={{ color: '#94a3b8' }}>{r.contact_name}</div>}
                           {r.profile_url && <a href={r.profile_url} target="_blank" rel="noreferrer" className="text-xs" style={{ color: '#06b6d4' }}>{r.profile_url.replace(/^https?:\/\//, '').slice(0, 40)}</a>}
                         </td>
                         <td className="px-4 py-3 max-w-xs"><span className="text-xs line-clamp-2" style={{ color: '#94a3b8' }}>{r.what_they_build}</span></td>
@@ -1258,7 +1258,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
             ))}
           </div>
           {filteredLeads.length === 0 ? (
-            <p className="text-sm py-12 text-center" style={{ color: '#475569' }}>No leads yet — use Discover to find prospects.</p>
+            <p className="text-sm py-12 text-center" style={{ color: '#94a3b8' }}>No leads yet — use Discover to find prospects.</p>
           ) : (
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
               <div className="overflow-x-auto">
@@ -1266,7 +1266,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                   <thead>
                     <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
                       {['Company', 'Platform', 'What they build', 'Stage', 'MRR', 'Status', 'Actions'].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#475569', background: '#0f1a2e' }}>{h}</th>
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#94a3b8', background: '#0f1a2e' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1275,9 +1275,9 @@ function ApiLeadsSection({ API, adminHeaders }) {
                       <tr key={l.id} style={{ borderBottom: '1px solid #1e2d45', background: '#0a0e1a' }}>
                         <td className="px-4 py-3">
                           <div className="font-medium" style={{ color: '#f1f5f9' }}>{l.company_name}</div>
-                          {l.contact_name && <div className="text-xs" style={{ color: '#475569' }}>{l.contact_name}</div>}
+                          {l.contact_name && <div className="text-xs" style={{ color: '#94a3b8' }}>{l.contact_name}</div>}
                           {l.contact_email && <a href={`mailto:${l.contact_email}`} className="text-xs" style={{ color: '#34d399', textDecoration: 'none' }}>✉ {l.contact_email}</a>}
-                          {l.last_message_sent && <div className="text-xs mt-0.5" style={{ color: '#475569' }}>Last: <span style={{ color: '#94a3b8' }}>{l.last_message_sent.replace(/_/g, ' ')}</span></div>}
+                          {l.last_message_sent && <div className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>Last: <span style={{ color: '#94a3b8' }}>{l.last_message_sent.replace(/_/g, ' ')}</span></div>}
                         </td>
                         <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{l.platform}</td>
                         <td className="px-4 py-3 max-w-xs"><span className="text-xs line-clamp-2" style={{ color: '#94a3b8' }}>{l.what_they_build}</span></td>
@@ -1339,7 +1339,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                 { label: 'In Progress',         value: cs.in_progress },
               ].map(s => (
                 <div key={s.label} className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-                  <div className="text-xs mb-1" style={{ color: '#475569' }}>{s.label}</div>
+                  <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>{s.label}</div>
                   <div className="text-xl font-black" style={{ color: '#06b6d4' }}>{s.value}</div>
                 </div>
               ))}
@@ -1347,14 +1347,14 @@ function ApiLeadsSection({ API, adminHeaders }) {
           )}
 
           {jobs.length === 0 ? (
-            <p className="text-sm py-12 text-center" style={{ color: '#475569' }}>No jobs yet.</p>
+            <p className="text-sm py-12 text-center" style={{ color: '#94a3b8' }}>No jobs yet.</p>
           ) : (
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
                     {['Company', 'Scope', 'Price', 'Status', 'Hours', ''].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#475569' }}>{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#94a3b8' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1404,18 +1404,18 @@ function ApiLeadsSection({ API, adminHeaders }) {
                 { label: 'Paying',         value: `${ca.paying} (${ca.pay_rate}%)` },
               ].map(s => (
                 <div key={s.label} className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-                  <div className="text-xs mb-1" style={{ color: '#475569' }}>{s.label}</div>
+                  <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>{s.label}</div>
                   <div className="text-xl font-black" style={{ color: '#06b6d4' }}>{s.value}</div>
                 </div>
               ))}
             </div>
             <div className="grid grid-cols-2 gap-3 mt-3">
               <div className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-                <div className="text-xs mb-1" style={{ color: '#475569' }}>MRR from API</div>
+                <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>MRR from API</div>
                 <div className="text-2xl font-black" style={{ color: '#4ade80' }}>${ca.mrr}</div>
               </div>
               <div className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-                <div className="text-xs mb-1" style={{ color: '#475569' }}>Avg MRR / Customer</div>
+                <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>Avg MRR / Customer</div>
                 <div className="text-2xl font-black" style={{ color: '#4ade80' }}>${ca.avg_mrr}</div>
               </div>
             </div>
@@ -1431,7 +1431,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                   { label: 'In Progress',        value: cs.in_progress },
                 ].map(s => (
                   <div key={s.label} className="rounded-xl p-4" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-                    <div className="text-xs mb-1" style={{ color: '#475569' }}>{s.label}</div>
+                    <div className="text-xs mb-1" style={{ color: '#94a3b8' }}>{s.label}</div>
                     <div className="text-xl font-black" style={{ color: '#06b6d4' }}>{s.value}</div>
                   </div>
                 ))}
@@ -1450,9 +1450,9 @@ function ApiLeadsSection({ API, adminHeaders }) {
                 <h3 className="text-base font-bold" style={{ color: '#f1f5f9' }}>{msgModal.company_name}</h3>
                 <p className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>{msgModal.what_they_build?.slice(0, 80)}</p>
               </div>
-              <button onClick={() => setMsgModal(null)} style={{ color: '#475569', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+              <button onClick={() => setMsgModal(null)} style={{ color: '#94a3b8', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
             </div>
-            {msgLoading && <p className="text-sm text-center py-6" style={{ color: '#475569' }}>Generating…</p>}
+            {msgLoading && <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>Generating…</p>}
             {messages?.error && <p className="text-sm" style={{ color: '#f87171' }}>{messages.error}</p>}
             {messages && !messages.error && !msgLoading && (
               <>
@@ -1471,7 +1471,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                 </div>
                 {msgTab === 'cold_outreach' && messages.subject && (
                   <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: '#475569' }}>Subject</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>Subject</div>
                     <div className="flex items-center gap-2">
                       <input type="text" value={msgEdits.subject ?? messages.subject}
                         onChange={e => setMsgEdits(p => ({ ...p, subject: e.target.value }))}
@@ -1515,7 +1515,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
           <div className="p-6 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold" style={{ color: '#f1f5f9' }}>Edit Lead</h3>
-              <button onClick={() => setEditModal(null)} style={{ color: '#475569', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+              <button onClick={() => setEditModal(null)} style={{ color: '#94a3b8', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
             </div>
             {[
               { key: 'company_name',  label: 'Company / Project', type: 'text' },
@@ -1576,7 +1576,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
           <div className="p-6 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold" style={{ color: '#f1f5f9' }}>{jobModal === 'new' ? 'New Job' : 'Edit Job'}</h3>
-              <button onClick={() => setJobModal(null)} style={{ color: '#475569', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+              <button onClick={() => setJobModal(null)} style={{ color: '#94a3b8', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
             </div>
             {[
               { key: 'company_name', label: 'Company', type: 'text' },

@@ -23,7 +23,7 @@ export default function SearchBar({ onSearch, loading, disabled = false }) {
           <Search
             size={18}
             className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ color: disabled ? '#1e2d45' : '#475569' }}
+            style={{ color: disabled ? '#1e2d45' : '#94a3b8' }}
           />
           <input
             type="text"

@@ -21,7 +21,7 @@ export default function OpportunitiesRisks({ analysis }) {
   return (
     <div className="rounded-xl h-full flex flex-col" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
       <div className="p-4 pb-0">
-        <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#475569' }}>
+        <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
           Opportunities &amp; Risks
         </h3>
       </div>

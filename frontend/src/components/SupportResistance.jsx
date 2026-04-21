@@ -21,7 +21,7 @@ export default function SupportResistance({ technicals, price }) {
 
   return (
     <div className="rounded-xl p-5" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
-      <h3 className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: '#475569' }}>
+      <h3 className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: '#94a3b8' }}>
         Support &amp; Resistance · 30-Day Range
       </h3>
 
@@ -29,27 +29,27 @@ export default function SupportResistance({ technicals, price }) {
         {/* Labels column */}
         <div className="space-y-2 text-right w-28 shrink-0">
           <div className="py-1">
-            <div className="text-xs" style={{ color: '#475569' }}>Resistance</div>
+            <div className="text-xs" style={{ color: '#94a3b8' }}>Resistance</div>
             <div className="text-sm font-mono font-bold" style={{ color: '#ef4444' }}>
               {fmt(resistance)}
             </div>
             {distToResistance != null && (
-              <div className="text-xs" style={{ color: '#475569' }}>+{distToResistance}% away</div>
+              <div className="text-xs" style={{ color: '#94a3b8' }}>+{distToResistance}% away</div>
             )}
           </div>
           <div className="py-1">
-            <div className="text-xs" style={{ color: '#475569' }}>Current</div>
+            <div className="text-xs" style={{ color: '#94a3b8' }}>Current</div>
             <div className="text-sm font-mono font-bold" style={{ color: '#06b6d4' }}>
               {fmt(currentPrice)}
             </div>
           </div>
           <div className="py-1">
-            <div className="text-xs" style={{ color: '#475569' }}>Support</div>
+            <div className="text-xs" style={{ color: '#94a3b8' }}>Support</div>
             <div className="text-sm font-mono font-bold" style={{ color: '#10b981' }}>
               {fmt(support)}
             </div>
             {distToSupport != null && (
-              <div className="text-xs" style={{ color: '#475569' }}>-{distToSupport}% below</div>
+              <div className="text-xs" style={{ color: '#94a3b8' }}>-{distToSupport}% below</div>
             )}
           </div>
         </div>

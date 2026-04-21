@@ -100,7 +100,7 @@ export default function DashboardPage() {
               {tierLabel(account.tier)}
             </span>
             {account.beta_days_left != null && (
-              <span style={{ color: '#475569' }}> · {account.beta_days_left} days left in beta</span>
+              <span style={{ color: '#94a3b8' }}> · {account.beta_days_left} days left in beta</span>
             )}
           </p>
         </div>

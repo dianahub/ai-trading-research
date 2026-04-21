@@ -62,11 +62,11 @@ export default function SentimentBanner({ analysis, ticker }) {
         {/* Center: confidence meter */}
         <div className="flex-1 sm:px-10">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs uppercase tracking-widest" style={{ color: '#475569' }}>
+            <span className="text-xs uppercase tracking-widest" style={{ color: '#94a3b8' }}>
               Confidence Score
             </span>
             <span className="text-lg font-mono font-bold" style={{ color: cfg.color }}>
-              {confidence}<span className="text-sm font-normal" style={{ color: '#475569' }}>/10</span>
+              {confidence}<span className="text-sm font-normal" style={{ color: '#94a3b8' }}>/10</span>
             </span>
           </div>
           <div className="w-full h-2 rounded-full" style={{ background: '#1e2d45' }}>

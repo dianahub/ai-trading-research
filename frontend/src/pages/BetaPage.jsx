@@ -171,7 +171,7 @@ export default function BetaPage() {
                   {loading ? 'Submitting…' : 'Apply for Beta Access'}
                 </button>
 
-                <p className="text-center text-xs" style={{ color: '#475569' }}>
+                <p className="text-center text-xs" style={{ color: '#94a3b8' }}>
                   Limited spots · No credit card needed
                 </p>
               </form>

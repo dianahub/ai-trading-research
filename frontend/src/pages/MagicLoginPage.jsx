@@ -77,7 +77,7 @@ export default function MagicLoginPage() {
                 New link sent — check your inbox.
               </p>
             )}
-            <Link to="/login" className="block mt-6 text-sm" style={{ color: '#475569', textDecoration: 'none' }}>
+            <Link to="/login" className="block mt-6 text-sm" style={{ color: '#94a3b8', textDecoration: 'none' }}>
               ← Back to login
             </Link>
           </>

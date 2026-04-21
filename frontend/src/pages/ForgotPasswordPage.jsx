@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         <p className="text-center text-sm mt-6">
-          <Link to="/login" style={{ color: '#475569', textDecoration: 'none' }}>← Back to login</Link>
+          <Link to="/login" style={{ color: '#94a3b8', textDecoration: 'none' }}>← Back to login</Link>
         </p>
       </div>
     </div>

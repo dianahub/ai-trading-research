@@ -9,7 +9,7 @@ function AnalysisCard({ icon: Icon, title, accentColor, children }) { // eslint-
           style={{ background: `${accentColor}22` }}>
           <Icon size={14} style={{ color: accentColor }} />
         </div>
-        <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#475569' }}>
+        <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
           {title}
         </h3>
       </div>
@@ -36,7 +36,7 @@ export default function AnalysisCards({ analysis }) {
 
   return (
     <div>
-      <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#475569' }}>
+      <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#94a3b8' }}>
         AI Analysis
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -62,7 +62,7 @@ export default function AnalysisCards({ analysis }) {
               style={{ background: '#10b98122' }}>
               <TrendingUp size={14} style={{ color: '#10b981' }} />
             </div>
-            <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#475569' }}>
+            <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
               Support &amp; Resistance Analysis
             </h3>
           </div>

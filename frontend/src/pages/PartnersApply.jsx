@@ -71,11 +71,11 @@ function StepIndicator({ current }) {
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
                 style={{
                   background: done ? '#06b6d4' : active ? 'linear-gradient(135deg, #06b6d4, #3b82f6)' : '#1e2d45',
-                  color: done || active ? '#fff' : '#475569',
+                  color: done || active ? '#fff' : '#94a3b8',
                 }}>
                 {done ? '✓' : step}
               </div>
-              <span className="text-xs mt-1 hidden md:block" style={{ color: active ? '#06b6d4' : '#475569' }}>
+              <span className="text-xs mt-1 hidden md:block" style={{ color: active ? '#06b6d4' : '#94a3b8' }}>
                 {label}
               </span>
             </div>
@@ -113,7 +113,7 @@ function InputField({ label, name, value, onChange, type = 'text', placeholder, 
         onFocus={e => { e.target.style.borderColor = '#06b6d4' }}
         onBlur={e => { e.target.style.borderColor = '#1e2d45' }}
       />
-      {hint && <span className="text-xs" style={{ color: '#475569' }}>{hint}</span>}
+      {hint && <span className="text-xs" style={{ color: '#94a3b8' }}>{hint}</span>}
     </div>
   )
 }
@@ -143,7 +143,7 @@ function TextArea({ label, name, value, onChange, placeholder, required, maxLeng
         onBlur={e => { e.target.style.borderColor = '#1e2d45' }}
       />
       {maxLength && (
-        <span className="text-xs text-right" style={{ color: '#475569' }}>
+        <span className="text-xs text-right" style={{ color: '#94a3b8' }}>
           {value.length}/{maxLength}
         </span>
       )}
@@ -180,7 +180,7 @@ function SelectField({ label, name, value, onChange, options, required, hint }) 
           </option>
         ))}
       </select>
-      {hint && <span className="text-xs" style={{ color: '#475569' }}>{hint}</span>}
+      {hint && <span className="text-xs" style={{ color: '#94a3b8' }}>{hint}</span>}
     </div>
   )
 }
@@ -313,10 +313,10 @@ export default function PartnersApply() {
             </div>
             <div>
               <div className="text-sm font-bold tracking-widest text-white">Starsignal.io</div>
-              <div className="text-xs" style={{ color: '#475569' }}>AI Astro Trading</div>
+              <div className="text-xs" style={{ color: '#94a3b8' }}>AI Astro Trading</div>
             </div>
           </Link>
-          <Link to="/partners" className="text-sm" style={{ color: '#475569', textDecoration: 'none' }}>
+          <Link to="/partners" className="text-sm" style={{ color: '#94a3b8', textDecoration: 'none' }}>
             ← Back to Partners
           </Link>
         </div>
@@ -365,7 +365,7 @@ export default function PartnersApply() {
                 hint="Optional — shown on Verified/Featured tiers"
               />
               <div>
-                <div className="text-sm font-medium mb-3" style={{ color: '#cbd5e1' }}>Social Links <span style={{ color: '#475569' }}>(optional)</span></div>
+                <div className="text-sm font-medium mb-3" style={{ color: '#cbd5e1' }}>Social Links <span style={{ color: '#94a3b8' }}>(optional)</span></div>
                 <div className="flex flex-col gap-3">
                   <InputField label="Twitter / X" name="twitterUrl" value={form.twitterUrl} onChange={handle} placeholder="https://x.com/yourhandle" />
                   <InputField label="Substack" name="substackUrl" value={form.substackUrl} onChange={handle} placeholder="https://yourname.substack.com" />
@@ -471,7 +471,7 @@ export default function PartnersApply() {
                         <span className="text-white text-xs">✓</span>
                       </div>
                     )}
-                    <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#475569' }}>
+                    <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#94a3b8' }}>
                       {tier.name}
                     </div>
                     <div className="mb-3">
@@ -549,7 +549,7 @@ export default function PartnersApply() {
                 className="px-6 py-2.5 rounded-lg text-sm font-semibold"
                 style={{
                   background: submitting ? '#1e2d45' : 'linear-gradient(135deg, #06b6d4, #3b82f6)',
-                  color: submitting ? '#475569' : '#fff',
+                  color: submitting ? '#94a3b8' : '#fff',
                   cursor: submitting ? 'not-allowed' : 'pointer',
                 }}>
                 {submitting ? 'Submitting…' : form.tier === 'free' ? 'Submit Application' : 'Continue to Payment →'}
@@ -561,13 +561,13 @@ export default function PartnersApply() {
 
       <footer className="px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="text-xs" style={{ color: '#475569' }}>
+          <span className="text-xs" style={{ color: '#94a3b8' }}>
             © 2026 Futurotek LLC. All rights reserved.
           </span>
-          <div className="flex items-center gap-4 text-xs" style={{ color: '#475569' }}>
-            <Link to="/terms"   style={{ color: '#475569', textDecoration: 'none' }}>Terms</Link>
-            <Link to="/privacy" style={{ color: '#475569', textDecoration: 'none' }}>Privacy</Link>
-            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'none' }}>LinkedIn</a>
+          <div className="flex items-center gap-4 text-xs" style={{ color: '#94a3b8' }}>
+            <Link to="/terms"   style={{ color: '#94a3b8', textDecoration: 'none' }}>Terms</Link>
+            <Link to="/privacy" style={{ color: '#94a3b8', textDecoration: 'none' }}>Privacy</Link>
+            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none' }}>LinkedIn</a>
           </div>
         </div>
       </footer>
