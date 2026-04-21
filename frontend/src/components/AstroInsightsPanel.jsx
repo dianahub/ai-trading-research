@@ -88,6 +88,18 @@ function InsightCard({ insight }) {
           <span className="text-xs" style={{ color: '#475569' }}>
             {insight.timeframe}
           </span>
+          {insight.trend_type && (
+            <span
+              className="px-2 py-0.5 rounded text-xs tracking-wider"
+              style={{
+                background: insight.trend_type === 'Short Term Trend' ? '#0c1a2e' : '#1a0c2e',
+                color:      insight.trend_type === 'Short Term Trend' ? '#38bdf8' : '#a78bfa',
+                border:     `1px solid ${insight.trend_type === 'Short Term Trend' ? '#0369a1' : '#6d28d9'}`,
+              }}
+            >
+              {insight.trend_type}
+            </span>
+          )}
         </div>
       </div>
 
