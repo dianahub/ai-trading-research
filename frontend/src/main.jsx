@@ -14,6 +14,7 @@ import PartnersDashboard from './pages/PartnersDashboard.jsx'
 import AdminPartners from './pages/AdminPartners.jsx'
 import AdminAstrologers from './pages/AdminAstrologers.jsx'
 import AdminFreeSignups from './pages/AdminFreeSignups.jsx'
+import AdminPage from './pages/AdminPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
 import VerifyEmailPage from './pages/VerifyEmailPage.jsx'
@@ -34,6 +35,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/outreach" element={<AdminOutreach />} />
         <Route path="/admin/partners" element={<AdminPartners />} />
         <Route path="/admin/astrologers" element={<AdminAstrologers />} />
