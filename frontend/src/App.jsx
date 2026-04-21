@@ -331,7 +331,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 <nav className="fade-in rounded-xl" style={{ background: '#0b0f1e', border: '1px solid #1e2d45' }}>
                   {/* Mobile: hamburger header */}
                   <div className="flex md:hidden items-center justify-between px-4 py-2.5">
-                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#64748b' }}>
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#e2e8f0' }}>
                       Jump to
                     </span>
                     <button
@@ -373,7 +373,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
                   {/* Desktop: horizontal pill row */}
                   <div className="hidden md:flex items-center gap-3 px-4 py-2.5 overflow-x-auto">
-                    <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#64748b' }}>
+                    <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#e2e8f0' }}>
                       Jump to
                     </span>
                     <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
