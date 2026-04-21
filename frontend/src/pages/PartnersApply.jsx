@@ -14,52 +14,8 @@ const ASTROLOGER_TYPES = [
   { value: 'other',                label: 'Other' },
 ]
 
-const TIERS = [
-  {
-    name: 'Free',
-    value: 'free',
-    price: '$0',
-    period: '/month',
-    highlight: false,
-    perks: [
-      'Feed included in the Starsignal network',
-      'AI extraction of your market insights',
-      'Listed as a source with link back to your site',
-      'Reach traders on stock & crypto platforms',
-    ],
-  },
-  {
-    name: 'Verified',
-    value: 'verified',
-    price: '$49',
-    period: '/month',
-    highlight: true,
-    badge: '✦ Most Popular',
-    perks: [
-      'Everything in Free',
-      '"Verified Astrologer" badge on all your cards',
-      'Your name and avatar displayed with insights',
-      'Priority placement in the feed',
-      'Monthly analytics — impressions & platforms reached',
-    ],
-  },
-  {
-    name: 'Featured',
-    value: 'featured',
-    price: '$149',
-    period: '/month',
-    highlight: false,
-    perks: [
-      'Everything in Verified',
-      'Pinned placement at top of all feeds',
-      'Included in AI-generated market summaries',
-      'Co-marketing on our social channels',
-      'Dedicated profile page on starsignal.io',
-    ],
-  },
-]
 
-const STEP_LABELS = ['About You', 'Your Content', 'Choose Tier', 'Confirmation']
+const STEP_LABELS = ['About You', 'Your Content', 'Confirmation']
 
 function StepIndicator({ current }) {
   return (
@@ -210,8 +166,6 @@ export default function PartnersApply() {
     contentTypes: [],
     publishingYears: '',
     publishFrequency: '',
-    // Step 3
-    tier: 'free',
   })
 
   function handle(e) {
@@ -274,7 +228,7 @@ export default function PartnersApply() {
         contentTypes:     form.astrologerType ? [form.astrologerType] : [],
         publishingYears:  form.publishingYears,
         publishFrequency: form.publishFrequency,
-        tier:             form.tier,
+        tier:             'free',
       }
 
       const res = await fetch(`${ASTRO_URL}/api/v1/partners/apply`, {
@@ -291,14 +245,7 @@ export default function PartnersApply() {
         return
       }
 
-      // Paid tier → redirect to Stripe Checkout
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
-        return
-      }
-
-      // Free tier → go to confirmation step
-      setStep(4)
+      setStep(3)
     } catch {
       setError('Network error. Please check your connection and try again.')
     } finally {
@@ -436,64 +383,8 @@ export default function PartnersApply() {
           </div>
         )}
 
-        {/* ── Step 3: Choose Tier ── */}
+        {/* ── Step 3: Confirmation ── */}
         {step === 3 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-6 text-center" style={{ color: '#f1f5f9' }}>Choose Your Tier</h2>
-            <div className="grid md:grid-cols-3 gap-4 mb-6">
-              {TIERS.map(tier => {
-                const selected = form.tier === tier.value
-                return (
-                  <button key={tier.value} type="button"
-                    onClick={() => setForm(f => ({ ...f, tier: tier.value }))}
-                    className="rounded-xl p-5 flex flex-col relative text-left transition-all"
-                    style={{
-                      background: '#0f1a2e',
-                      border: `2px solid ${selected ? '#3b82f6' : tier.highlight ? '#1e3a5f' : '#1e2d45'}`,
-                      boxShadow: selected ? '0 0 30px #3b82f630' : 'none',
-                      cursor: 'pointer',
-                    }}>
-                    {tier.badge && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap"
-                        style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', color: '#fff' }}>
-                        {tier.badge}
-                      </div>
-                    )}
-                    {selected && (
-                      <div className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center"
-                        style={{ background: '#3b82f6' }}>
-                        <span className="text-white text-xs">✓</span>
-                      </div>
-                    )}
-                    <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#94a3b8' }}>
-                      {tier.name}
-                    </div>
-                    <div className="mb-3">
-                      <span className="text-3xl font-black" style={{ color: '#f1f5f9' }}>{tier.price}</span>
-                      <span className="text-xs ml-1" style={{ color: '#94a3b8' }}>{tier.period}</span>
-                    </div>
-                    <ul className="space-y-2">
-                      {tier.perks.map(p => (
-                        <li key={p} className="flex items-start gap-1.5 text-xs" style={{ color: '#94a3b8' }}>
-                          <span style={{ color: '#06b6d4', flexShrink: 0 }}>✓</span>
-                          {p}
-                        </li>
-                      ))}
-                    </ul>
-                  </button>
-                )
-              })}
-            </div>
-            {form.tier !== 'free' && (
-              <div className="rounded-lg px-4 py-3 text-xs text-center" style={{ background: '#0f2a1a', border: '1px solid #166534', color: '#86efac' }}>
-                You'll be redirected to Stripe to complete payment. Your application goes live immediately after checkout.
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Step 4: Confirmation ── */}
-        {step === 4 && (
           <div className="rounded-xl p-10 text-center" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
               style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
@@ -515,7 +406,7 @@ export default function PartnersApply() {
         )}
 
         {/* ── Navigation buttons ── */}
-        {step < 4 && (
+        {step < 3 && (
           <div className="flex items-center justify-between mt-6">
             {step > 1 ? (
               <button type="button" onClick={() => { setError(''); setStep(s => s - 1) }}
@@ -530,7 +421,7 @@ export default function PartnersApply() {
               </Link>
             )}
 
-            {step < 3 && (
+            {step === 1 && (
               <button type="button" onClick={nextStep}
                 className="px-6 py-2.5 rounded-lg text-sm font-semibold"
                 style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', color: '#fff', cursor: 'pointer' }}>
@@ -538,7 +429,7 @@ export default function PartnersApply() {
               </button>
             )}
 
-            {step === 3 && (
+            {step === 2 && (
               <button type="button" onClick={submit} disabled={submitting}
                 className="px-6 py-2.5 rounded-lg text-sm font-semibold"
                 style={{
@@ -546,7 +437,7 @@ export default function PartnersApply() {
                   color: submitting ? '#94a3b8' : '#fff',
                   cursor: submitting ? 'not-allowed' : 'pointer',
                 }}>
-                {submitting ? 'Submitting…' : form.tier === 'free' ? 'Submit Application' : 'Continue to Payment →'}
+                {submitting ? 'Submitting…' : 'Submit Application'}
               </button>
             )}
           </div>
