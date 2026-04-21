@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom'
 
 const ASTRO_URL = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
 
-const CONTENT_TYPES = [
-  { value: 'financial_markets', label: 'Financial Markets' },
-  { value: 'crypto', label: 'Crypto' },
-  { value: 'geopolitical', label: 'Geopolitical' },
-  { value: 'sector_forecasts', label: 'Sector Forecasts' },
-  { value: 'general_mundane', label: 'General Mundane Astrology' },
+const ASTROLOGER_TYPES = [
+  { value: 'financial_astrology',  label: 'Financial Astrology' },
+  { value: 'mundane_astrology',    label: 'Mundane Astrology' },
+  { value: 'vedic_jyotish',        label: 'Vedic / Jyotish' },
+  { value: 'western_tropical',     label: 'Western / Tropical' },
+  { value: 'hellenistic',          label: 'Hellenistic' },
+  { value: 'uranian',              label: 'Uranian / Hamburg' },
+  { value: 'chinese_bazi',         label: 'Chinese / BaZi' },
+  { value: 'other',                label: 'Other' },
 ]
 
 const TIERS = [
@@ -195,6 +198,7 @@ export default function PartnersApply() {
     name: '',
     email: '',
     website: '',
+    astrologerType: '',
     bio: '',
     photoUrl: '',
     twitterUrl: '',
@@ -226,13 +230,14 @@ export default function PartnersApply() {
   function validateStep1() {
     if (!form.name.trim()) return 'Name is required.'
     if (!form.email.trim() || !form.email.includes('@')) return 'Valid email is required.'
+    if (!form.website.trim()) return 'Website is required.'
+    if (!form.astrologerType) return 'Please select your type of astrology.'
     if (!form.bio.trim()) return 'Bio is required.'
     return ''
   }
 
   function validateStep2() {
     if (!form.rssUrl.trim()) return 'RSS feed URL is required.'
-    if (form.contentTypes.length === 0) return 'Select at least one content type.'
     if (!form.publishingYears) return 'Publishing experience is required.'
     if (!form.publishFrequency) return 'Publishing frequency is required.'
     return ''
@@ -265,7 +270,7 @@ export default function PartnersApply() {
         substackUrl:      form.substackUrl,
         youtubeUrl:       form.youtubeUrl,
         rssUrl:           form.rssUrl,
-        contentTypes:     form.contentTypes,
+        contentTypes:     form.astrologerType ? [form.astrologerType] : [],
         publishingYears:  form.publishingYears,
         publishFrequency: form.publishFrequency,
         tier:             form.tier,
@@ -345,7 +350,17 @@ export default function PartnersApply() {
                 <InputField label="Full Name" name="name" value={form.name} onChange={handle} placeholder="Your name" required />
                 <InputField label="Email" name="email" value={form.email} onChange={handle} type="email" placeholder="you@example.com" required />
               </div>
-              <InputField label="Website" name="website" value={form.website} onChange={handle} placeholder="https://yoursite.com" hint="Your main site or blog" />
+              <div className="grid md:grid-cols-2 gap-5">
+                <InputField label="Website" name="website" value={form.website} onChange={handle} placeholder="https://yoursite.com" required hint="Your main site or blog" />
+                <SelectField
+                  label="Type of Astrologer"
+                  name="astrologerType"
+                  value={form.astrologerType}
+                  onChange={handle}
+                  required
+                  options={ASTROLOGER_TYPES}
+                />
+              </div>
               <TextArea
                 label="Short Bio"
                 name="bio"
@@ -390,28 +405,6 @@ export default function PartnersApply() {
                 required
                 hint="We'll pull your content every 6 hours automatically"
               />
-              <div>
-                <div className="text-sm font-medium mb-3" style={{ color: '#cbd5e1' }}>
-                  Content Types <span style={{ color: '#f87171' }}>*</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {CONTENT_TYPES.map(ct => {
-                    const active = form.contentTypes.includes(ct.value)
-                    return (
-                      <button key={ct.value} type="button" onClick={() => toggleContentType(ct.value)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-                        style={{
-                          background: active ? 'linear-gradient(135deg, #06b6d4, #3b82f6)' : '#0f1a2e',
-                          border: `1px solid ${active ? '#06b6d4' : '#1e2d45'}`,
-                          color: active ? '#fff' : '#94a3b8',
-                          cursor: 'pointer',
-                        }}>
-                        {ct.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
               <SelectField
                 label="Years Publishing"
                 name="publishingYears"
