@@ -237,7 +237,6 @@ export default function PartnersApply() {
   }
 
   function validateStep2() {
-    if (!form.rssUrl.trim()) return 'RSS feed URL is required.'
     if (!form.publishingYears) return 'Publishing experience is required.'
     if (!form.publishFrequency) return 'Publishing frequency is required.'
     return ''
@@ -402,8 +401,7 @@ export default function PartnersApply() {
                 value={form.rssUrl}
                 onChange={handle}
                 placeholder="https://yoursite.com/feed.xml"
-                required
-                hint="We'll pull your content every 6 hours automatically"
+                hint="Optional — we'll pull your content automatically if provided"
               />
               <SelectField
                 label="Years Publishing"
