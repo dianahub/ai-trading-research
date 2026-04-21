@@ -85,7 +85,7 @@ function InsightCard({ insight }) {
           >
             {insight.topic?.toUpperCase()}
           </span>
-          <span className="text-xs" style={{ color: '#475569' }}>
+          <span className="text-xs font-medium" style={{ color: '#cbd5e1' }}>
             {insight.timeframe}
           </span>
           {insight.trend_type && (
@@ -113,8 +113,8 @@ function InsightCard({ insight }) {
           href={insight.source_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="ml-4 text-xs shrink-0 hover:underline transition-colors"
-          style={{ color: '#475569' }}
+          className="ml-4 text-xs shrink-0 font-semibold hover:underline transition-colors"
+          style={{ color: '#94a3b8' }}
         >
           {insight.source_name} ↗
         </a>
