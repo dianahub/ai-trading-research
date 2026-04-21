@@ -3,15 +3,21 @@ import { Search } from 'lucide-react'
 
 export default function SearchBar({ onSearch, loading, disabled = false }) {
   const [input, setInput] = useState('')
+  const [error, setError] = useState('')
 
   const submit = () => {
     if (loading) return
     const t = input.trim().toUpperCase()
-    if (t) onSearch(t)
+    if (!t) { setError('Please enter a symbol to analyze'); return }
+    setError('')
+    onSearch(t)
   }
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-col gap-2">
+      {error && (
+        <p className="text-xs font-medium" style={{ color: '#f87171' }}>{error}</p>
+      )}
       <div className="relative flex-1">
         <Search
           size={18}
@@ -21,7 +27,7 @@ export default function SearchBar({ onSearch, loading, disabled = false }) {
         <input
           type="text"
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={e => { setInput(e.target.value); setError('') }}
           onKeyDown={e => e.key === 'Enter' && submit()}
           placeholder="Enter symbol  (BTC, ETH, AAPL, TSLA…)"
           className="w-full pl-10 pr-4 py-3.5 md:py-2.5 rounded-lg text-base md:text-sm font-mono outline-none transition-all"
