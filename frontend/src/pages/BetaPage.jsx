@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -6,19 +6,50 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const TRADER_TYPES = ['Crypto', 'Stocks', 'Both', 'Just getting started']
 const HOW_HEARD = ['TikTok', 'Friend', 'Astrologer referral', 'Other']
 
+function getRefFromCookie() {
+  const match = document.cookie.match(/(?:^|;\s*)ref_partner=([^;]+)/)
+  return match ? match[1] : ''
+}
+
 export default function BetaPage() {
   const [params] = useSearchParams()
-  const ref = params.get('ref') || ''
+  const refFromUrl = params.get('ref') || ''
+  const ref = refFromUrl || getRefFromCookie()
+
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '',
     trader_type: '', how_heard: '', agreed: false,
+    discount_code: '',
   })
   const [submitted, setSubmitted] = useState(false)
+  const [trialDays, setTrialDays] = useState(30)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Discount code validation state
+  const [codeStatus, setCodeStatus] = useState(null) // null | 'valid' | 'invalid' | 'checking'
+  const debounceRef = useRef(null)
+
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
   const setCheck = k => e => setForm(f => ({ ...f, [k]: e.target.checked }))
+
+  function handleCodeChange(e) {
+    const val = e.target.value.toUpperCase()
+    setForm(f => ({ ...f, discount_code: val }))
+    setCodeStatus(null)
+    clearTimeout(debounceRef.current)
+    if (!val.trim()) return
+    setCodeStatus('checking')
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`${API}/discount-code/validate/${encodeURIComponent(val.trim())}`)
+        const d = await r.json()
+        setCodeStatus(d.valid ? 'valid' : 'invalid')
+      } catch {
+        setCodeStatus('invalid')
+      }
+    }, 500)
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -37,11 +68,13 @@ export default function BetaPage() {
           email: form.email,
           trader_type: form.trader_type,
           how_heard: form.how_heard,
-          ref,
+          ref: ref || undefined,
+          discount_code: form.discount_code.trim() || undefined,
         }),
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.detail || 'Failed to submit')
+      setTrialDays(d.trial_days || 30)
       setSubmitted(true)
     } catch (err) {
       setError(err.message)
@@ -49,6 +82,8 @@ export default function BetaPage() {
       setLoading(false)
     }
   }
+
+  const trialLabel = trialDays === 45 ? '45 days free' : '30 days free'
 
   return (
     <div className="min-h-screen" style={{ background: '#060a14', color: '#e2e8f0' }}>
@@ -72,9 +107,14 @@ export default function BetaPage() {
           <div className="text-center py-20">
             <div className="text-6xl mb-6">🌟</div>
             <h1 className="text-2xl font-bold mb-4" style={{ color: '#f1f5f9' }}>Application received!</h1>
-            <p className="text-base mb-8" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
+            <p className="text-base mb-2" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
               We'll review your application and be in touch within 24 hours.
             </p>
+            {trialDays === 45 && (
+              <p className="text-sm font-semibold mb-8" style={{ color: '#06b6d4' }}>
+                Discount code applied — you get 45 days free!
+              </p>
+            )}
             <Link to="/" className="inline-block px-6 py-3 rounded-xl font-semibold text-sm"
               style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
               Back to Star Signal
@@ -85,7 +125,7 @@ export default function BetaPage() {
             <div className="text-center mb-10">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
                 style={{ background: '#0f1a2e', border: '1px solid #1e3a5f', color: '#06b6d4' }}>
-                ✦ Limited beta — 30 days free
+                ✦ Limited beta — {trialLabel}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#f1f5f9', lineHeight: 1.2 }}>
                 Apply for Beta Access
@@ -151,6 +191,47 @@ export default function BetaPage() {
                     <option value="">Select one…</option>
                     {HOW_HEARD.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
+                </div>
+
+                {/* Discount code field */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>
+                    Have a discount code? <span style={{ fontWeight: 400 }}>(optional — unlocks 45 days free)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      value={form.discount_code}
+                      onChange={handleCodeChange}
+                      className="w-full px-3 py-2.5 rounded-lg text-sm outline-none pr-10"
+                      style={{
+                        background: '#0f1a2e',
+                        border: `1px solid ${codeStatus === 'valid' ? '#22c55e' : codeStatus === 'invalid' ? '#ef4444' : '#1e2d45'}`,
+                        color: '#e2e8f0',
+                        letterSpacing: '0.05em',
+                      }}
+                      placeholder="e.g. ROWAN"
+                      maxLength={20}
+                    />
+                    {codeStatus === 'checking' && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#64748b' }}>...</span>
+                    )}
+                    {codeStatus === 'valid' && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">✓</span>
+                    )}
+                    {codeStatus === 'invalid' && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">✗</span>
+                    )}
+                  </div>
+                  {codeStatus === 'valid' && (
+                    <p className="text-xs mt-1.5 font-semibold" style={{ color: '#22c55e' }}>
+                      45 days free unlocked!
+                    </p>
+                  )}
+                  {codeStatus === 'invalid' && (
+                    <p className="text-xs mt-1.5" style={{ color: '#94a3b8' }}>
+                      Code not recognized — you'll still get 30 days free.
+                    </p>
+                  )}
                 </div>
 
                 <label className="flex items-start gap-3 cursor-pointer rounded-lg p-3"

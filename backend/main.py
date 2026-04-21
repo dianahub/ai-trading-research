@@ -78,7 +78,8 @@ STRIPE_SECRET_KEY         = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET     = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRO_PRICE_ID       = os.getenv("STRIPE_PRO_PRICE_ID", "")
 STRIPE_PREMIUM_PRICE_ID   = os.getenv("STRIPE_PREMIUM_PRICE_ID", "")
-STRIPE_FOUNDING_PRICE_ID  = os.getenv("STRIPE_FOUNDING_PRICE_ID", "")
+STRIPE_FOUNDING_PRICE_ID            = os.getenv("STRIPE_FOUNDING_PRICE_ID", "")
+STRIPE_CONNECT_CLIENT_ID            = os.getenv("STRIPE_CONNECT_CLIENT_ID", "")
 if _stripe_available and STRIPE_SECRET_KEY:
     _stripe.api_key = STRIPE_SECRET_KEY
 
@@ -2378,8 +2379,14 @@ class OutreachContact(_Base):
     date_contacted   = Column(DateTime, nullable=True)
     date_responded   = Column(DateTime, nullable=True)
     notes            = Column(String,   default="")
-    referred_signups = Column(Integer,  default=0)
-    referral_code    = Column(String,   default="")
+    referred_signups            = Column(Integer,  default=0)
+    referral_code               = Column(String,   default="")
+    slug                        = Column(String,   default="")   # URL slug e.g. rowan-astrology
+    stripe_connect_account_id   = Column(String,   default="")
+    referral_click_count        = Column(Integer,  default=0)
+    discount_code               = Column(String,   default="")   # e.g. ROWAN
+    discount_code_active        = Column(Boolean,  default=True)
+    discount_code_uses          = Column(Integer,  default=0)
     created_at       = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class ApiLead(_Base):
@@ -2434,8 +2441,14 @@ def _contact_dict(c):
         "date_contacted":  c.date_contacted.isoformat() if c.date_contacted else None,
         "date_responded":  c.date_responded.isoformat() if c.date_responded else None,
         "notes":           c.notes,
-        "referred_signups":  c.referred_signups or 0,
-        "referral_code":     c.referral_code,
+        "referred_signups":          c.referred_signups or 0,
+        "referral_code":             c.referral_code,
+        "slug":                      getattr(c, 'slug', '') or "",
+        "stripe_connect_account_id": getattr(c, 'stripe_connect_account_id', '') or "",
+        "referral_click_count":      getattr(c, 'referral_click_count', 0) or 0,
+        "discount_code":             getattr(c, 'discount_code', '') or "",
+        "discount_code_active":      getattr(c, 'discount_code_active', True),
+        "discount_code_uses":        getattr(c, 'discount_code_uses', 0) or 0,
         "last_message_sent": c.last_message_sent or "",
         "created_at":        c.created_at.isoformat() if c.created_at else None,
     }
@@ -2506,6 +2519,12 @@ def update_outreach(
             if field in ("date_contacted", "date_responded") and isinstance(val, str):
                 val = datetime.fromisoformat(val) if val else None
             setattr(c, field, val)
+        # Auto-generate slug and discount code when contact becomes a partner
+        if req.status == "partner":
+            if not c.slug:
+                c.slug = _make_slug(c.name)
+            if not c.discount_code:
+                c.discount_code = _make_discount_code(c.name, db)
         db.commit()
         db.refresh(c)
         return _contact_dict(c)
@@ -3361,6 +3380,7 @@ class User(_Base):
     login_attempts              = Column(Integer, default=0)
     locked_until                = Column(DateTime, nullable=True)
     grandfathered               = Column(Boolean, default=False)
+    discount_code_used          = Column(String, nullable=True)
     last_login                  = Column(DateTime, nullable=True)
     beta_day14_sent             = Column(Boolean, default=False)
     beta_day25_sent             = Column(Boolean, default=False)
@@ -3380,14 +3400,15 @@ class UserSession(_Base):
 
 class BetaApplication(_Base):
     __tablename__ = "beta_applications"
-    id           = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
-    name         = Column(String, nullable=False)
-    email        = Column(String, nullable=False)
-    how_heard    = Column(String, default="")
-    trader_type  = Column(String, default="")
-    why_text     = Column(String, default="")
-    status       = Column(String, default="pending")  # pending|approved|rejected
-    created_at   = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    id            = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    name          = Column(String, nullable=False)
+    email         = Column(String, nullable=False)
+    how_heard     = Column(String, default="")
+    trader_type   = Column(String, default="")
+    why_text      = Column(String, default="")
+    discount_code = Column(String, default="")
+    status        = Column(String, default="pending")  # pending|approved|rejected
+    created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Referral(_Base):
@@ -3401,7 +3422,71 @@ class Referral(_Base):
     created_at     = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class ReferralAttribution(_Base):
+    __tablename__ = "referral_attributions"
+    id                   = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    referred_user_id     = Column(String, nullable=False)
+    referring_partner_id = Column(String, nullable=False)  # OutreachContact.id
+    referral_type        = Column(String, nullable=False)   # "subscriber" or "partner"
+    created_at           = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    first_payment_at     = Column(DateTime, nullable=True)
+
+
+class Commission(_Base):
+    __tablename__ = "commissions"
+    id                    = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    astrologer_partner_id = Column(String, nullable=False)  # OutreachContact.id
+    referred_user_id      = Column(String, nullable=False)
+    referral_type         = Column(String, nullable=False)  # "subscriber" or "partner"
+    payment_amount        = Column(Float,  nullable=False)
+    commission_amount     = Column(Float,  nullable=False)
+    commission_rate       = Column(Float,  default=0.20)
+    status                = Column(String, default="pending")  # pending/approved/paid
+    payment_date          = Column(DateTime, nullable=True)
+    payout_date           = Column(DateTime, nullable=True)
+    months_remaining      = Column(Integer, nullable=True)  # null=subscriber, countdown for partner
+    stripe_invoice_id     = Column(String, nullable=True)
+    monthly_payout_id     = Column(String, nullable=True)
+    created_at            = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class MonthlyPayout(_Base):
+    __tablename__ = "monthly_payouts"
+    id            = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    partner_id    = Column(String, nullable=False)   # OutreachContact.id
+    month         = Column(String, nullable=False)   # "2025-01"
+    total_amount  = Column(Float,  default=0.0)
+    status        = Column(String, default="pending")  # pending/ready/paid/rolled_over
+    payout_method = Column(String, nullable=True)    # "stripe_connect" or "manual"
+    payout_date   = Column(DateTime, nullable=True)
+    email_sent    = Column(Boolean, default=False)
+    created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 _Base.metadata.create_all(_engine)
+
+
+def _run_migrations():
+    """Add columns to existing tables that predate this migration."""
+    stmts = [
+        "ALTER TABLE outreach_contacts ADD COLUMN slug TEXT DEFAULT ''",
+        "ALTER TABLE outreach_contacts ADD COLUMN stripe_connect_account_id TEXT DEFAULT ''",
+        "ALTER TABLE outreach_contacts ADD COLUMN referral_click_count INTEGER DEFAULT 0",
+        "ALTER TABLE outreach_contacts ADD COLUMN discount_code TEXT DEFAULT ''",
+        "ALTER TABLE outreach_contacts ADD COLUMN discount_code_active INTEGER DEFAULT 1",
+        "ALTER TABLE outreach_contacts ADD COLUMN discount_code_uses INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN discount_code_used TEXT DEFAULT ''",
+        "ALTER TABLE beta_applications ADD COLUMN discount_code TEXT DEFAULT ''",
+    ]
+    with _engine.connect() as conn:
+        for stmt in stmts:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                pass
+
+_run_migrations()
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -3462,6 +3547,125 @@ def _send_email(to: str, subject: str, html: str):
         print(f"[email] failed: {e}")
 
 
+def _make_slug(name: str) -> str:
+    import re
+    return re.sub(r'-+', '-', re.sub(r'[^a-z0-9-]', '', name.lower().replace(' ', '-'))).strip('-')
+
+
+def _make_discount_code(name: str, db: Session) -> str:
+    import re
+    words = re.sub(r'[^a-zA-Z\s]', '', name).upper().split()
+    base = words[0] if words else "PARTNER"
+    code = base
+    i = 2
+    while db.query(OutreachContact).filter(OutreachContact.discount_code == code).first():
+        code = f"{base}{i}"
+        i += 1
+    return code
+
+
+def _send_partner_signup_notification(partner_email: str, partner_name: str):
+    _send_email(
+        partner_email,
+        "Someone just joined Star Signal through your link",
+        f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#060a14;color:#e2e8f0'>
+        <h2 style='color:#06b6d4'>Great news, {partner_name}!</h2>
+        <p style='color:#94a3b8'>Someone just signed up through your referral link. Once they become a paying subscriber your commission starts automatically.</p>
+        <p style='color:#94a3b8'>Keep sharing to grow your earnings!</p>
+        <a href='{SITE_URL}/partners/dashboard' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>View Your Dashboard</a>
+        </div>""",
+    )
+
+
+def _send_first_commission_email(partner_email: str, partner_name: str, amount: float):
+    _send_email(
+        partner_email,
+        "You just earned your first Star Signal commission",
+        f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#060a14;color:#e2e8f0'>
+        <h2 style='color:#06b6d4'>Your first commission just hit</h2>
+        <p style='color:#94a3b8'>${amount:.2f} from a new subscriber. This repeats every month as long as they stay subscribed.</p>
+        <a href='{SITE_URL}/partners/dashboard' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>View Your Dashboard</a>
+        </div>""",
+    )
+
+
+def _send_monthly_payout_email(partner_email: str, partner_name: str, month: str, amount: float):
+    _send_email(
+        partner_email,
+        f"Your Star Signal commission for {month}: ${amount:.2f}",
+        f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#060a14;color:#e2e8f0'>
+        <h2 style='color:#06b6d4'>Commission Ready</h2>
+        <p style='color:#94a3b8'>Your commission for {month} is <strong style='color:#f1f5f9'>${amount:.2f}</strong> and will be paid within 5 business days to your connected account.</p>
+        <a href='{SITE_URL}/partners/dashboard' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>View Breakdown</a>
+        </div>""",
+    )
+
+
+def _send_commission_expired_email(partner_email: str, partner_name: str, referred_name: str, total_earned: float):
+    _send_email(
+        partner_email,
+        f"Your partner referral commission for {referred_name} has ended",
+        f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#060a14;color:#e2e8f0'>
+        <h2 style='color:#06b6d4'>12-Month Commission Period Ended</h2>
+        <p style='color:#94a3b8'>Your 12-month commission period for referring {referred_name} has ended. You earned <strong style='color:#f1f5f9'>${total_earned:.2f}</strong> from that referral.</p>
+        <p style='color:#94a3b8'>Keep referring new partners to keep earning!</p>
+        <a href='{SITE_URL}/partners/dashboard' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>View Your Dashboard</a>
+        </div>""",
+    )
+
+
+def _get_partner_by_email(email: str, db: Session) -> Optional[OutreachContact]:
+    return db.query(OutreachContact).filter(OutreachContact.contact_email == email).first()
+
+
+def _calculate_monthly_commissions(db: Session):
+    """Roll up approved commissions into MonthlyPayout records. Called on 1st of month."""
+    now = datetime.now(timezone.utc)
+    month_str = now.strftime("%Y-%m")
+    prev_month = (now.replace(day=1) - timedelta(days=1))
+    prev_month_str = prev_month.strftime("%Y-%m")
+
+    approved = db.query(Commission).filter(
+        Commission.status == "approved",
+        Commission.monthly_payout_id == None,
+    ).all()
+
+    partner_totals: dict[str, float] = {}
+    for c in approved:
+        partner_totals[c.astrologer_partner_id] = partner_totals.get(c.astrologer_partner_id, 0) + c.commission_amount
+
+    for partner_id, total in partner_totals.items():
+        existing = db.query(MonthlyPayout).filter(
+            MonthlyPayout.partner_id == partner_id,
+            MonthlyPayout.month == prev_month_str,
+        ).first()
+        if existing:
+            continue
+
+        partner = db.query(OutreachContact).filter(OutreachContact.id == partner_id).first()
+        if not partner:
+            continue
+
+        if total < 20.0:
+            payout = MonthlyPayout(partner_id=partner_id, month=prev_month_str,
+                                   total_amount=total, status="rolled_over")
+            db.add(payout)
+        else:
+            payout = MonthlyPayout(partner_id=partner_id, month=prev_month_str,
+                                   total_amount=total, status="ready",
+                                   payout_method="stripe_connect" if partner.stripe_connect_account_id else "manual")
+            db.add(payout)
+            db.flush()
+            for c in approved:
+                if c.astrologer_partner_id == partner_id:
+                    c.monthly_payout_id = payout.id
+            if partner.contact_email and not payout.email_sent:
+                _send_monthly_payout_email(partner.contact_email, partner.name, prev_month_str, total)
+                payout.email_sent = True
+
+    db.commit()
+
+
 def _user_dict(u: User) -> dict:
     now = datetime.now(timezone.utc)
     beta_expired = (u.tier == "beta" and u.beta_expires_at and
@@ -3509,8 +3713,13 @@ def auth_signup(req: AuthSignupRequest, response: Response):
         ref_code = _unique_referral_code(db)
 
         referrer = None
+        partner_referrer = None
         if req.ref:
             referrer = db.query(User).filter(User.referral_code == req.ref).first()
+            if not referrer:
+                partner_referrer = db.query(OutreachContact).filter(
+                    (OutreachContact.slug == req.ref) | (OutreachContact.referral_code == req.ref)
+                ).first()
 
         user = User(
             email=req.email.lower(),
@@ -3530,6 +3739,21 @@ def auth_signup(req: AuthSignupRequest, response: Response):
         if referrer:
             ref_row = Referral(referrer_id=referrer.id, referred_email=req.email.lower(), referred_id=user.id)
             db.add(ref_row)
+
+        if partner_referrer:
+            attr = ReferralAttribution(
+                referred_user_id=user.id,
+                referring_partner_id=partner_referrer.id,
+                referral_type="subscriber",
+            )
+            db.add(attr)
+            if partner_referrer.contact_email:
+                import threading as _threading
+                _threading.Thread(
+                    target=_send_partner_signup_notification,
+                    args=(partner_referrer.contact_email, partner_referrer.name),
+                    daemon=True,
+                ).start()
 
         db.commit()
 
@@ -3733,6 +3957,7 @@ class BetaApplyRequest(BaseModel):
     trader_type: str = ""
     why_text: str = ""
     ref: Optional[str] = None
+    discount_code: Optional[str] = None
 
 
 @app.post("/beta/apply", status_code=201)
@@ -3741,21 +3966,41 @@ def beta_apply(req: BetaApplyRequest):
         existing = db.query(BetaApplication).filter(BetaApplication.email == req.email.lower()).first()
         if existing:
             return {"ok": True, "message": "Application already received"}
+
+        # Validate discount code (silently ignore invalid ones)
+        partner_from_code = None
+        trial_days = 30
+        if req.discount_code:
+            partner_from_code = db.query(OutreachContact).filter(
+                OutreachContact.discount_code == req.discount_code.upper().strip(),
+                OutreachContact.discount_code_active == True,
+            ).first()
+            if partner_from_code:
+                trial_days = 45
+                partner_from_code.discount_code_uses = (partner_from_code.discount_code_uses or 0) + 1
+
         app_row = BetaApplication(
             name=req.name, email=req.email.lower(),
             how_heard=req.how_heard, trader_type=req.trader_type,
             why_text=req.why_text, status="pending",
+            discount_code=req.discount_code.upper().strip() if req.discount_code and partner_from_code else "",
         )
         db.add(app_row)
         db.commit()
-        # Notify admin
+
         admin_email = os.getenv("ADMIN_EMAIL", "")
+        code_note = f"<br>Discount code: {req.discount_code} ({'valid — 45 days' if partner_from_code else 'invalid'})" if req.discount_code else ""
         if admin_email:
             _send_email(admin_email, f"New beta application: {req.name}",
                 f"<p><b>{req.name}</b> ({req.email}) applied for beta access.<br>"
                 f"Trader type: {req.trader_type}<br>How heard: {req.how_heard}<br>"
-                f"Why: {req.why_text}</p>")
-        return {"ok": True, "message": "Application received! We'll review it within 48 hours."}
+                f"Why: {req.why_text}{code_note}</p>")
+        return {
+            "ok": True,
+            "message": "Application received! We'll review it within 48 hours.",
+            "trial_days": trial_days,
+            "discount_valid": partner_from_code is not None,
+        }
 
 
 @app.get("/admin/beta-applications")
@@ -3768,6 +4013,7 @@ def list_beta_applications(
         apps = db.query(BetaApplication).order_by(BetaApplication.created_at.desc()).all()
         return [{"id": a.id, "name": a.name, "email": a.email, "how_heard": a.how_heard,
                  "trader_type": a.trader_type, "why_text": a.why_text, "status": a.status,
+                 "discount_code": getattr(a, 'discount_code', '') or "",
                  "created_at": a.created_at.isoformat() if a.created_at else None} for a in apps]
 
 
@@ -3787,7 +4033,19 @@ def approve_beta_application(
         # Create or update user account
         user = db.query(User).filter(User.email == app_row.email).first()
         now = datetime.now(timezone.utc)
-        beta_expires = now + timedelta(days=30)
+
+        # Determine trial length — 45 days if discount code was used
+        partner_from_code = None
+        trial_days = 30
+        if app_row.discount_code:
+            partner_from_code = db.query(OutreachContact).filter(
+                OutreachContact.discount_code == app_row.discount_code,
+                OutreachContact.discount_code_active == True,
+            ).first()
+            if partner_from_code:
+                trial_days = 45
+
+        beta_expires = now + timedelta(days=trial_days)
 
         if not user:
             magic_token = secrets.token_urlsafe(32)
@@ -3801,6 +4059,7 @@ def approve_beta_application(
                 beta_started_at=now,
                 beta_expires_at=beta_expires,
                 referral_code=ref_code,
+                discount_code_used=app_row.discount_code or None,
                 email_verification_token=_hash_password(magic_token),
                 email_verification_expires=now + timedelta(hours=72),
             )
@@ -3813,13 +4072,30 @@ def approve_beta_application(
             user.beta_started_at = now
             user.beta_expires_at = beta_expires
             user.email_verified = True
+            user.discount_code_used = app_row.discount_code or user.discount_code_used
             magic_token = secrets.token_urlsafe(32)
             user.email_verification_token = _hash_password(magic_token)
             user.email_verification_expires = now + timedelta(hours=72)
             db.commit()
             magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={app_row.email}"
 
+        # Create referral attribution if discount code partner found
+        if partner_from_code:
+            existing_attr = db.query(ReferralAttribution).filter(
+                ReferralAttribution.referred_user_id == user.id,
+                ReferralAttribution.referring_partner_id == partner_from_code.id,
+            ).first()
+            if not existing_attr:
+                attr = ReferralAttribution(
+                    referred_user_id=user.id,
+                    referring_partner_id=partner_from_code.id,
+                    referral_type="subscriber",
+                )
+                db.add(attr)
+                db.commit()
+
         first = user.first_name or app_row.name.split()[0]
+        trial_note = "45 days" if trial_days == 45 else "30 days"
         _send_email(
             app_row.email,
             "Your Star Signal access is ready",
@@ -3827,11 +4103,11 @@ def approve_beta_application(
             <h2 style='color:#f1f5f9'>Welcome to Star Signal, {first}!</h2>
             <p style='color:#94a3b8'>Your beta access is ready. One click and you're in — no password, no form.</p>
             <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin:16px 0;font-size:16px'>Enter Star Signal →</a>
-            <p style='color:#94a3b8'>Your 30 days starts the moment you click. After that it's $19/month as a founding member — locked in forever.</p>
+            <p style='color:#94a3b8'>Your {trial_note} starts the moment you click. After that it's $19/month as a founding member — locked in forever.</p>
             <p style='color:#475569;font-size:12px'>Link expires in 72 hours.</p>
             </div>""",
         )
-        return {"ok": True, "user_id": user.id, "magic_link_sent": True}
+        return {"ok": True, "user_id": user.id, "magic_link_sent": True, "trial_days": trial_days}
 
 
 class RejectBetaRequest(BaseModel):
@@ -3945,6 +4221,357 @@ def waitlist_import(
     return {"results": results, "sent": sum(1 for r in results if r["status"] == "sent")}
 
 
+# ── Partner referral landing page ──────────────────────────────────────────────
+
+@app.get("/join/{slug}")
+def get_join_page(slug: str):
+    with Session(_engine) as db:
+        partner = db.query(OutreachContact).filter(
+            (OutreachContact.slug == slug) | (OutreachContact.referral_code == slug)
+        ).first()
+        if not partner:
+            raise HTTPException(404, "Referral link not found")
+        partner.referral_click_count = (partner.referral_click_count or 0) + 1
+        db.commit()
+        return {
+            "name": partner.name,
+            "slug": partner.slug or partner.referral_code or slug,
+            "platform": partner.platform,
+        }
+
+
+# ── Discount code validation ────────────────────────────────────────────────────
+
+@app.get("/discount-code/validate/{code}")
+def validate_discount_code(code: str):
+    with Session(_engine) as db:
+        partner = db.query(OutreachContact).filter(
+            OutreachContact.discount_code == code.upper(),
+            OutreachContact.discount_code_active == True,
+        ).first()
+        if not partner:
+            return {"valid": False}
+        return {"valid": True, "partner_name": partner.name, "trial_days": 45}
+
+
+# ── Partner commission dashboard ───────────────────────────────────────────────
+
+@app.get("/partners/me")
+def get_partner_me(ss_session: Optional[str] = Cookie(None)):
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            raise HTTPException(401, "Not authenticated")
+        partner = _get_partner_by_email(user.email, db)
+        if not partner:
+            raise HTTPException(404, "No partner account found for this email")
+        slug = partner.slug or partner.referral_code or ""
+        return {
+            "id": partner.id,
+            "name": partner.name,
+            "slug": slug,
+            "stripe_connect_account_id": partner.stripe_connect_account_id or "",
+            "referral_link": f"{SITE_URL}/join/{slug}",
+            "discount_code": partner.discount_code or "",
+            "discount_code_active": partner.discount_code_active,
+        }
+
+
+@app.get("/partners/commissions")
+def get_partner_commissions(ss_session: Optional[str] = Cookie(None)):
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            raise HTTPException(401, "Not authenticated")
+        partner = _get_partner_by_email(user.email, db)
+        if not partner:
+            raise HTTPException(404, "No partner account found for this email")
+
+        now = datetime.now(timezone.utc)
+        this_month = now.strftime("%Y-%m")
+        slug = partner.slug or partner.referral_code or ""
+
+        all_commissions = db.query(Commission).filter(
+            Commission.astrologer_partner_id == partner.id
+        ).order_by(Commission.created_at.desc()).all()
+
+        this_month_earned = sum(
+            c.commission_amount for c in all_commissions
+            if c.created_at and c.created_at.strftime("%Y-%m") == this_month
+        )
+        total_earned = sum(c.commission_amount for c in all_commissions)
+
+        payouts = db.query(MonthlyPayout).filter(
+            MonthlyPayout.partner_id == partner.id
+        ).order_by(MonthlyPayout.month.desc()).all()
+
+        pending_payout = sum(p.total_amount for p in payouts if p.status in ("pending", "ready"))
+        next_payout_date = (now.replace(day=1) + timedelta(days=32)).replace(day=1).strftime("%Y-%m-01")
+
+        signup_count = db.query(ReferralAttribution).filter(
+            ReferralAttribution.referring_partner_id == partner.id
+        ).count()
+
+        payout_history = [
+            {
+                "month": p.month,
+                "amount": p.total_amount,
+                "status": p.status,
+                "payout_method": p.payout_method,
+                "payout_date": p.payout_date.isoformat() if p.payout_date else None,
+            }
+            for p in payouts
+        ]
+
+        return {
+            "partner": {
+                "id": partner.id,
+                "name": partner.name,
+                "slug": slug,
+                "stripe_connect_account_id": partner.stripe_connect_account_id or "",
+                "referral_link": f"{SITE_URL}/join/{slug}",
+                "discount_code": partner.discount_code or "",
+                "discount_code_active": partner.discount_code_active,
+                "discount_code_uses": partner.discount_code_uses or 0,
+                "referral_click_count": partner.referral_click_count or 0,
+            },
+            "summary": {
+                "this_month_earned": round(this_month_earned, 2),
+                "total_earned": round(total_earned, 2),
+                "pending_payout": round(pending_payout, 2),
+                "signup_count": signup_count,
+                "next_payout_date": next_payout_date,
+            },
+            "payout_history": payout_history,
+        }
+
+
+@app.post("/partners/stripe-connect")
+def partner_stripe_connect(ss_session: Optional[str] = Cookie(None)):
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            raise HTTPException(401, "Not authenticated")
+        partner = _get_partner_by_email(user.email, db)
+        if not partner:
+            raise HTTPException(404, "No partner account found for this email")
+        if not _stripe_available or not STRIPE_SECRET_KEY or not STRIPE_CONNECT_CLIENT_ID:
+            raise HTTPException(503, "Stripe Connect not configured")
+
+        link = _stripe.AccountLink.create(
+            account=partner.stripe_connect_account_id or _stripe.Account.create(type="express").id,
+            refresh_url=f"{SITE_URL}/partners/dashboard?tab=commissions",
+            return_url=f"{SITE_URL}/partners/dashboard?tab=commissions&connected=1",
+            type="account_onboarding",
+        )
+        if not partner.stripe_connect_account_id:
+            partner.stripe_connect_account_id = link.account
+            db.commit()
+        return {"url": link.url}
+
+
+# ── Admin commission dashboard ──────────────────────────────────────────────────
+
+@app.get("/admin/commissions")
+def admin_commissions(
+    x_admin_email: str = Header(""),
+    x_admin_password: str = Header(""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        all_commissions = db.query(Commission).all()
+        all_partners = db.query(OutreachContact).filter(OutreachContact.status == "partner").all()
+        all_payouts = db.query(MonthlyPayout).all()
+
+        now = datetime.now(timezone.utc)
+        this_month = now.strftime("%Y-%m")
+
+        total_owed_this_month = sum(
+            c.commission_amount for c in all_commissions
+            if c.status == "approved" and c.created_at and c.created_at.strftime("%Y-%m") == this_month
+        )
+        total_paid_all_time = sum(p.total_amount for p in all_payouts if p.status == "paid")
+        monthly_recurring = sum(
+            c.commission_amount for c in all_commissions
+            if c.referral_type == "subscriber" and c.status in ("approved", "paid")
+               and c.created_at and c.created_at.strftime("%Y-%m") == this_month
+        )
+
+        payout_queue = []
+        for p in all_payouts:
+            if p.status == "ready":
+                partner = db.query(OutreachContact).filter(OutreachContact.id == p.partner_id).first()
+                payout_queue.append({
+                    "payout_id": p.id,
+                    "partner_name": partner.name if partner else "Unknown",
+                    "partner_id": p.partner_id,
+                    "month": p.month,
+                    "amount": p.total_amount,
+                    "payout_method": p.payout_method or "manual",
+                    "status": p.status,
+                })
+
+        partner_leaderboard = []
+        for p in all_partners:
+            p_commissions = [c for c in all_commissions if c.astrologer_partner_id == p.id]
+            monthly = sum(c.commission_amount for c in p_commissions
+                          if c.created_at and c.created_at.strftime("%Y-%m") == this_month)
+            attrs = db.query(ReferralAttribution).filter(
+                ReferralAttribution.referring_partner_id == p.id
+            ).count()
+            partner_leaderboard.append({
+                "id": p.id,
+                "name": p.name,
+                "slug": getattr(p, 'slug', '') or p.referral_code or "",
+                "discount_code": getattr(p, 'discount_code', '') or "",
+                "discount_code_active": getattr(p, 'discount_code_active', True),
+                "discount_code_uses": getattr(p, 'discount_code_uses', 0) or 0,
+                "referral_click_count": getattr(p, 'referral_click_count', 0) or 0,
+                "total_referrals": attrs,
+                "monthly_commission": round(monthly, 2),
+                "total_earned": round(sum(c.commission_amount for c in p_commissions), 2),
+            })
+        partner_leaderboard.sort(key=lambda x: x["total_earned"], reverse=True)
+
+        return {
+            "summary": {
+                "total_owed_this_month": round(total_owed_this_month, 2),
+                "total_paid_all_time": round(total_paid_all_time, 2),
+                "monthly_recurring_liability": round(monthly_recurring, 2),
+            },
+            "payout_queue": payout_queue,
+            "partner_leaderboard": partner_leaderboard[:10],
+        }
+
+
+@app.patch("/admin/commissions/payouts/{payout_id}/approve")
+def admin_approve_payout(
+    payout_id: str,
+    x_admin_email: str = Header(""),
+    x_admin_password: str = Header(""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        payout = db.query(MonthlyPayout).filter(MonthlyPayout.id == payout_id).first()
+        if not payout:
+            raise HTTPException(404, "Payout not found")
+        payout.status = "ready"
+        db.commit()
+        return {"ok": True}
+
+
+@app.patch("/admin/commissions/payouts/{payout_id}/paid")
+def admin_mark_payout_paid(
+    payout_id: str,
+    x_admin_email: str = Header(""),
+    x_admin_password: str = Header(""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        payout = db.query(MonthlyPayout).filter(MonthlyPayout.id == payout_id).first()
+        if not payout:
+            raise HTTPException(404, "Payout not found")
+        payout.status = "paid"
+        payout.payout_date = datetime.now(timezone.utc)
+        commissions = db.query(Commission).filter(Commission.monthly_payout_id == payout_id).all()
+        for c in commissions:
+            c.status = "paid"
+            c.payout_date = payout.payout_date
+        db.commit()
+        return {"ok": True}
+
+
+@app.patch("/admin/commissions/partner/{partner_id}/discount-code")
+def admin_update_discount_code(
+    partner_id: str,
+    body: dict,
+    x_admin_email: str = Header(""),
+    x_admin_password: str = Header(""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        partner = db.query(OutreachContact).filter(OutreachContact.id == partner_id).first()
+        if not partner:
+            raise HTTPException(404, "Partner not found")
+        if "discount_code" in body:
+            new_code = body["discount_code"].upper().strip()
+            existing = db.query(OutreachContact).filter(
+                OutreachContact.discount_code == new_code,
+                OutreachContact.id != partner_id,
+            ).first()
+            if existing:
+                raise HTTPException(400, "Discount code already in use")
+            partner.discount_code = new_code
+        if "discount_code_active" in body:
+            partner.discount_code_active = bool(body["discount_code_active"])
+        db.commit()
+        return {"ok": True, "discount_code": partner.discount_code, "active": partner.discount_code_active}
+
+
+@app.post("/admin/commissions/calculate-monthly")
+def admin_calculate_monthly(
+    x_admin_email: str = Header(""),
+    x_admin_password: str = Header(""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        _calculate_monthly_commissions(db)
+    return {"ok": True}
+
+
+@app.get("/admin/commissions/partner/{partner_id}")
+def admin_partner_commission_detail(
+    partner_id: str,
+    x_admin_email: str = Header(""),
+    x_admin_password: str = Header(""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        partner = db.query(OutreachContact).filter(OutreachContact.id == partner_id).first()
+        if not partner:
+            raise HTTPException(404, "Partner not found")
+        commissions = db.query(Commission).filter(
+            Commission.astrologer_partner_id == partner_id
+        ).order_by(Commission.created_at.desc()).all()
+        payouts = db.query(MonthlyPayout).filter(
+            MonthlyPayout.partner_id == partner_id
+        ).order_by(MonthlyPayout.month.desc()).all()
+        return {
+            "partner": {
+                "id": partner.id,
+                "name": partner.name,
+                "slug": partner.slug or partner.referral_code,
+                "tier": partner.partner_tier,
+                "email": partner.contact_email,
+                "stripe_connect_account_id": partner.stripe_connect_account_id,
+            },
+            "commissions": [
+                {
+                    "id": c.id,
+                    "referred_user_id": c.referred_user_id,
+                    "referral_type": c.referral_type,
+                    "payment_amount": c.payment_amount,
+                    "commission_amount": c.commission_amount,
+                    "status": c.status,
+                    "payment_date": c.payment_date.isoformat() if c.payment_date else None,
+                    "months_remaining": c.months_remaining,
+                }
+                for c in commissions
+            ],
+            "payouts": [
+                {
+                    "id": p.id,
+                    "month": p.month,
+                    "amount": p.total_amount,
+                    "status": p.status,
+                    "payout_method": p.payout_method,
+                    "payout_date": p.payout_date.isoformat() if p.payout_date else None,
+                }
+                for p in payouts
+            ],
+        }
+
+
 # ── Stripe checkout ────────────────────────────────────────────────────────────
 
 @app.post("/stripe/checkout")
@@ -4043,6 +4670,84 @@ async def stripe_webhook(request: Request):
                 user.tier = "free"
                 user.stripe_subscription_id = None
                 db.commit()
+
+        elif event["type"] == "invoice.paid":
+            inv = event["data"]["object"]
+            customer_id = inv.get("customer")
+            amount_paid = inv.get("amount_paid", 0) / 100.0  # cents → dollars
+            stripe_invoice_id = inv.get("id")
+            if not customer_id or amount_paid <= 0:
+                return {"ok": True}
+
+            user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+            if not user:
+                return {"ok": True}
+
+            # Deduplicate
+            if db.query(Commission).filter(Commission.stripe_invoice_id == stripe_invoice_id).first():
+                return {"ok": True}
+
+            attr = db.query(ReferralAttribution).filter(
+                ReferralAttribution.referred_user_id == user.id
+            ).first()
+            if not attr:
+                return {"ok": True}
+
+            partner = db.query(OutreachContact).filter(OutreachContact.id == attr.referring_partner_id).first()
+            if not partner:
+                return {"ok": True}
+
+            commission_amt = round(amount_paid * 0.20, 2)
+
+            # Determine months_remaining for partner-type referrals
+            months_left = None
+            if attr.referral_type == "partner":
+                existing_count = db.query(Commission).filter(
+                    Commission.referred_user_id == user.id,
+                    Commission.astrologer_partner_id == partner.id,
+                ).count()
+                if existing_count >= 12:
+                    return {"ok": True}  # commission period over
+                months_left = 11 - existing_count  # starts at 11, counts down to 0
+
+                if months_left == 0:
+                    total_earned = db.query(Commission).filter(
+                        Commission.referred_user_id == user.id,
+                        Commission.astrologer_partner_id == partner.id,
+                    ).with_entities(__import__('sqlalchemy').func.sum(Commission.commission_amount)).scalar() or 0
+                    total_earned += commission_amt
+                    if partner.contact_email:
+                        import threading as _threading
+                        _threading.Thread(
+                            target=_send_commission_expired_email,
+                            args=(partner.contact_email, partner.name, user.first_name or user.email, total_earned),
+                            daemon=True,
+                        ).start()
+
+            c = Commission(
+                astrologer_partner_id=partner.id,
+                referred_user_id=user.id,
+                referral_type=attr.referral_type,
+                payment_amount=amount_paid,
+                commission_amount=commission_amt,
+                status="approved",
+                payment_date=datetime.now(timezone.utc),
+                months_remaining=months_left,
+                stripe_invoice_id=stripe_invoice_id,
+            )
+            db.add(c)
+
+            if not attr.first_payment_at:
+                attr.first_payment_at = datetime.now(timezone.utc)
+                if partner.contact_email:
+                    import threading as _threading
+                    _threading.Thread(
+                        target=_send_first_commission_email,
+                        args=(partner.contact_email, partner.name, commission_amt),
+                        daemon=True,
+                    ).start()
+
+            db.commit()
 
     return {"ok": True}
 

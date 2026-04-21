@@ -25,6 +25,8 @@ import BetaPage from './pages/BetaPage.jsx'
 import AccountPage from './pages/AccountPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import JoinPage from './pages/JoinPage.jsx'
+import AdminCommissions from './pages/AdminCommissions.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -56,6 +58,9 @@ createRoot(document.getElementById('root')).render(
         {/* Beta */}
         <Route path="/beta" element={<BetaPage />} />
         <Route path="/join" element={<BetaPage />} />
+        <Route path="/join/:slug" element={<JoinPage />} />
+        {/* Admin */}
+        <Route path="/admin/commissions" element={<AdminCommissions />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

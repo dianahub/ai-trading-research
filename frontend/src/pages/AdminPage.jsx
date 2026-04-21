@@ -8,6 +8,12 @@ const PAGES = [
     icon:  '🤝',
   },
   {
+    path:  '/admin/commissions',
+    title: 'Commissions',
+    desc:  'Partner referral commissions, payout queue, discount codes, and earnings.',
+    icon:  '$',
+  },
+  {
     path:  '/admin/astrologers',
     title: 'Astrologer Contacts',
     desc:  'Contact info for astrologers whose feeds are used in the API.',

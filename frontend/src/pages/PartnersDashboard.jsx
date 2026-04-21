@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 const ASTRO_URL = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function StatCard({ label, value, sub }) {
   return (
@@ -122,11 +123,18 @@ export default function PartnersDashboard() {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
   const [billingLoading, setBillingLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
+  const [commissions, setCommissions] = useState(null)
+  const [commissionsLoading, setCommissionsLoading] = useState(false)
+  const [connectLoading, setConnectLoading] = useState(false)
+  const [copied, setCopied] = useState(null)
 
   // Handle magic link token from URL
   useEffect(() => {
     const t = searchParams.get('token')
     if (t) verifyToken(t)
+    const tab = searchParams.get('tab')
+    if (tab) setActiveTab(tab)
   }, [])
 
   // Auto-load if we have a stored token
@@ -226,6 +234,38 @@ export default function PartnersDashboard() {
     }
   }
 
+  async function loadCommissions() {
+    setCommissionsLoading(true)
+    try {
+      const res = await fetch(`${API}/partners/commissions`, { credentials: 'include' })
+      if (res.ok) setCommissions(await res.json())
+    } catch { /* ignore */ } finally {
+      setCommissionsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'commissions' && !commissions) loadCommissions()
+  }, [activeTab])
+
+  function copy(text, key) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key)
+      setTimeout(() => setCopied(null), 2000)
+    })
+  }
+
+  async function handleStripeConnect() {
+    setConnectLoading(true)
+    try {
+      const res = await fetch(`${API}/partners/stripe-connect`, { method: 'POST', credentials: 'include' })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } catch { /* ignore */ } finally {
+      setConnectLoading(false)
+    }
+  }
+
   const statusColor = {
     pending:  '#fbbf24',
     approved: '#22d3ee',
@@ -280,6 +320,168 @@ export default function PartnersDashboard() {
 
         {partner && !loading && (
           <div className="flex flex-col gap-8">
+            {/* Tab nav */}
+            <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
+              {[['overview', 'Overview'], ['commissions', 'Commissions']].map(([id, label]) => (
+                <button key={id} onClick={() => setActiveTab(id)}
+                  className="px-4 py-2 rounded-lg text-xs font-semibold transition-all"
+                  style={{
+                    background: activeTab === id ? 'linear-gradient(135deg,#06b6d4,#3b82f6)' : 'transparent',
+                    color: activeTab === id ? '#fff' : '#94a3b8',
+                    border: 'none', cursor: 'pointer',
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Commissions tab ── */}
+            {activeTab === 'commissions' && (
+              <div className="flex flex-col gap-6">
+                {commissionsLoading && (
+                  <div className="text-sm text-center py-12" style={{ color: '#94a3b8' }}>Loading…</div>
+                )}
+                {!commissionsLoading && commissions && (() => {
+                  const { partner: p, summary } = commissions
+                  const slug = p.slug
+                  const refLink = p.referral_link
+                  return (
+                    <>
+                      {/* Summary cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <StatCard label="Earned this month" value={`$${summary.this_month_earned.toFixed(2)}`} />
+                        <StatCard label="Total earned" value={`$${summary.total_earned.toFixed(2)}`} />
+                        <StatCard label="Pending payout" value={`$${summary.pending_payout.toFixed(2)}`} />
+                        <StatCard label="Signups referred" value={summary.signup_count} />
+                      </div>
+
+                      {/* Referral link */}
+                      <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                        <div className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>Your referral link</div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 px-3 py-2 rounded-lg text-sm font-mono overflow-hidden text-ellipsis whitespace-nowrap"
+                            style={{ background: '#060a14', border: '1px solid #1e2d45', color: '#06b6d4' }}>
+                            {refLink}
+                          </div>
+                          <button onClick={() => copy(refLink, 'link')}
+                            className="px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0"
+                            style={{ background: copied === 'link' ? '#14532d' : '#1e2d45', color: copied === 'link' ? '#86efac' : '#94a3b8', border: 'none', cursor: 'pointer' }}>
+                            {copied === 'link' ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                        <p className="text-xs mt-2" style={{ color: '#64748b' }}>
+                          When someone signs up through this link within 30 days you earn 20% of their subscription every month.
+                        </p>
+                        <div className="flex items-center gap-4 mt-3 text-xs" style={{ color: '#64748b' }}>
+                          <span>{p.referral_click_count || 0} link clicks</span>
+                          <span>·</span>
+                          <span>{summary.signup_count} signups</span>
+                          <span>·</span>
+                          <span>Next payout: {summary.next_payout_date}</span>
+                        </div>
+                      </div>
+
+                      {/* Discount code */}
+                      {p.discount_code && (
+                        <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                          <div className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>Your discount code</div>
+                          <div className="flex items-center gap-2">
+                            <div className="px-4 py-2 rounded-lg text-base font-bold font-mono tracking-widest"
+                              style={{ background: '#060a14', border: '1px solid #1e2d45', color: '#f1f5f9' }}>
+                              {p.discount_code}
+                            </div>
+                            <button onClick={() => copy(p.discount_code, 'code')}
+                              className="px-3 py-2 rounded-lg text-xs font-semibold"
+                              style={{ background: copied === 'code' ? '#14532d' : '#1e2d45', color: copied === 'code' ? '#86efac' : '#94a3b8', border: 'none', cursor: 'pointer' }}>
+                              {copied === 'code' ? 'Copied!' : 'Copy'}
+                            </button>
+                            {!p.discount_code_active && (
+                              <span className="px-2 py-1 rounded text-xs" style={{ background: '#2d1515', color: '#f87171' }}>Inactive</span>
+                            )}
+                          </div>
+                          <p className="text-xs mt-2" style={{ color: '#64748b' }}>
+                            Share this with your audience — anyone who enters it at signup gets <strong style={{ color: '#e2e8f0' }}>45 days free</strong> instead of 30, and you get commission credit automatically.
+                          </p>
+                          <div className="mt-2 text-xs" style={{ color: '#64748b' }}>
+                            Used {p.discount_code_uses || 0} times
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Payout account */}
+                      <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                        <div className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>Payout account</div>
+                        {p.stripe_connect_account_id ? (
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm" style={{ color: '#22c55e' }}>✓ Bank account connected</span>
+                            <button onClick={handleStripeConnect} disabled={connectLoading}
+                              className="px-3 py-1.5 rounded-lg text-xs"
+                              style={{ background: '#1e2d45', color: '#94a3b8', border: 'none', cursor: 'pointer' }}>
+                              Manage
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-xs mb-3" style={{ color: '#94a3b8' }}>
+                              Connect your bank account to receive automatic payouts on the 1st of each month. Minimum payout is $20.
+                            </p>
+                            <button onClick={handleStripeConnect} disabled={connectLoading}
+                              className="px-4 py-2 rounded-lg text-xs font-semibold"
+                              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                              {connectLoading ? 'Loading…' : 'Connect Bank Account'}
+                            </button>
+                            <p className="text-xs mt-2" style={{ color: '#64748b' }}>
+                              No bank account? We'll flag your payout for manual transfer and reach out.
+                            </p>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Payout history */}
+                      {commissions.payout_history.length > 0 && (
+                        <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                          <div className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>Payout history</div>
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr style={{ color: '#64748b' }}>
+                                <th className="text-left pb-2">Month</th>
+                                <th className="text-right pb-2">Amount</th>
+                                <th className="text-right pb-2">Method</th>
+                                <th className="text-right pb-2">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {commissions.payout_history.map((p, i) => (
+                                <tr key={i} style={{ borderTop: '1px solid #1e2d45' }}>
+                                  <td className="py-2" style={{ color: '#e2e8f0' }}>{p.month}</td>
+                                  <td className="py-2 text-right" style={{ color: '#e2e8f0' }}>${p.amount.toFixed(2)}</td>
+                                  <td className="py-2 text-right" style={{ color: '#94a3b8' }}>{p.payout_method || 'pending'}</td>
+                                  <td className="py-2 text-right">
+                                    <span className="px-2 py-0.5 rounded-full" style={{
+                                      background: p.status === 'paid' ? '#14532d' : p.status === 'ready' ? '#1e3a5f' : '#1e2d45',
+                                      color: p.status === 'paid' ? '#86efac' : p.status === 'ready' ? '#7dd3fc' : '#94a3b8',
+                                    }}>{p.status}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+                {!commissionsLoading && !commissions && (
+                  <div className="text-sm text-center py-12" style={{ color: '#94a3b8' }}>
+                    Commission data not available. Make sure your partner email matches your login.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Overview tab ── */}
+            {activeTab === 'overview' && (
+            <div className="flex flex-col gap-8">
             {/* Header row */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -461,20 +663,8 @@ export default function PartnersDashboard() {
               </div>
             </div>
 
-            {/* Upgrade CTA for free tier */}
-            {partner.tier === 'free' && partner.status === 'approved' && (
-              <div className="rounded-xl p-6 text-center" style={{ background: '#0f1a2e', border: '1px solid #3b82f6', boxShadow: '0 0 30px #3b82f615' }}>
-                <div className="text-sm font-semibold mb-2" style={{ color: '#f1f5f9' }}>Unlock more reach</div>
-                <p className="text-xs mb-4" style={{ color: '#94a3b8' }}>
-                  Upgrade to Verified ($49/mo) to show your name, photo, and badge on every insight you publish.
-                </p>
-                <Link to="/partners/apply"
-                  className="inline-block px-5 py-2 rounded-lg text-xs font-semibold"
-                  style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
-                  Upgrade Tier →
-                </Link>
-              </div>
-            )}
+            </div> {/* end overview inner flex */}
+            )} {/* end overview tab */}
           </div>
         )}
       </div>
