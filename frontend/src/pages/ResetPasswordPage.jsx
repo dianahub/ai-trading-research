@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>New password</label>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>New password</label>
               <input type="password" value={form.password} autoFocus
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                 className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
@@ -68,7 +68,7 @@ export default function ResetPasswordPage() {
                 placeholder="At least 8 characters" />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Confirm password</label>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Confirm password</label>
               <input type="password" value={form.confirm}
                 onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))}
                 className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"

@@ -27,7 +27,7 @@ function TradeRow({ trade }) {
       <div className="flex items-center gap-3 min-w-0">
         <div
           className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold"
-          style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#64748b' }}
+          style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8' }}
         >
           {trade.chamber === 'House' ? '🏛' : '⚖️'}
         </div>
@@ -139,7 +139,7 @@ export default function CongressPanel({ congressData, ticker }) {
                 className="w-full py-2.5 rounded-lg text-sm font-semibold tracking-wide transition-all cursor-pointer hover:brightness-125"
                 style={{
                   background: '#111827',
-                  color: '#64748b',
+                  color: '#94a3b8',
                   border: '1px solid #1e2d45',
                 }}
               >
@@ -147,7 +147,7 @@ export default function CongressPanel({ congressData, ticker }) {
               </button>
             )}
 
-            <p className="text-xs pt-1" style={{ color: '#64748b', borderTop: '1px solid #1e2d45', paddingTop: 10 }}>
+            <p className="text-xs pt-1" style={{ color: '#94a3b8', borderTop: '1px solid #1e2d45', paddingTop: 10 }}>
               Data sourced from public House &amp; Senate financial disclosures (STOCK Act). Trades are disclosed up to 45 days after execution. Not a trading signal — for informational purposes only.
             </p>
           </>

@@ -83,14 +83,14 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>First name</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>First name</label>
                 <input value={form.firstName} onChange={set('firstName')} autoFocus
                   className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                   style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
                   placeholder="First" />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Last name</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Last name</label>
                 <input value={form.lastName} onChange={set('lastName')}
                   className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                   style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
@@ -98,14 +98,14 @@ export default function SignupPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Email</label>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Email</label>
               <input type="email" value={form.email} onChange={set('email')}
                 className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                 style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
                 placeholder="you@example.com" />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Password</label>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Password</label>
               <input type="password" value={form.password} onChange={set('password')}
                 className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                 style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
@@ -113,7 +113,7 @@ export default function SignupPage() {
               <PasswordStrength password={form.password} />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Confirm password</label>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Confirm password</label>
               <input type="password" value={form.confirm} onChange={set('confirm')}
                 className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                 style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}

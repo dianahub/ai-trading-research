@@ -56,7 +56,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>{title}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{desc}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>{desc}</p>
                   </div>
                 </div>
               ))}
@@ -79,7 +79,7 @@ export default function DashboardPage() {
             <span className="text-white font-bold tracking-widest text-sm">Star Signal</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link to="/account" className="text-xs" style={{ color: '#64748b', textDecoration: 'none' }}>Account</Link>
+            <Link to="/account" className="text-xs" style={{ color: '#94a3b8', textDecoration: 'none' }}>Account</Link>
             <button onClick={handleLogout}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold"
               style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#94a3b8', cursor: 'pointer' }}>
@@ -94,7 +94,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold" style={{ color: '#f1f5f9' }}>
             Hey {account.first_name || 'there'} 👋
           </h1>
-          <p className="text-sm mt-1" style={{ color: '#64748b' }}>
+          <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>
             <span className="font-semibold"
               style={{ color: tierColor(account.tier) }}>
               {tierLabel(account.tier)}

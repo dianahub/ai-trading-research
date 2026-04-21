@@ -13,7 +13,7 @@ function PageLayout({ title, children }) {
             </div>
             <span className="text-sm font-bold tracking-widest text-white">Starsignal.io</span>
           </Link>
-          <Link to="/" className="text-xs hover:underline" style={{ color: '#64748b' }}>← Back to app</Link>
+          <Link to="/" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>← Back to app</Link>
         </div>
       </header>
 
@@ -28,10 +28,10 @@ function PageLayout({ title, children }) {
         <div className="max-w-3xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
           <span className="text-xs" style={{ color: '#475569' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
           <div className="flex items-center gap-4">
-            <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
-            <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>
-            <Link to="/contact" className="text-xs hover:underline" style={{ color: '#64748b' }}>Contact</Link>
-            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" className="text-xs hover:underline" style={{ color: '#64748b' }}>LinkedIn</a>
+            <Link to="/terms" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Terms of Service</Link>
+            <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Privacy Policy</Link>
+            <Link to="/contact" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Contact</Link>
+            <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>LinkedIn</a>
           </div>
         </div>
       </footer>
@@ -42,7 +42,7 @@ function PageLayout({ title, children }) {
 export default function TermsPage() {
   return (
     <PageLayout title="Terms of Service">
-      <p style={{ color: '#64748b' }}>Effective date: January 1, 2026</p>
+      <p style={{ color: '#94a3b8' }}>Effective date: January 1, 2026</p>
 
       <section>
         <h2 className="text-base font-semibold mb-2" style={{ color: '#e2e8f0' }}>1. Acceptance of Terms</h2>
@@ -81,7 +81,7 @@ export default function TermsPage() {
 
       <section>
         <h2 className="text-base font-semibold mb-2" style={{ color: '#e2e8f0' }}>8. Contact</h2>
-        <p>Questions about these Terms? <Link to="/contact" className="hover:underline" style={{ color: '#64748b' }}>Contact us</Link>.</p>
+        <p>Questions about these Terms? <Link to="/contact" className="hover:underline" style={{ color: '#94a3b8' }}>Contact us</Link>.</p>
       </section>
     </PageLayout>
   )

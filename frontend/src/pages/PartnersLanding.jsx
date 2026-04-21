@@ -14,7 +14,7 @@ const TIERS = [
       'Reach traders on stock & crypto platforms',
     ],
     cta: 'Apply Free',
-    ctaStyle: { background: 'transparent', border: '1px solid #1e3a5f', color: '#64748b' },
+    ctaStyle: { background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8' },
   },
   {
     name: 'Verified',
@@ -127,7 +127,7 @@ export default function PartnersLanding() {
       <section className="max-w-4xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
           <h2 className="text-2xl md:text-3xl font-bold mb-3" style={{ color: '#f1f5f9' }}>How It Works</h2>
-          <p className="text-sm" style={{ color: '#64748b' }}>Three steps from application to global distribution</p>
+          <p className="text-sm" style={{ color: '#94a3b8' }}>Three steps from application to global distribution</p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {[
@@ -138,7 +138,7 @@ export default function PartnersLanding() {
             <div key={item.step} className="p-6 rounded-xl relative" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
               <div className="text-5xl font-black mb-4" style={{ color: '#1e2d45' }}>{item.step}</div>
               <h3 className="text-base font-semibold mb-2" style={{ color: '#f1f5f9' }}>{item.title}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: '#64748b' }}>{item.desc}</p>
+              <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{item.desc}</p>
             </div>
           ))}
         </div>
@@ -165,7 +165,7 @@ export default function PartnersLanding() {
       <section className="max-w-5xl mx-auto px-6 py-20">
         <div className="text-center mb-12">
           <h2 className="text-2xl md:text-3xl font-bold mb-3" style={{ color: '#f1f5f9' }}>Choose Your Tier</h2>
-          <p className="text-sm" style={{ color: '#64748b' }}>Start free. Upgrade for more reach and branding.</p>
+          <p className="text-sm" style={{ color: '#94a3b8' }}>Start free. Upgrade for more reach and branding.</p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {TIERS.map(tier => (
@@ -186,7 +186,7 @@ export default function PartnersLanding() {
               </div>
               <div className="mb-1">
                 <span className="text-4xl font-black" style={{ color: '#f1f5f9' }}>{tier.price}</span>
-                <span className="text-sm ml-1" style={{ color: '#64748b' }}>{tier.period}</span>
+                <span className="text-sm ml-1" style={{ color: '#94a3b8' }}>{tier.period}</span>
               </div>
               <div className="h-px my-4" style={{ background: '#1e2d45' }} />
               <ul className="space-y-3 flex-1 mb-6">
@@ -214,7 +214,7 @@ export default function PartnersLanding() {
           <h3 className="text-lg font-semibold mb-2" style={{ color: '#f1f5f9' }}>
             Join our founding partner cohort
           </h3>
-          <p className="text-sm max-w-md mx-auto" style={{ color: '#64748b' }}>
+          <p className="text-sm max-w-md mx-auto" style={{ color: '#94a3b8' }}>
             We're in early access. Founding partners get grandfathered pricing and input on the roadmap. Apply now while spots are limited.
           </p>
         </div>
@@ -247,7 +247,7 @@ export default function PartnersLanding() {
         <h2 className="text-2xl font-bold mb-4" style={{ color: '#f1f5f9' }}>
           Ready to reach traders worldwide?
         </h2>
-        <p className="text-sm mb-8" style={{ color: '#64748b' }}>
+        <p className="text-sm mb-8" style={{ color: '#94a3b8' }}>
           Applications are reviewed within 48 hours. Free tier available with no commitment.
         </p>
         <Link to="/partners/apply"

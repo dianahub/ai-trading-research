@@ -331,7 +331,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 <nav className="fade-in rounded-xl" style={{ background: '#0b0f1e', border: '1px solid #1e2d45' }}>
                   {/* Mobile: hamburger header */}
                   <div className="flex md:hidden items-center justify-between px-4 py-2.5">
-                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#e2e8f0' }}>
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#94a3b8' }}>
                       Jump to
                     </span>
                     <button
@@ -343,15 +343,15 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                       {navOpen ? (
                         // X icon
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                          <line x1="1" y1="1" x2="13" y2="13" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
-                          <line x1="13" y1="1" x2="1" y2="13" stroke="#64748b" strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="1" y1="1" x2="13" y2="13" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="13" y1="1" x2="1" y2="13" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"/>
                         </svg>
                       ) : (
                         // Hamburger icon
                         <>
-                          <span className="block w-4 h-0.5 rounded" style={{ background: '#64748b' }} />
-                          <span className="block w-4 h-0.5 rounded" style={{ background: '#64748b' }} />
-                          <span className="block w-4 h-0.5 rounded" style={{ background: '#64748b' }} />
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#94a3b8' }} />
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#94a3b8' }} />
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#94a3b8' }} />
                         </>
                       )}
                     </button>
@@ -373,14 +373,14 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
                   {/* Desktop: horizontal pill row */}
                   <div className="hidden md:flex items-center gap-3 px-4 py-2.5 overflow-x-auto">
-                    <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#e2e8f0' }}>
+                    <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#94a3b8' }}>
                       Jump to
                     </span>
                     <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
                     {navLinks.map(s => (
                       <a key={s.href} href={s.href}
                         className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
-                        style={{ background: '#111827', color: '#64748b', border: '1px solid #1e2d45' }}>
+                        style={{ background: '#111827', color: '#94a3b8', border: '1px solid #1e2d45' }}>
                         {s.label}
                       </a>
                     ))}
@@ -430,7 +430,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 { icon: '🤖', label: 'Claude AI Summary' },
               ].map(f => (
                 <span key={f.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium"
-                  style={{ background: '#111827', border: '1px solid #1e2d45', color: '#64748b' }}>
+                  style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
                   {f.icon} {f.label}
                 </span>
               ))}
@@ -606,17 +606,17 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <span className="text-xs" style={{ color: '#475569' }}>© 2026 <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#475569', textDecoration: 'underline' }}>Futurotek LLC</a>. All rights reserved.</span>
             <div className="flex items-center gap-4">
-              <Link to="/about" className="text-xs hover:underline" style={{ color: '#64748b' }}>About</Link>
-              <Link to="/partners" className="text-xs hover:underline" style={{ color: '#64748b' }}>Partners</Link>
-              <Link to="/terms" className="text-xs hover:underline" style={{ color: '#64748b' }}>Terms of Service</Link>
-              <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#64748b' }}>Privacy Policy</Link>
-              <Link to="/contact" className="text-xs hover:underline" style={{ color: '#64748b' }}>Contact</Link>
-              <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" className="text-xs hover:underline" style={{ color: '#64748b' }}>LinkedIn</a>
+              <Link to="/about" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>About</Link>
+              <Link to="/partners" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Partners</Link>
+              <Link to="/terms" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Terms of Service</Link>
+              <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Privacy Policy</Link>
+              <Link to="/contact" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Contact</Link>
+              <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>LinkedIn</a>
             </div>
           </div>
           {/* Bottom muted line */}
-          <p className="text-xs" style={{ color: '#64748b' }}>
-            Star Signal is a product of <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#64748b', textDecoration: 'underline' }}>Futurotek LLC</a>. Astrological insights are for informational purposes only and do not constitute investment advice.
+          <p className="text-xs" style={{ color: '#94a3b8' }}>
+            Star Signal is a product of <a href="https://dianacastillo.zo.space/futurotek/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'underline' }}>Futurotek LLC</a>. Astrological insights are for informational purposes only and do not constitute investment advice.
           </p>
         </div>
       </footer>

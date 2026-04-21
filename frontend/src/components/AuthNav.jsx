@@ -69,7 +69,7 @@ export default function AuthNav() {
         <span>{user.first_name || user.email.split('@')[0]}</span>
         <TierBadge tier={user.tier} />
         <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-          <path d="M1 1l4 4 4-4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M1 1l4 4 4-4" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
       </button>
 

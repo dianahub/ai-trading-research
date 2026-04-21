@@ -54,7 +54,7 @@ function SentimentGauge({ score }) {
           }}
         />
       </div>
-      <div className="flex justify-between text-xs" style={{ color: '#64748b' }}>
+      <div className="flex justify-between text-xs" style={{ color: '#94a3b8' }}>
         <span>−1 Bearish</span>
         <span>Neutral</span>
         <span>Bullish +1</span>
@@ -81,7 +81,7 @@ function InsightCard({ insight }) {
           </span>
           <span
             className="px-2 py-0.5 rounded text-xs tracking-wider"
-            style={{ background: '#111827', color: '#64748b', border: '1px solid #1e2d45' }}
+            style={{ background: '#111827', color: '#94a3b8', border: '1px solid #1e2d45' }}
           >
             {insight.topic?.toUpperCase()}
           </span>
@@ -284,7 +284,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </span>
               )}
             </div>
-            <div className="text-xs mt-0.5" style={{ color: '#64748b' }}>
+            <div className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>
               Insights from Astrologers based on star positions · links to astrologer are included
             </div>
             <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg" style={{ background: '#a5b4fc18', border: '1px solid #a5b4fc44' }}>
@@ -306,7 +306,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           className="text-xs px-3 py-1 rounded transition-colors cursor-pointer"
           style={{
             background: visible ? '#1e2d45' : '#111827',
-            color: '#64748b',
+            color: '#94a3b8',
             border: '1px solid #1e2d45',
           }}
         >
@@ -393,7 +393,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           )}
 
           {/* Disclaimer */}
-          <p className="text-xs pt-2" style={{ color: '#64748b', borderTop: '1px solid #1e2d45', paddingTop: 12 }}>
+          <p className="text-xs pt-2" style={{ color: '#94a3b8', borderTop: '1px solid #1e2d45', paddingTop: 12 }}>
             ♅ Astrological insights are alternative data for informational purposes only and do not constitute investment advice.
           </p>
         </div>

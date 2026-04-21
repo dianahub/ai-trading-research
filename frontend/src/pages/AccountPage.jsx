@@ -27,7 +27,7 @@ function UpgradeBanner({ currentTier }) {
           <p className="text-sm font-semibold mb-1" style={{ color: '#06b6d4' }}>
             Upgrade to {tierLabel(next)} — {price}/month
           </p>
-          <p className="text-xs" style={{ color: '#64748b' }}>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>
             Unlocks: {perks.join(' · ')}
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function AccountPage() {
         </button>
         <button onClick={handleLogout}
           className="w-full py-2.5 rounded-xl text-sm"
-          style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#64748b', cursor: 'pointer' }}>
+          style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#94a3b8', cursor: 'pointer' }}>
           Sign out
         </button>
       </div>
@@ -140,8 +140,8 @@ export default function AccountPage() {
             <span className="text-white font-bold tracking-widest text-sm">✦ Star Signal</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm" style={{ color: '#64748b', textDecoration: 'none' }}>Dashboard</Link>
-            <button onClick={handleLogout} className="text-sm" style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <Link to="/" className="text-sm" style={{ color: '#94a3b8', textDecoration: 'none' }}>Dashboard</Link>
+            <button onClick={handleLogout} className="text-sm" style={{ color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}>
               Sign out
             </button>
           </div>
@@ -169,7 +169,7 @@ export default function AccountPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>Current plan</span>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>Current plan</span>
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold"
                   style={{ background: tierColor(account.tier) + '22', color: tierColor(account.tier) }}>
                   {tierLabel(account.tier)}
@@ -178,7 +178,7 @@ export default function AccountPage() {
               <p className="text-2xl font-black" style={{ color: '#f1f5f9' }}>
                 {account.first_name} {account.last_name}
               </p>
-              <p className="text-sm" style={{ color: '#64748b' }}>{account.email}</p>
+              <p className="text-sm" style={{ color: '#94a3b8' }}>{account.email}</p>
             </div>
             {account.tier === 'beta' && account.beta_days_left !== null && (
               <div className="text-right flex-shrink-0">
@@ -192,7 +192,7 @@ export default function AccountPage() {
 
           {account.tier === 'beta' && (
             <div className="mt-4 pt-4" style={{ borderTop: '1px solid #1e2d45' }}>
-              <p className="text-xs mb-3" style={{ color: '#64748b' }}>
+              <p className="text-xs mb-3" style={{ color: '#94a3b8' }}>
                 After beta: lock in founding member pricing at <strong style={{ color: '#e2e8f0' }}>$19/month forever</strong>
               </p>
               <button onClick={() => upgradeToTier('pro')}
@@ -217,7 +217,7 @@ export default function AccountPage() {
         {/* Referral */}
         <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
           <h3 className="text-sm font-bold mb-3" style={{ color: '#f1f5f9' }}>Your referral link</h3>
-          <p className="text-xs mb-3" style={{ color: '#64748b' }}>
+          <p className="text-xs mb-3" style={{ color: '#94a3b8' }}>
             Share this link. When a friend converts to any paid plan, you get 1 month free.
           </p>
           <div className="flex gap-2">
@@ -228,7 +228,7 @@ export default function AccountPage() {
             <button onClick={copyReferral}
               className="px-4 py-2.5 rounded-lg text-xs font-semibold flex-shrink-0"
               style={{ background: copied ? '#052e16' : '#0f1a2e', border: '1px solid #1e2d45',
-                color: copied ? '#4ade80' : '#64748b' }}>
+                color: copied ? '#4ade80' : '#94a3b8' }}>
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
@@ -251,7 +251,7 @@ export default function AccountPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-bold mb-1" style={{ color: '#d4a847' }}>Platform tier — $299/month</p>
-              <p className="text-xs" style={{ color: '#64748b' }}>
+              <p className="text-xs" style={{ color: '#94a3b8' }}>
                 White-label data feeds, bulk API access, dedicated support, co-marketing.
                 Manual activation only.
               </p>

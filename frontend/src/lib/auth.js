@@ -60,7 +60,7 @@ export function tierLabel(tier) {
 
 export function tierColor(tier) {
   return {
-    free: '#64748b', beta: '#06b6d4', pro: '#3b82f6',
+    free: '#94a3b8', beta: '#06b6d4', pro: '#3b82f6',
     premium: '#8b5cf6', platform: '#d4a847',
-  }[tier] || '#64748b'
+  }[tier] || '#94a3b8'
 }

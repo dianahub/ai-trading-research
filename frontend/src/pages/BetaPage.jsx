@@ -108,14 +108,14 @@ export default function BetaPage() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>First name *</label>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>First name *</label>
                     <input value={form.first_name} onChange={set('first_name')} autoFocus
                       className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                       style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
                       placeholder="Jane" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Last name *</label>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Last name *</label>
                     <input value={form.last_name} onChange={set('last_name')}
                       className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                       style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
@@ -124,7 +124,7 @@ export default function BetaPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Email *</label>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Email *</label>
                   <input type="email" value={form.email} onChange={set('email')}
                     className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                     style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
@@ -132,22 +132,22 @@ export default function BetaPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>What kind of trader are you?</label>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>What kind of trader are you?</label>
                   <select value={form.trader_type} onChange={set('trader_type')}
                     className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                     style={{ background: '#0f1a2e', border: '1px solid #1e2d45',
-                      color: form.trader_type ? '#e2e8f0' : '#64748b' }}>
+                      color: form.trader_type ? '#e2e8f0' : '#94a3b8' }}>
                     <option value="">Select one…</option>
                     {TRADER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>How did you hear about us?</label>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>How did you hear about us?</label>
                   <select value={form.how_heard} onChange={set('how_heard')}
                     className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                     style={{ background: '#0f1a2e', border: '1px solid #1e2d45',
-                      color: form.how_heard ? '#e2e8f0' : '#64748b' }}>
+                      color: form.how_heard ? '#e2e8f0' : '#94a3b8' }}>
                     <option value="">Select one…</option>
                     {HOW_HEARD.map(h => <option key={h} value={h}>{h}</option>)}
                   </select>

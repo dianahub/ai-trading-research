@@ -333,7 +333,7 @@ export default function AdminOutreach() {
             <span className="text-white text-xs font-bold">AI</span>
           </div>
           <h1 className="text-lg font-bold" style={{ color: '#f1f5f9' }}>Outreach Admin</h1>
-          <p className="text-xs mt-1" style={{ color: '#64748b' }}>Starsignal.io</p>
+          <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>Starsignal.io</p>
         </div>
         {authError && (
           <p className="text-sm" style={{ color: '#f87171' }}>{authError}</p>
@@ -378,7 +378,7 @@ export default function AdminOutreach() {
               </div>
               <span className="text-sm font-bold tracking-widest text-white">Starsignal.io</span>
             </Link>
-            <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#1e2d45', color: '#64748b' }}>
+            <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#1e2d45', color: '#94a3b8' }}>
               Outreach Admin
             </span>
           </div>
@@ -401,7 +401,7 @@ export default function AdminOutreach() {
               style={{
                 background: mode === m.id ? 'linear-gradient(135deg,#06b6d4,#3b82f6)' : '#0f1a2e',
                 border: `1px solid ${mode === m.id ? '#06b6d4' : '#1e2d45'}`,
-                color: mode === m.id ? '#fff' : '#64748b',
+                color: mode === m.id ? '#fff' : '#94a3b8',
               }}>
               {m.label}
             </button>
@@ -423,7 +423,7 @@ export default function AdminOutreach() {
               className="px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
               style={{
                 background: tab === t.id ? '#1e3a5f' : 'transparent',
-                color:      tab === t.id ? '#e2e8f0'  : '#64748b',
+                color:      tab === t.id ? '#e2e8f0'  : '#94a3b8',
               }}>
               {t.label}
             </button>
@@ -587,7 +587,7 @@ export default function AdminOutreach() {
                   className="px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all"
                   style={{
                     background: statusFilter === s ? '#1e3a5f' : '#0f1a2e',
-                    color:      statusFilter === s ? '#e2e8f0'  : '#64748b',
+                    color:      statusFilter === s ? '#e2e8f0'  : '#94a3b8',
                     border: `1px solid ${statusFilter === s ? '#1e3a5f' : '#1e2d45'}`,
                   }}>
                   {s === 'all' ? `All (${contacts.length})` : `${STATUS_STYLE[s]?.label} (${contacts.filter(c => c.status === s).length})`}
@@ -670,7 +670,7 @@ export default function AdminOutreach() {
                             <td className="px-4 py-3">
                               <Badge status={c.status} />
                             </td>
-                            <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>
+                            <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>
                               {c.date_contacted ? new Date(c.date_contacted).toLocaleDateString() : '—'}
                             </td>
                             <td className="px-4 py-3 text-xs font-mono" style={{ color: '#94a3b8' }}>
@@ -716,7 +716,7 @@ export default function AdminOutreach() {
                                 )}
                                 <button onClick={() => openEdit(c)}
                                   className="px-2.5 py-1 rounded text-xs font-medium cursor-pointer"
-                                  style={{ background: '#1e2d45', color: '#64748b', border: '1px solid #1e2d45' }}>
+                                  style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #1e2d45' }}>
                                   Edit
                                 </button>
                                 <button onClick={() => handleDelete(c)}
@@ -755,7 +755,7 @@ export default function AdminOutreach() {
                 <div key={s.label} className="p-4 rounded-xl"
                   style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
                   <div className="text-2xl font-bold" style={{ color: '#06b6d4' }}>{s.value}</div>
-                  <div className="text-xs mt-1" style={{ color: '#64748b' }}>{s.label}</div>
+                  <div className="text-xs mt-1" style={{ color: '#94a3b8' }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -819,7 +819,7 @@ export default function AdminOutreach() {
                 <h3 className="font-semibold" style={{ color: '#f1f5f9' }}>
                   Messages for {msgModal.name}
                 </h3>
-                <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>
+                <p className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>
                   {msgModal.platform} · {msgModal.follower_count}
                 </p>
               </div>
@@ -855,7 +855,7 @@ export default function AdminOutreach() {
                       className="px-3 py-1.5 rounded text-xs font-medium cursor-pointer transition-all"
                       style={{
                         background: msgTab === t.id ? '#1e3a5f' : 'transparent',
-                        color:      msgTab === t.id ? '#e2e8f0'  : '#64748b',
+                        color:      msgTab === t.id ? '#e2e8f0'  : '#94a3b8',
                       }}>
                       {t.label}
                     </button>
@@ -943,7 +943,7 @@ export default function AdminOutreach() {
               { key: 'content_focus', label: 'Content Focus', type: 'text'  },
             ].map(f => (
               <div key={f.key}>
-                <label className="block text-xs mb-1" style={{ color: '#64748b' }}>{f.label}</label>
+                <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>{f.label}</label>
                 <input type={f.type} value={editForm[f.key] || ''}
                   onChange={e => setEditForm(prev => ({ ...prev, [f.key]: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg text-sm outline-none"
@@ -952,7 +952,7 @@ export default function AdminOutreach() {
             ))}
 
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Platform</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>Platform</label>
               <select value={editForm.platform || ''}
                 onChange={e => setEditForm(prev => ({ ...prev, platform: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
@@ -962,7 +962,7 @@ export default function AdminOutreach() {
             </div>
 
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Status</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>Status</label>
               <select value={editForm.status || ''}
                 onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
@@ -972,7 +972,7 @@ export default function AdminOutreach() {
             </div>
 
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Notes</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>Notes</label>
               <textarea rows={3} value={editForm.notes || ''}
                 onChange={e => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
@@ -987,7 +987,7 @@ export default function AdminOutreach() {
               </button>
               <button onClick={() => setEditModal(null)}
                 className="px-4 py-2 rounded-lg text-sm cursor-pointer"
-                style={{ background: '#1e2d45', color: '#64748b' }}>
+                style={{ background: '#1e2d45', color: '#94a3b8' }}>
                 Cancel
               </button>
             </div>
@@ -1176,7 +1176,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
-            style={{ background: tab === t.id ? '#1e3a5f' : 'transparent', color: tab === t.id ? '#e2e8f0' : '#64748b' }}>
+            style={{ background: tab === t.id ? '#1e3a5f' : 'transparent', color: tab === t.id ? '#e2e8f0' : '#94a3b8' }}>
             {t.label}
           </button>
         ))}
@@ -1222,8 +1222,8 @@ function ApiLeadsSection({ API, adminHeaders }) {
                           {r.profile_url && <a href={r.profile_url} target="_blank" rel="noreferrer" className="text-xs" style={{ color: '#06b6d4' }}>{r.profile_url.replace(/^https?:\/\//, '').slice(0, 40)}</a>}
                         </td>
                         <td className="px-4 py-3 max-w-xs"><span className="text-xs line-clamp-2" style={{ color: '#94a3b8' }}>{r.what_they_build}</span></td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>{r.tech_stack || '—'}</td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>{r.stage || '—'}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{r.tech_stack || '—'}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{r.stage || '—'}</td>
                         <td className="px-4 py-3 text-xs font-bold" style={{ color: '#06b6d4' }}>{r.mrr_potential || '—'}</td>
                         <td className="px-4 py-3 text-xs">
                           {r.contact_email ? <a href={`mailto:${r.contact_email}`} style={{ color: '#34d399', textDecoration: 'none' }}>✉ {r.contact_email}</a> : <span style={{ color: '#334155' }}>—</span>}
@@ -1252,7 +1252,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
             {['all', ...LEAD_STATUSES].map(s => (
               <button key={s} onClick={() => setStatusFilter(s)}
                 className="px-3 py-1 rounded-lg text-xs font-medium capitalize cursor-pointer"
-                style={{ background: statusFilter === s ? 'linear-gradient(135deg,#06b6d4,#3b82f6)' : '#0f1a2e', border: `1px solid ${statusFilter === s ? '#06b6d4' : '#1e2d45'}`, color: statusFilter === s ? '#fff' : '#64748b' }}>
+                style={{ background: statusFilter === s ? 'linear-gradient(135deg,#06b6d4,#3b82f6)' : '#0f1a2e', border: `1px solid ${statusFilter === s ? '#06b6d4' : '#1e2d45'}`, color: statusFilter === s ? '#fff' : '#94a3b8' }}>
                 {s}
               </button>
             ))}
@@ -1281,7 +1281,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                         </td>
                         <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{l.platform}</td>
                         <td className="px-4 py-3 max-w-xs"><span className="text-xs line-clamp-2" style={{ color: '#94a3b8' }}>{l.what_they_build}</span></td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>{l.stage || '—'}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{l.stage || '—'}</td>
                         <td className="px-4 py-3 text-xs font-bold" style={{ color: '#06b6d4' }}>{l.mrr_potential || '—'}</td>
                         <td className="px-4 py-3"><LeadBadge status={l.status} /></td>
                         <td className="px-4 py-3">
@@ -1370,7 +1370,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                           {j.status.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#64748b' }}>{j.hours_spent}h</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{j.hours_spent}h</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1.5">
                           <button onClick={() => { setJobForm({ ...j, quoted_price: String(j.quoted_price), hours_spent: String(j.hours_spent) }); setJobModal(j) }}
@@ -1448,7 +1448,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-base font-bold" style={{ color: '#f1f5f9' }}>{msgModal.company_name}</h3>
-                <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{msgModal.what_they_build?.slice(0, 80)}</p>
+                <p className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>{msgModal.what_they_build?.slice(0, 80)}</p>
               </div>
               <button onClick={() => setMsgModal(null)} style={{ color: '#475569', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
             </div>
@@ -1464,7 +1464,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                   ].map(t => (
                     <button key={t.id} onClick={() => setMsgTab(t.id)}
                       className="px-3 py-1.5 rounded text-xs font-medium cursor-pointer transition-all"
-                      style={{ background: msgTab === t.id ? '#1e3a5f' : 'transparent', color: msgTab === t.id ? '#e2e8f0' : '#64748b' }}>
+                      style={{ background: msgTab === t.id ? '#1e3a5f' : 'transparent', color: msgTab === t.id ? '#e2e8f0' : '#94a3b8' }}>
                       {t.label}
                     </button>
                   ))}
@@ -1527,7 +1527,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
               { key: 'mrr_potential', label: 'MRR Potential',     type: 'text' },
             ].map(({ key, label, type }) => (
               <div key={key}>
-                <label className="block text-xs mb-1" style={{ color: '#64748b' }}>{label}</label>
+                <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>{label}</label>
                 <input type={type} value={editForm[key] || ''}
                   onChange={e => setEditForm(p => ({ ...p, [key]: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg text-sm outline-none"
@@ -1535,14 +1535,14 @@ function ApiLeadsSection({ API, adminHeaders }) {
               </div>
             ))}
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>What they build</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>What they build</label>
               <textarea rows={3} value={editForm.what_they_build || ''}
                 onChange={e => setEditForm(p => ({ ...p, what_they_build: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
                 style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Status</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>Status</label>
               <select value={editForm.status || 'new'} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
                 style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }}>
@@ -1550,7 +1550,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Notes</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>Notes</label>
               <textarea rows={3} value={editForm.notes || ''}
                 onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
@@ -1564,7 +1564,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
               </button>
               <button onClick={() => setEditModal(null)}
                 className="px-4 py-2 rounded-lg text-sm cursor-pointer"
-                style={{ background: '#1e2d45', color: '#64748b', border: 'none' }}>Cancel</button>
+                style={{ background: '#1e2d45', color: '#94a3b8', border: 'none' }}>Cancel</button>
             </div>
           </div>
         </Modal>
@@ -1584,7 +1584,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
               { key: 'hours_spent',  label: 'Hours Spent', type: 'number' },
             ].map(({ key, label, type }) => (
               <div key={key}>
-                <label className="block text-xs mb-1" style={{ color: '#64748b' }}>{label}</label>
+                <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>{label}</label>
                 <input type={type} value={jobForm[key] || ''}
                   onChange={e => setJobForm(p => ({ ...p, [key]: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg text-sm outline-none"
@@ -1592,14 +1592,14 @@ function ApiLeadsSection({ API, adminHeaders }) {
               </div>
             ))}
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Scope</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>Scope</label>
               <textarea rows={3} value={jobForm.scope || ''}
                 onChange={e => setJobForm(p => ({ ...p, scope: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
                 style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Status</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>Status</label>
               <select value={jobForm.status || 'quoted'} onChange={e => setJobForm(p => ({ ...p, status: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
                 style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }}>
@@ -1607,7 +1607,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Notes</label>
+              <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>Notes</label>
               <textarea rows={2} value={jobForm.notes || ''}
                 onChange={e => setJobForm(p => ({ ...p, notes: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none"
@@ -1621,7 +1621,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
               </button>
               <button onClick={() => setJobModal(null)}
                 className="px-4 py-2 rounded-lg text-sm cursor-pointer"
-                style={{ background: '#1e2d45', color: '#64748b', border: 'none' }}>Cancel</button>
+                style={{ background: '#1e2d45', color: '#94a3b8', border: 'none' }}>Cancel</button>
             </div>
           </div>
         </Modal>

@@ -11,7 +11,7 @@ function Card({ title, children }) {
 
 function Interpretation({ text }) {
   return (
-    <p className="text-xs mt-2 leading-relaxed" style={{ color: '#64748b' }}>{text}</p>
+    <p className="text-xs mt-2 leading-relaxed" style={{ color: '#94a3b8' }}>{text}</p>
   )
 }
 
@@ -242,7 +242,7 @@ export default function TechnicalGrid({ technicals }) {
         <div className="rounded-xl p-4 flex items-center gap-3"
           style={{ background: '#111827', border: '1px solid #1e2d45' }}>
           <span style={{ color: '#f59e0b' }}>⚠</span>
-          <p className="text-sm" style={{ color: '#64748b' }}>
+          <p className="text-sm" style={{ color: '#94a3b8' }}>
             Technical data temporarily unavailable
           </p>
         </div>

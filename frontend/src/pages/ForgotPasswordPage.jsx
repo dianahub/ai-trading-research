@@ -44,12 +44,12 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               <h1 className="text-xl font-bold mb-2 text-center" style={{ color: '#f1f5f9' }}>Reset password</h1>
-              <p className="text-sm text-center mb-6" style={{ color: '#64748b' }}>
+              <p className="text-sm text-center mb-6" style={{ color: '#94a3b8' }}>
                 Enter your email and we'll send a reset link
               </p>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Email</label>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Email</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoFocus
                     className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                     style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}

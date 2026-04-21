@@ -166,7 +166,7 @@ function SelectField({ label, name, value, onChange, options, required, hint }) 
         style={{
           background: '#070b16',
           border: '1px solid #1e2d45',
-          color: value ? '#e2e8f0' : '#64748b',
+          color: value ? '#e2e8f0' : '#94a3b8',
           appearance: 'none',
           cursor: 'pointer',
         }}
@@ -325,7 +325,7 @@ export default function PartnersApply() {
       <div className="max-w-2xl mx-auto px-6 py-16">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold mb-2" style={{ color: '#f1f5f9' }}>Partner Application</h1>
-          <p className="text-sm" style={{ color: '#64748b' }}>Join our network of financial astrologers</p>
+          <p className="text-sm" style={{ color: '#94a3b8' }}>Join our network of financial astrologers</p>
         </div>
 
         <StepIndicator current={step} />
@@ -476,7 +476,7 @@ export default function PartnersApply() {
                     </div>
                     <div className="mb-3">
                       <span className="text-3xl font-black" style={{ color: '#f1f5f9' }}>{tier.price}</span>
-                      <span className="text-xs ml-1" style={{ color: '#64748b' }}>{tier.period}</span>
+                      <span className="text-xs ml-1" style={{ color: '#94a3b8' }}>{tier.period}</span>
                     </div>
                     <ul className="space-y-2">
                       {tier.perks.map(p => (
@@ -509,7 +509,7 @@ export default function PartnersApply() {
             <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
               Thanks for applying to the Starsignal Partner Network. We'll review your feed within 48 hours and email you at <strong style={{ color: '#e2e8f0' }}>{form.email}</strong>.
             </p>
-            <div className="rounded-lg px-4 py-3 text-xs mb-8" style={{ background: '#070b16', border: '1px solid #1e2d45', color: '#64748b' }}>
+            <div className="rounded-lg px-4 py-3 text-xs mb-8" style={{ background: '#070b16', border: '1px solid #1e2d45', color: '#94a3b8' }}>
               Founding partners get grandfathered pricing and early input on the roadmap.
             </div>
             <Link to="/partners"
@@ -526,12 +526,12 @@ export default function PartnersApply() {
             {step > 1 ? (
               <button type="button" onClick={() => { setError(''); setStep(s => s - 1) }}
                 className="px-5 py-2.5 rounded-lg text-sm font-medium"
-                style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#64748b', cursor: 'pointer' }}>
+                style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
                 ← Back
               </button>
             ) : (
               <Link to="/partners" className="px-5 py-2.5 rounded-lg text-sm font-medium"
-                style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#64748b', textDecoration: 'none' }}>
+                style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8', textDecoration: 'none' }}>
                 ← Back
               </Link>
             )}

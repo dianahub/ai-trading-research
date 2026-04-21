@@ -50,7 +50,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Email</label>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Email</label>
               <input
                 type="email" value={form.email} autoFocus
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
@@ -61,7 +61,7 @@ export default function LoginPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold" style={{ color: '#64748b' }}>Password</label>
+                <label className="text-xs font-semibold" style={{ color: '#94a3b8' }}>Password</label>
                 <Link to="/forgot-password" className="text-xs" style={{ color: '#06b6d4', textDecoration: 'none' }}>
                   Forgot password?
                 </Link>

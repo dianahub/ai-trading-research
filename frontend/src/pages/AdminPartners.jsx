@@ -13,7 +13,7 @@ function adminHeaders(email, password) {
 
 function Badge({ tier }) {
   const map = {
-    free:     { label: 'Free',     bg: '#1e2d45', color: '#64748b' },
+    free:     { label: 'Free',     bg: '#1e2d45', color: '#94a3b8' },
     verified: { label: 'Verified', bg: '#0e4d6b', color: '#7dd3fc' },
     featured: { label: 'Featured', bg: '#1e1b4b', color: '#a5b4fc' },
   }
@@ -118,7 +118,7 @@ function BetaApplicationsTab({ email, password }) {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm mb-0.5" style={{ color: '#f1f5f9' }}>{app.name}</p>
-                  <p className="text-xs mb-2" style={{ color: '#64748b' }}>{app.email}</p>
+                  <p className="text-xs mb-2" style={{ color: '#94a3b8' }}>{app.email}</p>
                   <div className="flex flex-wrap gap-3 text-xs mb-2">
                     {app.trader_type && <span style={{ color: '#94a3b8' }}>📊 {app.trader_type}</span>}
                     {app.how_heard && <span style={{ color: '#94a3b8' }}>📣 {app.how_heard}</span>}
@@ -158,7 +158,7 @@ function BetaApplicationsTab({ email, password }) {
                     </button>
                     <button onClick={() => setRejectingId(null)}
                       className="px-3 py-1.5 rounded-lg text-xs"
-                      style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#64748b' }}>
+                      style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#94a3b8' }}>
                       Cancel
                     </button>
                   </div>
@@ -200,7 +200,7 @@ function BetaApplicationsTab({ email, password }) {
 }
 
 const TIER_COLORS = {
-  free: '#64748b', beta: '#06b6d4', founding: '#f59e0b',
+  free: '#94a3b8', beta: '#06b6d4', founding: '#f59e0b',
   pro: '#3b82f6', premium: '#8b5cf6', partner_preview: '#22d3ee', platform: '#d4a847',
 }
 const ALL_TIERS = ['free', 'beta', 'founding', 'pro', 'premium', 'partner_preview', 'platform']
@@ -252,7 +252,7 @@ function UsersTab({ email, password }) {
                 </td>
                 <td className="px-3 py-3">
                   <span className="px-1.5 py-0.5 rounded font-bold"
-                    style={{ background: '#0f1a2e', color: TIER_COLORS[u.tier] || '#64748b', border: `1px solid ${TIER_COLORS[u.tier] || '#1e2d45'}` }}>
+                    style={{ background: '#0f1a2e', color: TIER_COLORS[u.tier] || '#94a3b8', border: `1px solid ${TIER_COLORS[u.tier] || '#1e2d45'}` }}>
                     {u.tier}
                   </span>
                 </td>
@@ -261,10 +261,10 @@ function UsersTab({ email, password }) {
                     {u.email_verified ? '✓' : '✕'}
                   </span>
                 </td>
-                <td className="px-3 py-3" style={{ color: '#64748b' }}>
+                <td className="px-3 py-3" style={{ color: '#94a3b8' }}>
                   {u.beta_expires_at ? new Date(u.beta_expires_at).toLocaleDateString() : '—'}
                 </td>
-                <td className="px-3 py-3" style={{ color: '#64748b' }}>
+                <td className="px-3 py-3" style={{ color: '#94a3b8' }}>
                   {u.last_login ? new Date(u.last_login).toLocaleDateString() : '—'}
                 </td>
                 <td className="px-3 py-3">
@@ -331,7 +331,7 @@ function WaitlistImportTab({ email, password }) {
   return (
     <div className="max-w-xl">
       <p className="text-sm font-semibold mb-2" style={{ color: '#f1f5f9' }}>CSV Waitlist Import</p>
-      <p className="text-xs mb-4" style={{ color: '#64748b' }}>
+      <p className="text-xs mb-4" style={{ color: '#94a3b8' }}>
         Paste a CSV with email and name columns (any order, no header required).
         Each person gets a magic link email — beta tier, 30 days free.
       </p>
@@ -361,7 +361,7 @@ function WaitlistImportTab({ email, password }) {
             {result.results?.map((r, i) => (
               <div key={i} className="flex items-center justify-between text-xs">
                 <span style={{ color: '#94a3b8' }}>{r.email}</span>
-                <span style={{ color: r.status === 'sent' ? '#4ade80' : '#64748b' }}>{r.status}</span>
+                <span style={{ color: r.status === 'sent' ? '#4ade80' : '#94a3b8' }}>{r.status}</span>
               </div>
             ))}
           </div>
@@ -396,7 +396,7 @@ function AuthStatsTab({ email, password }) {
 
       {stats.beta_expiry_list?.length > 0 && (
         <div>
-          <p className="text-xs font-semibold mb-3" style={{ color: '#64748b' }}>Beta Expiry Countdown</p>
+          <p className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>Beta Expiry Countdown</p>
           <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
             <table className="w-full text-xs">
               <thead>
@@ -602,7 +602,7 @@ export default function AdminPartners() {
           <div className="flex items-center gap-3 text-xs" style={{ color: '#475569' }}>
             <Link to="/admin/outreach" style={{ color: '#475569', textDecoration: 'none' }}>Outreach</Link>
             <button onClick={logout} className="px-3 py-1.5 rounded-lg"
-              style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#64748b', cursor: 'pointer' }}>
+              style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
               Log out
             </button>
           </div>

@@ -8,14 +8,14 @@ function StatCard({ label, value, sub }) {
     <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
       <div className="text-xs font-medium mb-1" style={{ color: '#475569' }}>{label}</div>
       <div className="text-2xl font-black mb-0.5" style={{ color: '#06b6d4' }}>{value}</div>
-      {sub && <div className="text-xs" style={{ color: '#64748b' }}>{sub}</div>}
+      {sub && <div className="text-xs" style={{ color: '#94a3b8' }}>{sub}</div>}
     </div>
   )
 }
 
 function Badge({ tier }) {
   const map = {
-    free:     { label: 'Free',     bg: '#1e2d45',                                color: '#64748b' },
+    free:     { label: 'Free',     bg: '#1e2d45',                                color: '#94a3b8' },
     verified: { label: 'Verified', bg: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff' },
     featured: { label: 'Featured', bg: 'linear-gradient(135deg,#1e1b4b,#312e81)', color: '#a5b4fc' },
   }
@@ -71,7 +71,7 @@ function LoginPrompt({ onLogin }) {
     <div className="max-w-sm mx-auto py-16">
       <div className="rounded-xl p-8" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
         <h2 className="text-xl font-bold mb-2 text-center" style={{ color: '#f1f5f9' }}>Partner Login</h2>
-        <p className="text-sm text-center mb-6" style={{ color: '#64748b' }}>
+        <p className="text-sm text-center mb-6" style={{ color: '#94a3b8' }}>
           Enter your partner email and we'll send a magic link.
         </p>
         {err && (
@@ -250,7 +250,7 @@ export default function PartnersDashboard() {
           </Link>
           {partner && (
             <button onClick={logout} className="text-xs px-3 py-1.5 rounded-lg"
-              style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#64748b', cursor: 'pointer' }}>
+              style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
               Log out
             </button>
           )}
@@ -381,7 +381,7 @@ export default function PartnersDashboard() {
                 ) : (
                   <div className="flex items-center gap-2">
                     <button onClick={() => setEditMode(false)} className="text-xs px-3 py-1.5 rounded-lg"
-                      style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#64748b', cursor: 'pointer' }}>
+                      style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
                       Cancel
                     </button>
                     <button onClick={saveProfile} disabled={saving} className="text-xs px-3 py-1.5 rounded-lg"
@@ -465,7 +465,7 @@ export default function PartnersDashboard() {
             {partner.tier === 'free' && partner.status === 'approved' && (
               <div className="rounded-xl p-6 text-center" style={{ background: '#0f1a2e', border: '1px solid #3b82f6', boxShadow: '0 0 30px #3b82f615' }}>
                 <div className="text-sm font-semibold mb-2" style={{ color: '#f1f5f9' }}>Unlock more reach</div>
-                <p className="text-xs mb-4" style={{ color: '#64748b' }}>
+                <p className="text-xs mb-4" style={{ color: '#94a3b8' }}>
                   Upgrade to Verified ($49/mo) to show your name, photo, and badge on every insight you publish.
                 </p>
                 <Link to="/partners/apply"
