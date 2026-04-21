@@ -12,6 +12,8 @@ import PartnersLanding from './pages/PartnersLanding.jsx'
 import PartnersApply from './pages/PartnersApply.jsx'
 import PartnersDashboard from './pages/PartnersDashboard.jsx'
 import AdminPartners from './pages/AdminPartners.jsx'
+import AdminAstrologers from './pages/AdminAstrologers.jsx'
+import AdminFreeSignups from './pages/AdminFreeSignups.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
 import VerifyEmailPage from './pages/VerifyEmailPage.jsx'
@@ -34,6 +36,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/admin/outreach" element={<AdminOutreach />} />
         <Route path="/admin/partners" element={<AdminPartners />} />
+        <Route path="/admin/astrologers" element={<AdminAstrologers />} />
+        <Route path="/admin/free-signups" element={<AdminFreeSignups />} />
         <Route path="/partners" element={<PartnersLanding />} />
         <Route path="/partners/apply" element={<PartnersApply />} />
         {/* Protected routes — require login when AUTH_ENABLED=true */}
