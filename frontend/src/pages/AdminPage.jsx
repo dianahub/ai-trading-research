@@ -43,6 +43,12 @@ const PAGES = [
     desc:  'Track outreach campaigns, leads, and partner messaging.',
     icon:  '📣',
   },
+  {
+    path:  '/admin/config',
+    title: 'Site Config',
+    desc:  'Toggle beta open/closed and other site-wide settings without redeploying.',
+    icon:  '⚙',
+  },
 ]
 
 export default function AdminPage() {

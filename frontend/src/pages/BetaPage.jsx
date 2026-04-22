@@ -28,6 +28,7 @@ export default function BetaPage() {
 
   // Discount code validation state
   const [codeStatus, setCodeStatus] = useState(null) // null | 'valid' | 'invalid' | 'checking'
+  const [promoMessage, setPromoMessage] = useState('')
   const debounceRef = useRef(null)
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
@@ -37,16 +38,26 @@ export default function BetaPage() {
     const val = e.target.value.toUpperCase()
     setForm(f => ({ ...f, discount_code: val }))
     setCodeStatus(null)
+    setPromoMessage('')
     clearTimeout(debounceRef.current)
     if (!val.trim()) return
     setCodeStatus('checking')
     debounceRef.current = setTimeout(async () => {
       try {
-        const r = await fetch(`${API}/discount-code/validate/${encodeURIComponent(val.trim())}`)
+        const r = await fetch(`${API}/promo/validate?code=${encodeURIComponent(val.trim())}`)
         const d = await r.json()
-        setCodeStatus(d.valid ? 'valid' : 'invalid')
+        if (d.valid) {
+          setCodeStatus('valid')
+          setPromoMessage(d.message || '45 days free and $19/month forever after')
+          setTrialDays(d.days || 45)
+        } else {
+          setCodeStatus('invalid')
+          setPromoMessage(d.message || "Code not recognized — you'll still get 30 days free")
+          setTrialDays(30)
+        }
       } catch {
         setCodeStatus('invalid')
+        setPromoMessage("Code not recognized — you'll still get 30 days free")
       }
     }, 500)
   }
@@ -112,7 +123,7 @@ export default function BetaPage() {
             </p>
             {trialDays === 45 && (
               <p className="text-sm font-semibold mb-8" style={{ color: '#06b6d4' }}>
-                Discount code applied — you get 45 days free!
+                ✓ Code applied — 45 days free and $19/month forever after.
               </p>
             )}
             <Link to="/" className="inline-block px-6 py-3 rounded-xl font-semibold text-sm"
@@ -125,14 +136,13 @@ export default function BetaPage() {
             <div className="text-center mb-10">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-4"
                 style={{ background: '#0f1a2e', border: '1px solid #1e3a5f', color: '#06b6d4' }}>
-                ✦ Limited beta — {trialLabel}
+                ✦ Limited beta — {trialLabel}, no credit card
               </div>
               <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#f1f5f9', lineHeight: 1.2 }}>
                 Apply for Beta Access
               </h1>
               <p className="text-base" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
-                Full access free for 30 days. No credit card required.
-                After 30 days, lock in founding member pricing at{' '}
+                30 days free, no credit card required. After 30 days, lock in founding member pricing at{' '}
                 <strong style={{ color: '#e2e8f0' }}>$19/month forever</strong>.
               </p>
             </div>
@@ -196,7 +206,7 @@ export default function BetaPage() {
                 {/* Discount code field */}
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>
-                    Have a discount code? <span style={{ fontWeight: 400 }}>(optional — unlocks 45 days free)</span>
+                    Have a promo code? <span style={{ fontWeight: 400 }}>(optional — unlocks 45 days free + $19/month forever)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -224,12 +234,12 @@ export default function BetaPage() {
                   </div>
                   {codeStatus === 'valid' && (
                     <p className="text-xs mt-1.5 font-semibold" style={{ color: '#22c55e' }}>
-                      45 days free unlocked!
+                      ✓ {promoMessage}
                     </p>
                   )}
                   {codeStatus === 'invalid' && (
                     <p className="text-xs mt-1.5" style={{ color: '#94a3b8' }}>
-                      Code not recognized — you'll still get 30 days free.
+                      {promoMessage}
                     </p>
                   )}
                 </div>
@@ -239,9 +249,10 @@ export default function BetaPage() {
                   <input type="checkbox" checked={form.agreed} onChange={setCheck('agreed')}
                     className="mt-0.5 flex-shrink-0" />
                   <span className="text-xs leading-relaxed" style={{ color: '#94a3b8' }}>
-                    I understand my free beta access lasts 30 days. In return I agree to share honest
-                    feedback at 2 weeks and 30 days. After beta I can continue at the founding member
-                    rate of $19/month.
+                    I understand my free trial lasts {trialLabel}. In return I agree to share honest
+                    feedback. {codeStatus === 'valid'
+                      ? 'After my trial I can continue at $19/month — my referred rate, locked in forever.'
+                      : 'After my trial I can continue at the founding member rate of $19/month.'}
                   </span>
                 </label>
 

@@ -41,16 +41,28 @@ function UpgradeBanner({ currentTier }) {
   )
 }
 
-async function upgradeToTier(tier) {
+async function upgradeToTier(tier = '') {
+  const body = tier === 'premium' ? { tier: 'premium' } : {}
   const r = await fetch(`${API}/stripe/checkout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ tier }),
+    body: JSON.stringify(body),
   })
   const d = await r.json()
   if (d.url) window.location.href = d.url
   else alert('Stripe not configured yet — contact contact@starsignal.io')
+}
+
+function pricingTierLabel(account) {
+  const pt = account.pricing_tier
+  if (pt === 'founding') return 'Founding Member — $19/month locked in forever'
+  if (pt === 'referred') {
+    const ref = account.referring_partner_name ? ` · referred by ${account.referring_partner_name}` : ''
+    return `Special rate — $19/month locked in forever${ref}`
+  }
+  if (pt === 'pro') return '$29/month'
+  return null
 }
 
 async function openPortal() {
@@ -105,28 +117,37 @@ export default function AccountPage() {
     </div>
   )
 
-  if (account.beta_expired) return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#060a14' }}>
-      <div className="w-full max-w-md rounded-2xl p-8 text-center" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
-        <div className="text-4xl mb-4">🔒</div>
-        <h2 className="text-xl font-bold mb-2" style={{ color: '#f1f5f9' }}>Your beta has ended</h2>
-        <p className="text-sm mb-6" style={{ color: '#94a3b8', lineHeight: 1.6 }}>
-          Your 30-day beta has expired. Add a card to continue at the founding member rate —
-          <strong style={{ color: '#e2e8f0' }}> $19/month, locked in forever</strong>.
-        </p>
-        <button onClick={() => upgradeToTier('pro')}
-          className="w-full py-3 rounded-xl font-bold text-sm mb-3"
-          style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff' }}>
-          Continue at $19/month →
-        </button>
-        <button onClick={handleLogout}
-          className="w-full py-2.5 rounded-xl text-sm"
-          style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#94a3b8', cursor: 'pointer' }}>
-          Sign out
-        </button>
+  if (account.beta_expired) {
+    const expiredPt = account.pricing_tier
+    const expiredPrice = expiredPt === 'pro' ? '$29/month' : '$19/month'
+    const expiredCopy = expiredPt === 'referred'
+      ? `${expiredPrice} — your referred rate, locked in forever`
+      : expiredPt === 'pro'
+        ? expiredPrice
+        : `${expiredPrice} founding member rate — locked in forever`
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#060a14' }}>
+        <div className="w-full max-w-md rounded-2xl p-8 text-center" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
+          <div className="text-4xl mb-4">🔒</div>
+          <h2 className="text-xl font-bold mb-2" style={{ color: '#f1f5f9' }}>Your free trial has ended</h2>
+          <p className="text-sm mb-6" style={{ color: '#94a3b8', lineHeight: 1.6 }}>
+            Add a card to continue at{' '}
+            <strong style={{ color: '#e2e8f0' }}>{expiredCopy}</strong>.
+          </p>
+          <button onClick={() => upgradeToTier()}
+            className="w-full py-3 rounded-xl font-bold text-sm mb-3"
+            style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff' }}>
+            Continue at {expiredPrice} →
+          </button>
+          <button onClick={handleLogout}
+            className="w-full py-2.5 rounded-xl text-sm"
+            style={{ background: 'transparent', border: '1px solid #1e2d45', color: '#94a3b8', cursor: 'pointer' }}>
+            Sign out
+          </button>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const tierBg = { free: '#1e2d45', beta: '#0f2a3d', pro: '#0e2840', premium: '#1e1040', platform: '#2a1e00' }
 
@@ -190,18 +211,38 @@ export default function AccountPage() {
             )}
           </div>
 
-          {account.tier === 'beta' && (
-            <div className="mt-4 pt-4" style={{ borderTop: '1px solid #1e2d45' }}>
-              <p className="text-xs mb-3" style={{ color: '#94a3b8' }}>
-                After beta: lock in founding member pricing at <strong style={{ color: '#e2e8f0' }}>$19/month forever</strong>
-              </p>
-              <button onClick={() => upgradeToTier('pro')}
-                className="px-5 py-2.5 rounded-lg text-sm font-bold"
-                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff' }}>
-                Activate Founding Member — $19/mo
-              </button>
-            </div>
+          {account.pricing_tier && (
+            <p className="text-xs mt-2" style={{ color: '#64748b' }}>
+              {pricingTierLabel(account)}
+            </p>
           )}
+
+          {account.tier === 'beta' && (() => {
+            const pt = account.pricing_tier
+            const price = pt === 'pro' ? '$29/mo' : '$19/mo'
+            const btnLabel = pt === 'referred'
+              ? `Activate referred member — ${price}`
+              : pt === 'pro'
+                ? `Activate Pro — ${price}`
+                : `Activate founding member — ${price}`
+            const copy = pt === 'referred'
+              ? `$19/month — your referred rate, locked in forever`
+              : pt === 'pro'
+                ? '$29/month'
+                : `$19/month founding member rate — locked in forever`
+            return (
+              <div className="mt-4 pt-4" style={{ borderTop: '1px solid #1e2d45' }}>
+                <p className="text-xs mb-3" style={{ color: '#94a3b8' }}>
+                  Lock in your rate after trial: <strong style={{ color: '#e2e8f0' }}>{copy}</strong>
+                </p>
+                <button onClick={() => upgradeToTier()}
+                  className="px-5 py-2.5 rounded-lg text-sm font-bold"
+                  style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff' }}>
+                  {btnLabel}
+                </button>
+              </div>
+            )
+          })()}
         </div>
 
         {!['premium', 'platform'].includes(account.tier) && <UpgradeBanner currentTier={account.tier} />}
@@ -235,7 +276,7 @@ export default function AccountPage() {
         </div>
 
         {/* Billing */}
-        {['pro', 'premium', 'platform'].includes(account.tier) && (
+        {['founding', 'pro', 'premium', 'platform'].includes(account.tier) && (
           <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
             <h3 className="text-sm font-bold mb-3" style={{ color: '#f1f5f9' }}>Billing</h3>
             <button onClick={openPortal}

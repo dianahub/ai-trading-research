@@ -29,6 +29,7 @@ import JoinPage from './pages/JoinPage.jsx'
 import AdminCommissions from './pages/AdminCommissions.jsx'
 import AdminPendingUsers from './pages/AdminPendingUsers.jsx'
 import AdminUsers from './pages/AdminUsers.jsx'
+import AdminConfig from './pages/AdminConfig.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -65,6 +66,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/commissions" element={<AdminCommissions />} />
         <Route path="/admin/pending-users" element={<AdminPendingUsers />} />
         <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/config" element={<AdminConfig />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

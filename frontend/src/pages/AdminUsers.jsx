@@ -110,6 +110,7 @@ export default function AdminUsers() {
                 <th className="text-left px-4 py-3">User</th>
                 <th className="text-left px-4 py-3">Joined</th>
                 <th className="text-left px-4 py-3">Tier</th>
+                <th className="text-left px-4 py-3">Pricing</th>
                 <th className="text-left px-4 py-3">Change tier</th>
               </tr>
             </thead>
@@ -128,6 +129,9 @@ export default function AdminUsers() {
                       background: u.tier === 'beta' ? '#0e3a4a' : u.tier === 'founding' ? '#2d1f00' : '#1e2d45',
                       color: u.tier === 'beta' ? '#06b6d4' : u.tier === 'founding' ? '#f59e0b' : '#94a3b8',
                     }}>{u.tier}</span>
+                  </td>
+                  <td className="px-4 py-3" style={{ color: u.pricing_tier === 'referred' ? '#22c55e' : u.pricing_tier === 'founding' ? '#f59e0b' : '#64748b' }}>
+                    {u.pricing_tier || '—'}
                   </td>
                   <td className="px-4 py-3">
                     <select

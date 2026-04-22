@@ -79,8 +79,10 @@ STRIPE_SECRET_KEY         = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET     = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRO_PRICE_ID       = os.getenv("STRIPE_PRO_PRICE_ID", "")
 STRIPE_PREMIUM_PRICE_ID   = os.getenv("STRIPE_PREMIUM_PRICE_ID", "")
-STRIPE_FOUNDING_PRICE_ID            = os.getenv("STRIPE_FOUNDING_PRICE_ID", "")
-STRIPE_CONNECT_CLIENT_ID            = os.getenv("STRIPE_CONNECT_CLIENT_ID", "")
+STRIPE_FOUNDING_PRICE_ID  = os.getenv("STRIPE_FOUNDING_PRICE_ID", "")
+STRIPE_REFERRED_PRICE_ID  = os.getenv("STRIPE_REFERRED_PRICE_ID", "")  # $19/mo, referred path — separate from founding for Stripe tracking
+STRIPE_CONNECT_CLIENT_ID  = os.getenv("STRIPE_CONNECT_CLIENT_ID", "")
+BETA_OPEN_ENV             = os.getenv("BETA_OPEN", "true").lower() == "true"
 if _stripe_available and STRIPE_SECRET_KEY:
     _stripe.api_key = STRIPE_SECRET_KEY
 
@@ -3392,6 +3394,7 @@ class User(_Base):
     locked_until                = Column(DateTime, nullable=True)
     grandfathered               = Column(Boolean, default=False)
     discount_code_used          = Column(String, nullable=True)
+    pricing_tier                = Column(String, nullable=True)  # founding|referred|pro — billing classification, never changes
     last_login                  = Column(DateTime, nullable=True)
     beta_day14_sent             = Column(Boolean, default=False)
     beta_day25_sent             = Column(Boolean, default=False)
@@ -3482,6 +3485,14 @@ class DailyUsage(_Base):
     request_count = Column(Integer, default=0)
 
 
+class SiteConfig(_Base):
+    __tablename__ = "site_config"
+    key        = Column(String, primary_key=True)
+    value      = Column(String, nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+
 _Base.metadata.create_all(_engine)
 
 TIER_DAILY_LIMITS: dict[str, int | None] = {
@@ -3513,7 +3524,9 @@ def _run_migrations():
         "ALTER TABLE outreach_contacts ADD COLUMN discount_code_active INTEGER DEFAULT 1",
         "ALTER TABLE outreach_contacts ADD COLUMN discount_code_uses INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN discount_code_used TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN pricing_tier TEXT",
         "ALTER TABLE beta_applications ADD COLUMN discount_code TEXT DEFAULT ''",
+        "INSERT INTO site_config (key, value) VALUES ('beta_open', 'true') ON CONFLICT DO NOTHING",
     ]
     with _engine.connect() as conn:
         for stmt in stmts:
@@ -3524,6 +3537,32 @@ def _run_migrations():
                 pass
 
 _run_migrations()
+
+
+def _get_beta_open(db: Session) -> bool:
+    """Check if beta is open. DB value overrides env var so admin can toggle without redeploying."""
+    row = db.query(SiteConfig).filter(SiteConfig.key == "beta_open").first()
+    if row:
+        return row.value.lower() == "true"
+    return BETA_OPEN_ENV
+
+
+def _pricing_tier_for_signup(has_promo_code: bool, beta_open: bool) -> str:
+    """Determine which billing tier applies at the moment of account creation."""
+    if has_promo_code:
+        return "referred"
+    return "founding" if beta_open else "pro"
+
+
+def _tier_from_price_id(price_id: str) -> str:
+    """Map a Stripe price ID to an access tier. Both founding and referred → 'founding' access."""
+    if price_id == STRIPE_PREMIUM_PRICE_ID:
+        return "premium"
+    if price_id in (STRIPE_FOUNDING_PRICE_ID, STRIPE_REFERRED_PRICE_ID):
+        return "founding"
+    if price_id == STRIPE_PRO_PRICE_ID:
+        return "pro"
+    return "pro"  # safe fallback
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -3718,6 +3757,8 @@ def _user_dict(u: User) -> dict:
         "beta_expired": beta_expired,
         "referral_code": u.referral_code,
         "stripe_customer_id": u.stripe_customer_id,
+        "discount_code_used": u.discount_code_used,
+        "pricing_tier": u.pricing_tier,
         "last_login": u.last_login.isoformat() if u.last_login else None,
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }
@@ -4071,7 +4112,7 @@ def approve_beta_application(
         user = db.query(User).filter(User.email == app_row.email).first()
         now = datetime.now(timezone.utc)
 
-        # Determine trial length — 45 days if discount code was used
+        # Determine trial length and pricing tier
         partner_from_code = None
         trial_days = 30
         if app_row.discount_code:
@@ -4082,6 +4123,11 @@ def approve_beta_application(
             if partner_from_code:
                 trial_days = 45
 
+        beta_open = _get_beta_open(db)
+        user_pricing_tier = _pricing_tier_for_signup(
+            has_promo_code=partner_from_code is not None,
+            beta_open=beta_open,
+        )
         beta_expires = now + timedelta(days=trial_days)
 
         if not user:
@@ -4097,6 +4143,7 @@ def approve_beta_application(
                 beta_expires_at=beta_expires,
                 referral_code=ref_code,
                 discount_code_used=app_row.discount_code or None,
+                pricing_tier=user_pricing_tier,
                 email_verification_token=_hash_password(magic_token),
                 email_verification_expires=now + timedelta(hours=72),
             )
@@ -4110,6 +4157,8 @@ def approve_beta_application(
             user.beta_expires_at = beta_expires
             user.email_verified = True
             user.discount_code_used = app_row.discount_code or user.discount_code_used
+            if not user.pricing_tier:  # never overwrite an already-set pricing_tier
+                user.pricing_tier = user_pricing_tier
             magic_token = secrets.token_urlsafe(32)
             user.email_verification_token = _hash_password(magic_token)
             user.email_verification_expires = now + timedelta(hours=72)
@@ -4133,6 +4182,11 @@ def approve_beta_application(
 
         first = user.first_name or app_row.name.split()[0]
         trial_note = "45 days" if trial_days == 45 else "30 days"
+        after_trial_copy = {
+            "referred":  "$19/month — your special referred rate, locked in forever",
+            "founding":  "$19/month as a founding member — locked in forever",
+            "pro":       "$29/month",
+        }.get(user_pricing_tier, "$19/month")
         _send_email(
             app_row.email,
             "Your Star Signal access is ready",
@@ -4140,7 +4194,7 @@ def approve_beta_application(
             <h2 style='color:#f1f5f9'>Welcome to Star Signal, {first}!</h2>
             <p style='color:#94a3b8'>Your beta access is ready. One click and you're in — no password, no form.</p>
             <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin:16px 0;font-size:16px'>Enter Star Signal →</a>
-            <p style='color:#94a3b8'>Your {trial_note} starts the moment you click. After that it's $19/month as a founding member — locked in forever.</p>
+            <p style='color:#94a3b8'>Your {trial_note} free trial starts the moment you click. After that it's {after_trial_copy}.</p>
             <p style='color:#475569;font-size:12px'>Link expires in 72 hours.</p>
             </div>""",
         )
@@ -4289,6 +4343,32 @@ def validate_discount_code(code: str):
         if not partner:
             return {"valid": False}
         return {"valid": True, "partner_name": partner.name, "trial_days": 45}
+
+
+@app.get("/promo/validate")
+def validate_promo_code(code: str = ""):
+    """Used by beta signup form for real-time promo code validation."""
+    if not code.strip():
+        return {"valid": False, "days": 30, "monthly_price": None, "message": ""}
+    with Session(_engine) as db:
+        partner = db.query(OutreachContact).filter(
+            OutreachContact.discount_code == code.upper().strip(),
+            OutreachContact.discount_code_active == True,
+        ).first()
+        if not partner:
+            return {
+                "valid": False,
+                "days": 30,
+                "monthly_price": None,
+                "message": "Code not recognized — you'll still get 30 days free",
+            }
+        return {
+            "valid": True,
+            "days": 45,
+            "monthly_price": 19,
+            "partner_name": partner.name,
+            "message": "Code applied — you get 45 days free and $19/month forever after",
+        }
 
 
 # ── Partner commission dashboard ───────────────────────────────────────────────
@@ -4615,13 +4695,26 @@ def admin_partner_commission_detail(
 def stripe_checkout(body: dict, ss_session: Optional[str] = Cookie(None)):
     if not _stripe_available or not STRIPE_SECRET_KEY:
         raise HTTPException(503, "Stripe not configured")
-    tier = body.get("tier", "pro")
-    price_id = STRIPE_PRO_PRICE_ID if tier == "pro" else STRIPE_PREMIUM_PRICE_ID
-    if not price_id:
-        raise HTTPException(503, f"Stripe price ID for {tier} not configured")
 
     with Session(_engine) as db:
         user = _get_user_from_cookie(ss_session, db)
+        requested = body.get("tier", "")
+
+        if requested == "premium":
+            price_id = STRIPE_PREMIUM_PRICE_ID
+        elif user:
+            pt = user.pricing_tier or ("founding" if _get_beta_open(db) else "pro")
+            price_id = {
+                "referred": STRIPE_REFERRED_PRICE_ID,
+                "founding": STRIPE_FOUNDING_PRICE_ID,
+                "pro":      STRIPE_PRO_PRICE_ID,
+            }.get(pt, STRIPE_FOUNDING_PRICE_ID)
+        else:
+            price_id = STRIPE_FOUNDING_PRICE_ID if _get_beta_open(db) else STRIPE_PRO_PRICE_ID
+
+        if not price_id:
+            raise HTTPException(503, "Stripe price not configured for this plan — contact support")
+
         customer_id = user.stripe_customer_id if user else None
         success_url = f"{SITE_URL}/account?success=1"
         cancel_url = f"{SITE_URL}/account"
@@ -4678,11 +4771,10 @@ async def stripe_webhook(request: Request):
             if user:
                 user.stripe_customer_id = customer_id
                 user.stripe_subscription_id = sub_id
-                # Determine tier from price
                 if sub_id:
                     sub = _stripe.Subscription.retrieve(sub_id)
                     price_id = sub["items"]["data"][0]["price"]["id"]
-                    user.tier = "premium" if price_id == STRIPE_PREMIUM_PRICE_ID else "pro"
+                    user.tier = _tier_from_price_id(price_id)
                 db.commit()
 
         elif event["type"] == "customer.subscription.updated":
@@ -4692,7 +4784,7 @@ async def stripe_webhook(request: Request):
                 status = sub.get("status")
                 price_id = sub["items"]["data"][0]["price"]["id"]
                 if status == "active":
-                    user.tier = "premium" if price_id == STRIPE_PREMIUM_PRICE_ID else "pro"
+                    user.tier = _tier_from_price_id(price_id)
                     user.stripe_subscription_end = None
                 elif status in ("canceled", "unpaid", "past_due"):
                     end_ts = sub.get("current_period_end")
@@ -4911,6 +5003,37 @@ def set_user_tier(
         return _user_dict(user)
 
 
+# ── Admin: site config (BETA_OPEN toggle) ─────────────────────────────────────
+
+@app.get("/admin/config")
+def get_admin_config(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        return {"beta_open": _get_beta_open(db)}
+
+
+@app.patch("/admin/config")
+def update_admin_config(
+    body: dict,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        if "beta_open" in body:
+            val = "true" if body["beta_open"] else "false"
+            row = db.query(SiteConfig).filter(SiteConfig.key == "beta_open").first()
+            if row:
+                row.value = val
+            else:
+                db.add(SiteConfig(key="beta_open", value=val))
+            db.commit()
+        return {"beta_open": _get_beta_open(db)}
+
+
 # ── Admin: stats ─────────────────────────────────────────────────────────────
 
 @app.get("/admin/stats")
@@ -4935,11 +5058,23 @@ def admin_stats(
                 "id": u.id, "email": u.email,
                 "first_name": u.first_name, "last_name": u.last_name,
                 "days_left": max(0, (u.beta_expires_at.replace(tzinfo=timezone.utc) - now).days),
+                "pricing_tier": u.pricing_tier,
             }
             for u in active_beta if u.beta_expires_at
         ], key=lambda x: x["days_left"])
         apps = db.query(BetaApplication).all()
         pending_apps = sum(1 for a in apps if a.status == "pending")
+
+        # Pricing tier breakdown across all users
+        TIER_MRR = {"founding": 19, "referred": 19, "pro": 29, "premium": 79}
+        pricing_tier_counts: dict = {}
+        mrr_by_pricing_tier: dict = {}
+        for u in all_users:
+            pt = u.pricing_tier or "unknown"
+            pricing_tier_counts[pt] = pricing_tier_counts.get(pt, 0) + 1
+            if u.tier in ("founding", "pro", "premium"):
+                mrr_by_pricing_tier[pt] = mrr_by_pricing_tier.get(pt, 0) + TIER_MRR.get(pt, 29)
+
         return {
             "total_users": total_users,
             "active_beta": len(active_beta),
@@ -4948,6 +5083,10 @@ def admin_stats(
             "pending_applications": pending_apps,
             "conversion_rate": conversion_rate,
             "beta_expiry_list": beta_expiry_list[:20],
+            "pricing_tier_breakdown": pricing_tier_counts,
+            "mrr_by_pricing_tier": mrr_by_pricing_tier,
+            "estimated_mrr": sum(mrr_by_pricing_tier.values()),
+            "beta_open": _get_beta_open(db),
         }
 
 
@@ -4995,17 +5134,21 @@ def _check_beta_expiry_emails():
                 db.commit()
 
             if days_left <= 5 and days_left >= 0 and not user.beta_day25_sent:
+                pt = user.pricing_tier or "founding"
+                expiry_copy = {
+                    "referred": f"Your 45 day free trial ends in {days_left} day{'s' if days_left != 1 else ''}. Add a card to keep access at $19/month — your special referred rate, locked in forever.",
+                    "founding": f"Your 30 day free trial ends in {days_left} day{'s' if days_left != 1 else ''}. Add a card to keep access at $19/month — founding member rate, locked in forever.",
+                    "pro":      f"Your 30 day free trial ends in {days_left} day{'s' if days_left != 1 else ''}. Add a card to keep access at $29/month.",
+                }.get(pt, f"Your free trial ends in {days_left} day{'s' if days_left != 1 else ''}. Add a card to keep access.")
                 _send_email(
                     user.email,
-                    "Your Star Signal beta ends in 5 days",
+                    f"Your Star Signal trial ends in {days_left} day{'s' if days_left != 1 else ''}",
                     f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px'>
                     <p style='color:#94a3b8'>Hey {user.first_name or 'there'},</p>
-                    <p style='color:#94a3b8'>Your free beta ends in {days_left} day{'s' if days_left != 1 else ''}.</p>
-                    <p style='color:#94a3b8'>Lock in the founding member rate of <strong style='color:#e2e8f0'>$19/month</strong> —
-                    35% less than what new users pay, locked in forever.</p>
+                    <p style='color:#94a3b8'>{expiry_copy}</p>
                     <a href='{SITE_URL}/account' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>
                     Add card to keep access →</a>
-                    <p style='color:#475569;font-size:12px'>Add a card before your beta ends to keep uninterrupted access.</p>
+                    <p style='color:#475569;font-size:12px'>Add a card before your trial ends to keep uninterrupted access.</p>
                     </div>""",
                 )
                 user.beta_day25_sent = True
@@ -5050,10 +5193,24 @@ def get_account(ss_session: Optional[str] = Cookie(None)):
             delta = (user.beta_expires_at.replace(tzinfo=timezone.utc) - now).days
             beta_days_left = max(0, delta)
         refs = db.query(Referral).filter(Referral.referrer_id == user.id).all()
+
+        # Look up which partner referred this user (if any)
+        referring_partner_name = None
+        attr = db.query(ReferralAttribution).filter(
+            ReferralAttribution.referred_user_id == user.id
+        ).first()
+        if attr:
+            partner = db.query(OutreachContact).filter(
+                OutreachContact.id == attr.referring_partner_id
+            ).first()
+            if partner:
+                referring_partner_name = partner.name
+
         return {
             **_user_dict(user),
             "beta_days_left": beta_days_left,
             "referral_link": f"{SITE_URL}/join?ref={user.referral_code}",
             "referrals_total": len(refs),
             "referrals_converted": sum(1 for r in refs if r.converted),
+            "referring_partner_name": referring_partner_name,
         }
