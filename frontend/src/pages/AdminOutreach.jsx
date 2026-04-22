@@ -91,8 +91,8 @@ export default function AdminOutreach() {
 
   const adminHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
-    'x-admin-email':    'ss-staging-bypass-2026',
-    'x-admin-password': '',
+    'x-admin-email':    'dianahelene@gmail.com',
+    'x-admin-password': 'BISCUITLOVE',
   }), [])
 
   // ── Data loading ──────────────────────────────────────────────────────────

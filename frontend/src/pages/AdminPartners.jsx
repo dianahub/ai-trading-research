@@ -5,8 +5,8 @@ const ASTRO_URL    = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-produc
 function adminHeaders() {
   return {
     'Content-Type': 'application/json',
-    'x-admin-email':    'ss-staging-bypass-2026',
-    'x-admin-password': '',
+    'x-admin-email':    'dianahelene@gmail.com',
+    'x-admin-password': 'BISCUITLOVE',
   }
 }
 
