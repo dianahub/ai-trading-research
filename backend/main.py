@@ -103,9 +103,17 @@ class WaitlistSignup(_Base):
     email           = Column(String, nullable=False, unique=True)
     trading_type    = Column(String, nullable=False)
     referral_source = Column(String, nullable=False)
+    promo_code      = Column(String, nullable=True)
     created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 _Base.metadata.create_all(_engine)  # creates table if it doesn't exist
+# Add promo_code column to existing tables that predate this field
+with _engine.connect() as _conn:
+    try:
+        _conn.execute(__import__('sqlalchemy').text("ALTER TABLE waitlist_signups ADD COLUMN promo_code VARCHAR"))
+        _conn.commit()
+    except Exception:
+        pass  # column already exists
 ASTRO_SIGNAL_WEIGHT    = float(os.getenv("ASTRO_SIGNAL_WEIGHT", "0.1"))
 
 # Astro cache — 30-minute TTL, shared across requests
@@ -2291,6 +2299,7 @@ class SignupRequest(BaseModel):
     email:           str
     trading_type:    str
     referral_source: str
+    promo_code:      str = ""
 
 @app.post("/signup", status_code=201)
 def create_signup(req: SignupRequest):
@@ -2312,6 +2321,7 @@ def create_signup(req: SignupRequest):
             email=req.email.strip().lower(),
             trading_type=req.trading_type,
             referral_source=req.referral_source,
+            promo_code=req.promo_code.strip().upper() or None,
         )
         db.add(signup)
         db.commit()
@@ -2338,7 +2348,8 @@ def create_signup(req: SignupRequest):
                         f"Name:       {req.name}\n"
                         f"Email:      {req.email}\n"
                         f"Trades:     {trading_label}\n"
-                        f"Found via:  {referral_label}\n\n"
+                        f"Found via:  {referral_label}\n"
+                        f"Promo code: {req.promo_code.strip().upper() or '—'}\n\n"
                         f"View all signups: https://starsignal.io/admin"
                     ),
                 })
