@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Search } from 'lucide-react'
 
-export default function SearchBar({ onSearch, loading, disabled = false }) {
+export default function SearchBar({ onSearch, loading, disabled = false, onUnauthClick }) {
   const [input, setInput] = useState('')
   const [error, setError] = useState('')
 
   const submit = () => {
     if (loading) return
+    if (onUnauthClick) { onUnauthClick(); return }
     const t = input.trim().toUpperCase()
     if (!t) { setError('Please enter a symbol to analyze'); return }
     setError('')

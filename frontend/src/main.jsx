@@ -25,6 +25,11 @@ import BetaPage from './pages/BetaPage.jsx'
 import AccountPage from './pages/AccountPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import JoinPage from './pages/JoinPage.jsx'
+import AdminCommissions from './pages/AdminCommissions.jsx'
+import AdminPendingUsers from './pages/AdminPendingUsers.jsx'
+import AdminUsers from './pages/AdminUsers.jsx'
+import AdminConfig from './pages/AdminConfig.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -56,6 +61,12 @@ createRoot(document.getElementById('root')).render(
         {/* Beta */}
         <Route path="/beta" element={<BetaPage />} />
         <Route path="/join" element={<BetaPage />} />
+        <Route path="/join/:slug" element={<JoinPage />} />
+        {/* Admin */}
+        <Route path="/admin/commissions" element={<AdminCommissions />} />
+        <Route path="/admin/pending-users" element={<AdminPendingUsers />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/config" element={<AdminConfig />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

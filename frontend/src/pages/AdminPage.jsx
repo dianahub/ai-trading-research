@@ -2,10 +2,28 @@ import { Link } from 'react-router-dom'
 
 const PAGES = [
   {
+    path:  '/admin/pending-users',
+    title: 'Pending Users',
+    desc:  'Review and approve beta access applications.',
+    icon:  '👤',
+  },
+  {
+    path:  '/admin/users',
+    title: 'Users',
+    desc:  'View all users and change their tier.',
+    icon:  '🧑‍💻',
+  },
+  {
     path:  '/admin/partners',
     title: 'Partners',
     desc:  'Manage astrologer partner applications, approvals, tiers, and RSS feeds.',
     icon:  '🤝',
+  },
+  {
+    path:  '/admin/commissions',
+    title: 'Commissions',
+    desc:  'Partner referral commissions, payout queue, discount codes, and earnings.',
+    icon:  '$',
   },
   {
     path:  '/admin/astrologers',
@@ -24,6 +42,12 @@ const PAGES = [
     title: 'Outreach',
     desc:  'Track outreach campaigns, leads, and partner messaging.',
     icon:  '📣',
+  },
+  {
+    path:  '/admin/config',
+    title: 'Site Config',
+    desc:  'Toggle beta open/closed and other site-wide settings without redeploying.',
+    icon:  '⚙',
   },
 ]
 
