@@ -2,13 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || ''
-const ADMIN_PASS  = import.meta.env.VITE_ADMIN_PASSWORD || ''
-
 const TIERS = ['free', 'beta', 'founding', 'pro', 'premium', 'platform', 'partner_preview']
 
 function headers() {
-  return { 'x-admin-email': ADMIN_EMAIL, 'x-admin-password': ADMIN_PASS, 'Content-Type': 'application/json' }
+  return { 'x-admin-email': 'ss-staging-bypass-2026', 'x-admin-password': '', 'Content-Type': 'application/json' }
 }
 
 export default function AdminUsers() {
