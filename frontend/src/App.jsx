@@ -326,7 +326,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           </div>
           {/* Search bar — full width on mobile */}
           <div className="flex-1">
-            <SearchBar onSearch={handleSearch} loading={loading} disabled={false} />
+            <SearchBar onSearch={AUTH_ACTIVE && !authedUser ? () => {} : handleSearch} loading={loading} disabled={AUTH_ACTIVE && !authedUser} />
           </div>
           {/* LIVE badge — desktop only */}
           <div className="hidden md:flex items-center gap-2 text-xs shrink-0"
@@ -498,9 +498,11 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 })}
               </div>
               {AUTH_ACTIVE && !authedUser && (
-                <p className="text-xs mt-1" style={{ color: '#334155' }}>
-                  <a href="/login" style={{ color: '#06b6d4', textDecoration: 'none' }}>Sign in</a> or{' '}
-                  <a href="/beta" style={{ color: '#06b6d4', textDecoration: 'none' }}>apply for beta</a> to search
+                <p className="text-sm mt-2 font-medium" style={{ color: '#94a3b8' }}>
+                  Please{' '}
+                  <a href="/login" style={{ color: '#06b6d4', textDecoration: 'none' }}>login</a>
+                  {' '}or{' '}
+                  <a href="/beta" style={{ color: '#06b6d4', textDecoration: 'none' }}>apply for a free Beta Account</a>
                 </p>
               )}
             </div>

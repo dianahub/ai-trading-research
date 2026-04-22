@@ -50,7 +50,7 @@ export default function AuthNav() {
       <Link to="/beta"
         className="px-3 py-1.5 rounded-lg text-xs font-semibold"
         style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
-        Apply for Beta
+        Apply for free beta
       </Link>
     </div>
   )
