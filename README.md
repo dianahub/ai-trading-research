@@ -105,7 +105,7 @@ Any ticker resolvable via CoinGecko. Built-in mappings: BTC, ETH, SOL, BNB, XRP,
 
 | Environment | Frontend | Backend |
 |-------------|----------|---------|
-| Production | [starsignal.io](https://starsignal.io) | `https://ai-trading-backend.up.railway.app` |
+| Production | [starsignal.io](https://starsignal.io) | `https://ai-trading-backend-production-311c.up.railway.app` |
 | Staging | [ai-trading-research-3o00dbu3x-diana-castillos-projects-822715ab.vercel.app](https://ai-trading-research-3o00dbu3x-diana-castillos-projects-822715ab.vercel.app) | `https://ai-trading-backend-staging.up.railway.app` |
 
 ---

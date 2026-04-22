@@ -102,6 +102,17 @@ class WaitlistSignup(_Base):
     created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 _Base.metadata.create_all(_engine)  # creates table if it doesn't exist
+
+def _run_migrations():
+    with _engine.connect() as conn:
+        try:
+            # id column was created as INTEGER in early deploys; migrate to VARCHAR for UUID support
+            conn.execute(text("ALTER TABLE waitlist_signups ALTER COLUMN id TYPE VARCHAR USING id::VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+_run_migrations()
 ASTRO_SIGNAL_WEIGHT    = float(os.getenv("ASTRO_SIGNAL_WEIGHT", "0.1"))
 
 # Astro cache — 30-minute TTL, shared across requests
