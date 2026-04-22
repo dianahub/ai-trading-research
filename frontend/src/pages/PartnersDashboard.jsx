@@ -663,8 +663,8 @@ export default function PartnersDashboard() {
               </div>
             </div>
 
-            </div> {/* end overview inner flex */}
-            )} {/* end overview tab */}
+            </div>
+            )}
           </div>
         )}
       </div>
