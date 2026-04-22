@@ -2,6 +2,12 @@ import { Link } from 'react-router-dom'
 
 const PAGES = [
   {
+    path:  '/admin/pending-users',
+    title: 'Pending Users',
+    desc:  'Review and approve beta access applications.',
+    icon:  '👤',
+  },
+  {
     path:  '/admin/partners',
     title: 'Partners',
     desc:  'Manage astrologer partner applications, approvals, tiers, and RSS feeds.',

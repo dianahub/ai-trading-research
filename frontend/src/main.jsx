@@ -27,6 +27,7 @@ import DashboardPage from './pages/DashboardPage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import JoinPage from './pages/JoinPage.jsx'
 import AdminCommissions from './pages/AdminCommissions.jsx'
+import AdminPendingUsers from './pages/AdminPendingUsers.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -61,6 +62,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/join/:slug" element={<JoinPage />} />
         {/* Admin */}
         <Route path="/admin/commissions" element={<AdminCommissions />} />
+        <Route path="/admin/pending-users" element={<AdminPendingUsers />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
