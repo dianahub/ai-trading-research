@@ -4204,17 +4204,18 @@ def approve_beta_application(
             "founding":  "$19/month as a founding member — locked in forever",
             "pro":       "$29/month",
         }.get(user_pricing_tier, "$19/month")
-        _send_email(
-            app_row.email,
-            "Your Star Signal access is ready",
-            f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b1120;color:#e2e8f0'>
+        email_html = f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b1120;color:#e2e8f0'>
             <h2 style='color:#f1f5f9'>Welcome to Star Signal, {first}!</h2>
             <p style='color:#94a3b8'>Your beta access is ready. One click and you're in — no password, no form.</p>
             <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin:16px 0;font-size:16px'>Enter Star Signal →</a>
             <p style='color:#94a3b8'>Your {trial_note} free trial starts the moment you click. After that it's {after_trial_copy}.</p>
             <p style='color:#475569;font-size:12px'>Link expires in 72 hours.</p>
-            </div>""",
-        )
+            </div>"""
+        threading.Thread(
+            target=_send_email,
+            args=(app_row.email, "Your Star Signal access is ready", email_html),
+            daemon=True,
+        ).start()
         return {"ok": True, "user_id": user.id, "magic_link_sent": True, "trial_days": trial_days}
 
 
