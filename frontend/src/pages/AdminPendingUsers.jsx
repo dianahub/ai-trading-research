@@ -17,6 +17,7 @@ export default function AdminPendingUsers() {
   const [filter, setFilter] = useState('pending')
   const [actioning, setActioning] = useState('')
   const [actionErr, setActionErr] = useState('')
+  const [showPass, setShowPass] = useState(false)
 
   async function login(e) {
     e.preventDefault()
@@ -83,9 +84,15 @@ export default function AdminPendingUsers() {
               <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Admin email" type="email" required
                 className="px-3 py-2.5 rounded-lg text-sm outline-none"
                 style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
-              <input value={pass} onChange={e => setPass(e.target.value)} placeholder="Admin password" type="password" required
-                className="px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
+              <div className="relative">
+                <input value={pass} onChange={e => setPass(e.target.value)} placeholder="Admin password" type={showPass ? 'text' : 'password'} required
+                  className="px-3 py-2.5 rounded-lg text-sm outline-none w-full pr-10"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
+                <button type="button" onClick={() => setShowPass(v => !v)}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 16, lineHeight: 1 }}>
+                  {showPass ? '🙈' : '👁'}
+                </button>
+              </div>
               <button type="submit" disabled={loading}
                 className="py-2.5 rounded-lg text-sm font-semibold"
                 style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
