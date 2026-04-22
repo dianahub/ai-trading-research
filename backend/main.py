@@ -2380,6 +2380,7 @@ def list_signups(
                     "email":           s.email,
                     "trading_type":    s.trading_type,
                     "referral_source": s.referral_source,
+                    "promo_code":      s.promo_code,
                     "createdAt":       s.created_at.isoformat() if s.created_at else None,
                 }
                 for s in signups
