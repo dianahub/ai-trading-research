@@ -206,7 +206,7 @@ export default function BetaPage() {
                 {/* Discount code field */}
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>
-                    Have a promo code? <span style={{ fontWeight: 400 }}>(optional — unlocks 45 days free + $19/month forever)</span>
+                    Have a promo code?
                   </label>
                   <div className="relative">
                     <input
@@ -219,7 +219,7 @@ export default function BetaPage() {
                         color: '#e2e8f0',
                         letterSpacing: '0.05em',
                       }}
-                      placeholder="e.g. ROWAN"
+                      placeholder=""
                       maxLength={20}
                     />
                     {codeStatus === 'checking' && (
