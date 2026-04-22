@@ -150,6 +150,7 @@ export default function App() {
   const [authedUser, setAuthedUser] = useState(null)
   const [usage, setUsage]         = useState(null)   // { count, limit, tier, unlimited, upgrade }
   const [showPaywall, setShowPaywall] = useState(false)
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false)
 
   const fetchUsage = () => {
     if (!AUTH_ACTIVE) return
@@ -191,7 +192,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
   const handleSearch = async (ticker) => {
     if (AUTH_ACTIVE && !authedUser) {
-      setError('AUTH_REQUIRED')
+      setShowAuthPrompt(true)
       return
     }
     setLoading(true)
@@ -330,7 +331,11 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           </div>
           {/* Search bar — full width on mobile */}
           <div className="flex-1">
-            <SearchBar onSearch={handleSearch} loading={loading} disabled={false} />
+            <SearchBar
+              onSearch={handleSearch}
+              loading={loading}
+              onUnauthClick={AUTH_ACTIVE && !authedUser ? () => setShowAuthPrompt(true) : undefined}
+            />
           </div>
           {/* LIVE badge — desktop only */}
           <div className="hidden md:flex items-center gap-2 text-xs shrink-0"
@@ -483,7 +488,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               <div className="flex flex-wrap justify-center gap-2">
                 {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
                   <button key={t}
-                    onClick={() => handleSearch(t)}
+                    onClick={() => AUTH_ACTIVE && !authedUser ? setShowAuthPrompt(true) : handleSearch(t)}
                     className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all"
                     style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
                     {t}
@@ -531,23 +536,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
         {/* Error */}
         {error && (
-          error === 'AUTH_REQUIRED' ? (
-            <div className="rounded-xl p-8 fade-in flex flex-col items-center gap-4 text-center"
-              style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
-              <span className="text-4xl">✦</span>
-              <p className="text-lg font-bold" style={{ color: '#f1f5f9' }}>Please login or apply for a free Beta Account</p>
-              <div className="flex gap-3">
-                <a href="/login" className="px-5 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0', textDecoration: 'none' }}>
-                  Login
-                </a>
-                <a href="/beta" className="px-5 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
-                  Apply for free beta
-                </a>
-              </div>
-            </div>
-          ) : error === 'SYMBOL_NOT_FOUND' || /not found|no price data|no market data|valid stock|valid.*ticker/i.test(error) ? (
+          error === 'SYMBOL_NOT_FOUND' || /not found|no price data|no market data|valid stock|valid.*ticker/i.test(error) ? (
             <div className="rounded-xl p-8 fade-in flex flex-col items-center gap-3 text-center"
               style={{ background: '#1a0f0f', border: '1px solid #7f1d1d' }}>
               <span className="text-5xl">🔍</span>
@@ -666,6 +655,43 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 }}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Auth prompt modal */}
+      {showAuthPrompt && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 px-4"
+          style={{ background: 'rgba(6,10,20,0.85)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowAuthPrompt(false)}
+        >
+          <div className="w-full max-w-sm rounded-2xl p-8 text-center" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="text-3xl mb-4">✦</div>
+            <h2 className="text-xl font-black mb-2" style={{ color: '#f1f5f9' }}>Please login or apply for a free Beta Account</h2>
+            <p className="text-sm mb-6" style={{ color: '#94a3b8' }}>
+              Create a free beta account to access AI-powered trading research.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a href="/login"
+                className="block w-full py-3 rounded-xl text-sm font-bold"
+                style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0', textDecoration: 'none' }}>
+                Login
+              </a>
+              <a href="/beta"
+                className="block w-full py-3 rounded-xl text-sm font-bold"
+                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
+                Apply for free beta
+              </a>
+            </div>
+            <button
+              onClick={() => setShowAuthPrompt(false)}
+              className="text-xs mt-4"
+              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
