@@ -8,6 +8,12 @@ const PAGES = [
     icon:  '👤',
   },
   {
+    path:  '/admin/users',
+    title: 'Users',
+    desc:  'View all users and change their tier.',
+    icon:  '🧑‍💻',
+  },
+  {
     path:  '/admin/partners',
     title: 'Partners',
     desc:  'Manage astrologer partner applications, approvals, tiers, and RSS feeds.',
