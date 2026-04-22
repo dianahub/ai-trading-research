@@ -556,28 +556,18 @@ class ContactRequest(BaseModel):
 
 @app.post("/contact")
 def contact(req: ContactRequest):
-    if not GMAIL_APP_PASSWORD:
+    if not RESEND_API_KEY:
         raise HTTPException(status_code=503, detail="Email service not configured")
 
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Star Signal Contact: {req.name}"
-        msg["From"]    = GMAIL_USER
-        msg["To"]      = GMAIL_USER
-        msg["Reply-To"] = req.email
-
-        body = (
-            f"Name: {req.name}\n"
-            f"Email: {req.email}\n\n"
-            f"{req.message}"
-        )
-        msg.attach(MIMEText(body, "plain"))
-
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_USER, GMAIL_USER, msg.as_string())
-
+        resend.api_key = RESEND_API_KEY
+        resend.Emails.send({
+            "from":     "Starsignal <onboarding@resend.dev>",
+            "to":       ["dianahelene@gmail.com"],
+            "reply_to": req.email,
+            "subject":  f"Star Signal Contact: {req.name}",
+            "text":     f"Name: {req.name}\nEmail: {req.email}\n\n{req.message}",
+        })
         return {"ok": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
