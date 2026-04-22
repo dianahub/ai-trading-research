@@ -121,6 +121,23 @@ function setCachedAnalysis(ticker, result, alreadyStale = false) {
   } catch { /* storage full or unavailable */ }
 }
 
+const UPGRADE_DISMISS_KEY = 'usage_limit_dismissed_until'
+
+function isDismissed() {
+  try {
+    const until = localStorage.getItem(UPGRADE_DISMISS_KEY)
+    return until && Date.now() < Number(until)
+  } catch { return false }
+}
+
+function dismissUntilMidnight() {
+  try {
+    const now = new Date()
+    const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
+    localStorage.setItem(UPGRADE_DISMISS_KEY, String(midnight.getTime()))
+  } catch {}
+}
+
 export default function App() {
   const [loading, setLoading]     = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
@@ -131,9 +148,21 @@ export default function App() {
   const [navOpen, setNavOpen] = useState(false)
   const [showAstro, setShowAstro] = useState(true)
   const [authedUser, setAuthedUser] = useState(null)
+  const [usage, setUsage]         = useState(null)   // { count, limit, tier, unlimited, upgrade }
+  const [showPaywall, setShowPaywall] = useState(false)
+
+  const fetchUsage = () => {
+    if (!AUTH_ACTIVE) return
+    apiFetch('/usage/today').then(u => {
+      setUsage(u)
+      if (!u.unlimited && u.count >= u.limit && !isDismissed()) setShowPaywall(true)
+    }).catch(() => {})
+  }
 
   useEffect(() => {
-    if (AUTH_ACTIVE) getMe().then(setAuthedUser).catch(() => setAuthedUser(null))
+    if (AUTH_ACTIVE) {
+      getMe().then(u => { setAuthedUser(u); fetchUsage() }).catch(() => setAuthedUser(null))
+    }
   }, [])
   const headerRef = useRef(null)
 
@@ -243,15 +272,23 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               setCachedAnalysis(ticker, analysis, true)
             }
             setData(prev => ({ ...prev, analysis }))
-          } catch {
-            // Analysis failed — keep showing stale result if available
+          } catch (analysisErr) {
+            // Check if it's a rate limit error
+            if (analysisErr.message?.includes('daily_limit') || analysisErr.message?.includes('429')) {
+              fetchUsage()
+            }
           } finally {
             setAnalyzing(false)
           }
         }
+        fetchUsage()
       }
     } catch (err) {
-      setError(err.message)
+      if (err.message?.includes('daily_limit')) {
+        fetchUsage()
+      } else {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
       setAnalyzing(false)
@@ -600,6 +637,61 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       </main>
 
       {/* Site-wide footer */}
+      {/* Usage bar — only for logged-in users with a limit */}
+      {AUTH_ACTIVE && authedUser && usage && !usage.unlimited && (
+        <div className="px-6 py-3" style={{ background: '#0a0e1a', borderTop: '1px solid #1e2d45' }}>
+          <div className="max-w-7xl mx-auto flex items-center gap-3">
+            <span className="text-xs whitespace-nowrap" style={{ color: '#64748b' }}>
+              {usage.count} of {usage.limit} requests used today
+            </span>
+            <div className="flex-1 rounded-full overflow-hidden" style={{ background: '#1e2d45', height: 4 }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(100, (usage.count / usage.limit) * 100)}%`,
+                  background: usage.count / usage.limit >= 0.95 ? '#ef4444'
+                            : usage.count / usage.limit >= 0.8  ? '#f59e0b'
+                            : '#06b6d4',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Paywall modal */}
+      {showPaywall && usage && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 px-4"
+          style={{ background: 'rgba(6,10,20,0.85)', backdropFilter: 'blur(4px)' }}
+        >
+          <div className="w-full max-w-sm rounded-2xl p-8 text-center" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
+            <div className="text-3xl mb-4">⚡</div>
+            <h2 className="text-xl font-black mb-2" style={{ color: '#f1f5f9' }}>Daily limit reached</h2>
+            <p className="text-sm mb-6" style={{ color: '#94a3b8' }}>
+              You've used all {usage.limit} of today's requests.{' '}
+              {usage.upgrade?.msg}
+            </p>
+            {usage.upgrade?.next && (
+              <a
+                href="/account"
+                className="block w-full py-3 rounded-xl text-sm font-bold mb-3"
+                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}
+              >
+                Upgrade to {usage.upgrade.next} — {usage.upgrade.price}
+              </a>
+            )}
+            <button
+              onClick={() => { dismissUntilMidnight(); setShowPaywall(false) }}
+              className="text-xs"
+              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+            >
+              Remind me tomorrow
+            </button>
+          </div>
+        </div>
+      )}
+
       <footer className="mt-4 px-6 py-8" style={{ borderTop: '1px solid #1e2d45', background: '#0a0e1a' }}>
         <div className="max-w-7xl mx-auto space-y-4">
           {/* Top row: copyright left, links right */}

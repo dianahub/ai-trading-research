@@ -1139,13 +1139,33 @@ def get_technicals(ticker: str):
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-def analyze(req: AnalyzeRequest):
+def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None)):
     """
     Send all available data to Claude for a structured research report.
     Handles both crypto (whale data) and stock (insider + options) asset types.
     """
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not configured")
+
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if user:
+            tier = _get_user_tier(user)
+            limit = TIER_DAILY_LIMITS.get(tier)
+            if limit is not None:
+                row = _get_or_create_usage(db, user.id)
+                if row.request_count >= limit:
+                    upgrade = TIER_UPGRADE_COPY.get(tier, {})
+                    raise HTTPException(status_code=429, detail={
+                        "reason":  "daily_limit",
+                        "count":   row.request_count,
+                        "limit":   limit,
+                        "tier":    tier,
+                        "upgrade": upgrade,
+                    })
+                row.request_count += 1
+                db.commit()
 
     asset_type = req.asset_type
     upper      = req.ticker.upper()
@@ -3454,7 +3474,33 @@ class MonthlyPayout(_Base):
     created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class DailyUsage(_Base):
+    __tablename__ = "daily_usage"
+    id            = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
+    user_id       = Column(String, nullable=False)
+    date          = Column(String, nullable=False)  # YYYY-MM-DD UTC
+    request_count = Column(Integer, default=0)
+
+
 _Base.metadata.create_all(_engine)
+
+TIER_DAILY_LIMITS: dict[str, int | None] = {
+    "free":             3,
+    "beta":             10,
+    "founding":         50,
+    "pro":              100,
+    "premium":          500,
+    "platform":         None,
+    "partner_preview":  None,
+}
+
+TIER_UPGRADE_COPY = {
+    "free":     {"next": "Beta",     "limit": 10,  "price": "apply for beta",  "msg": "Apply for beta access to get 10 daily requests."},
+    "beta":     {"next": "Founding", "limit": 50,  "price": "$19/month",       "msg": "Upgrade to Founding Member for 50 daily requests at $19/month — locked in forever."},
+    "founding": {"next": "Pro",      "limit": 100, "price": "$29/month",       "msg": "Upgrade to Pro for 100 daily requests at $29/month."},
+    "pro":      {"next": "Premium",  "limit": 500, "price": "$79/month",       "msg": "Upgrade to Premium for 500 daily requests plus API access at $79/month."},
+    "premium":  {"next": None,       "limit": None,"price": None,              "msg": "You're on our highest plan. Contact us for platform access."},
+}
 
 
 def _run_migrations():
@@ -4777,6 +4823,52 @@ def get_features(ss_session: Optional[str] = Cookie(None)):
             "tier": tier,
             "features": {k: rank >= _tier_rank(v) for k, v in FEATURE_GATES.items()},
             "upgrade_url": f"{SITE_URL}/account",
+        }
+
+
+# ── Daily usage ────────────────────────────────────────────────────────────────
+
+def _get_user_tier(user) -> str:
+    """Return effective tier, treating expired beta as free."""
+    if not user:
+        return "free"
+    now = datetime.now(timezone.utc)
+    beta_expired = (user.tier == "beta" and user.beta_expires_at and
+                    user.beta_expires_at.replace(tzinfo=timezone.utc) < now)
+    return "free" if beta_expired else user.tier
+
+
+def _today_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _get_or_create_usage(db, user_id: str) -> DailyUsage:
+    today = _today_utc()
+    row = db.query(DailyUsage).filter_by(user_id=user_id, date=today).first()
+    if not row:
+        row = DailyUsage(user_id=user_id, date=today, request_count=0)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+@app.get("/usage/today")
+def get_usage_today(ss_session: Optional[str] = Cookie(None)):
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            return {"count": 0, "limit": None, "tier": "free", "unlimited": True}
+        tier = _get_user_tier(user)
+        limit = TIER_DAILY_LIMITS.get(tier)
+        row = _get_or_create_usage(db, user.id)
+        upgrade = TIER_UPGRADE_COPY.get(tier, {})
+        return {
+            "count":     row.request_count,
+            "limit":     limit,
+            "tier":      tier,
+            "unlimited": limit is None,
+            "upgrade":   upgrade,
         }
 
 
