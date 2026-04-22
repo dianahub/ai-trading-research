@@ -16,6 +16,7 @@ export default function AdminPendingUsers() {
   const [err, setErr]     = useState('')
   const [filter, setFilter] = useState('pending')
   const [actioning, setActioning] = useState('')
+  const [actionErr, setActionErr] = useState('')
 
   async function login(e) {
     e.preventDefault()
@@ -40,14 +41,28 @@ export default function AdminPendingUsers() {
 
   async function approve(id) {
     setActioning(id)
-    await fetch(`${API}/admin/beta-applications/${id}/approve`, { method: 'PATCH', headers: headers(email, pass) })
+    setActionErr('')
+    try {
+      const r = await fetch(`${API}/admin/beta-applications/${id}/approve`, { method: 'PATCH', headers: headers(email, pass) })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        setActionErr(`Failed: ${d.detail || r.status}`)
+      }
+    } catch (e) { setActionErr(`Network error: ${e.message}`) }
     await refresh()
     setActioning('')
   }
 
   async function reject(id) {
     setActioning(id)
-    await fetch(`${API}/admin/beta-applications/${id}/reject`, { method: 'PATCH', headers: headers(email, pass) })
+    setActionErr('')
+    try {
+      const r = await fetch(`${API}/admin/beta-applications/${id}/reject`, { method: 'PATCH', headers: headers(email, pass) })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        setActionErr(`Failed: ${d.detail || r.status}`)
+      }
+    } catch (e) { setActionErr(`Network error: ${e.message}`) }
     await refresh()
     setActioning('')
   }
@@ -112,6 +127,10 @@ export default function AdminPendingUsers() {
             </button>
           ))}
         </div>
+
+        {actionErr && (
+          <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ background: '#2d1515', border: '1px solid #f87171', color: '#fca5a5' }}>{actionErr}</div>
+        )}
 
         {filtered.length === 0 ? (
           <p className="text-sm" style={{ color: '#94a3b8' }}>No {filter !== 'all' ? filter : ''} applications.</p>

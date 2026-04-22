@@ -190,6 +190,10 @@ export default function App() {
 const handleToggleAstro = () => setShowAstro(prev => !prev)
 
   const handleSearch = async (ticker) => {
+    if (AUTH_ACTIVE && !authedUser) {
+      setError('AUTH_REQUIRED')
+      return
+    }
     setLoading(true)
     setAnalyzing(false)
     setError(null)
@@ -326,7 +330,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           </div>
           {/* Search bar — full width on mobile */}
           <div className="flex-1">
-            <SearchBar onSearch={AUTH_ACTIVE && !authedUser ? () => {} : handleSearch} loading={loading} disabled={AUTH_ACTIVE && !authedUser} />
+            <SearchBar onSearch={handleSearch} loading={loading} disabled={false} />
           </div>
           {/* LIVE badge — desktop only */}
           <div className="hidden md:flex items-center gap-2 text-xs shrink-0"
@@ -477,25 +481,14 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             <div className="text-center space-y-2">
               <p className="text-base font-semibold" style={{ color: '#94a3b8' }}>👇 Try a quick search below, or enter any symbol above in the search bar and click Analyze</p>
               <div className="flex flex-wrap justify-center gap-2">
-                {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => {
-                  const locked = AUTH_ACTIVE && !authedUser
-                  return (
-                    <button key={t}
-                      onClick={() => !locked && handleSearch(t)}
-                      disabled={locked}
-                      title={locked ? 'Sign in to search' : undefined}
-                      className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all"
-                      style={{
-                        background: '#111827',
-                        border: '1px solid #1e3a5f',
-                        color: locked ? '#334155' : '#94a3b8',
-                        cursor: locked ? 'not-allowed' : 'pointer',
-                        opacity: locked ? 0.5 : 1,
-                      }}>
-                      {t}
-                    </button>
-                  )
-                })}
+                {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
+                  <button key={t}
+                    onClick={() => handleSearch(t)}
+                    className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all"
+                    style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
+                    {t}
+                  </button>
+                ))}
               </div>
               {AUTH_ACTIVE && !authedUser && (
                 <p className="text-sm mt-2 font-medium" style={{ color: '#94a3b8' }}>
@@ -538,7 +531,23 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
         {/* Error */}
         {error && (
-          error === 'SYMBOL_NOT_FOUND' || /not found|no price data|no market data|valid stock|valid.*ticker/i.test(error) ? (
+          error === 'AUTH_REQUIRED' ? (
+            <div className="rounded-xl p-8 fade-in flex flex-col items-center gap-4 text-center"
+              style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
+              <span className="text-4xl">✦</span>
+              <p className="text-lg font-bold" style={{ color: '#f1f5f9' }}>Please login or apply for a free Beta Account</p>
+              <div className="flex gap-3">
+                <a href="/login" className="px-5 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0', textDecoration: 'none' }}>
+                  Login
+                </a>
+                <a href="/beta" className="px-5 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
+                  Apply for free beta
+                </a>
+              </div>
+            </div>
+          ) : error === 'SYMBOL_NOT_FOUND' || /not found|no price data|no market data|valid stock|valid.*ticker/i.test(error) ? (
             <div className="rounded-xl p-8 fade-in flex flex-col items-center gap-3 text-center"
               style={{ background: '#1a0f0f', border: '1px solid #7f1d1d' }}>
               <span className="text-5xl">🔍</span>
