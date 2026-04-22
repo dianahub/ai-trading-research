@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { isPublicDomain } from '../lib/auth'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const STAGING_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || ''
+const STAGING_PASS  = import.meta.env.VITE_ADMIN_PASSWORD || ''
 
 function headers(email, pass) {
   return { 'x-admin-email': email, 'x-admin-password': pass, 'Content-Type': 'application/json' }
@@ -18,6 +21,24 @@ export default function AdminPendingUsers() {
   const [actioning, setActioning] = useState('')
   const [actionErr, setActionErr] = useState('')
   const [showPass, setShowPass] = useState(false)
+
+  useEffect(() => {
+    if (isPublicDomain() && STAGING_EMAIL && STAGING_PASS) {
+      autoLogin(STAGING_EMAIL, STAGING_PASS)
+    }
+  }, [])
+
+  async function autoLogin(e, p) {
+    setLoading(true)
+    try {
+      const r = await fetch(`${API}/admin/beta-applications`, { headers: headers(e, p) })
+      if (!r.ok) return
+      setEmail(e)
+      setPass(p)
+      setList(await r.json())
+      setAuthed(true)
+    } finally { setLoading(false) }
+  }
 
   async function login(e) {
     e.preventDefault()
@@ -73,6 +94,13 @@ export default function AdminPendingUsers() {
   list.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++ })
 
   if (!authed) {
+    if (isPublicDomain()) {
+      return (
+        <div className="min-h-screen flex items-center justify-center" style={{ background: '#060a14' }}>
+          <p style={{ color: '#64748b', fontSize: 14 }}>{loading ? 'Loading…' : 'Set VITE_ADMIN_EMAIL and VITE_ADMIN_PASSWORD in Vercel to enable auto-login.'}</p>
+        </div>
+      )
+    }
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#060a14' }}>
         <div className="w-full max-w-sm px-4">
