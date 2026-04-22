@@ -50,6 +50,7 @@ app.add_middleware(
         "https://starsignal.io",
         "https://www.starsignal.io",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
