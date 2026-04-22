@@ -2,35 +2,28 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || ''
+const ADMIN_PASS  = import.meta.env.VITE_ADMIN_PASSWORD || ''
 
-function headers(email, pass) {
-  return { 'x-admin-email': email, 'x-admin-password': pass, 'Content-Type': 'application/json' }
+function headers() {
+  return { 'x-admin-email': ADMIN_EMAIL, 'x-admin-password': ADMIN_PASS, 'Content-Type': 'application/json' }
 }
 
 export default function AdminConfig() {
-  const [email, setEmail] = useState(localStorage.getItem('admin_email') || '')
-  const [pass, setPass]   = useState(localStorage.getItem('admin_pass')  || '')
-  const [authed, setAuthed] = useState(false)
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
 
-  async function login(e) {
-    e.preventDefault()
+  useEffect(() => {
     setLoading(true)
-    setErr('')
-    try {
-      const r = await fetch(`${API}/admin/config`, { headers: headers(email, pass) })
-      if (!r.ok) { setErr('Invalid credentials'); setLoading(false); return }
-      localStorage.setItem('admin_email', email)
-      localStorage.setItem('admin_pass', pass)
-      setConfig(await r.json())
-      setAuthed(true)
-    } catch { setErr('Network error') }
-    finally { setLoading(false) }
-  }
+    fetch(`${API}/admin/config`, { headers: headers() })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setConfig(d) })
+      .catch(() => setErr('Failed to load config'))
+      .finally(() => setLoading(false))
+  }, [])
 
   async function toggleBetaOpen() {
     setSaving(true)
@@ -38,7 +31,7 @@ export default function AdminConfig() {
     try {
       const r = await fetch(`${API}/admin/config`, {
         method: 'PATCH',
-        headers: headers(email, pass),
+        headers: headers(),
         body: JSON.stringify({ beta_open: !config.beta_open }),
       })
       if (!r.ok) { setMsg('Failed to update'); return }
@@ -49,32 +42,7 @@ export default function AdminConfig() {
     finally { setSaving(false) }
   }
 
-  if (!authed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#060a14' }}>
-        <div className="w-full max-w-sm px-4">
-          <Link to="/admin" className="text-xs mb-6 inline-block" style={{ color: '#94a3b8', textDecoration: 'none' }}>← Admin</Link>
-          <div className="rounded-xl p-8" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
-            <h1 className="text-xl font-bold mb-6" style={{ color: '#f1f5f9' }}>Site Config</h1>
-            {err && <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ background: '#2d1515', border: '1px solid #f87171', color: '#fca5a5' }}>{err}</div>}
-            <form onSubmit={login} className="flex flex-col gap-3">
-              <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Admin email" type="email" required
-                className="px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
-              <input value={pass} onChange={e => setPass(e.target.value)} placeholder="Admin password" type="password" required
-                className="px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
-              <button type="submit" disabled={loading}
-                className="py-2.5 rounded-lg text-sm font-semibold"
-                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                {loading ? 'Loading…' : 'Sign In'}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center" style={{ background: '#060a14' }}><p style={{ color: '#64748b' }}>Loading…</p></div>
 
   return (
     <div className="min-h-screen" style={{ background: '#060a14', color: '#e2e8f0' }}>

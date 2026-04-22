@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-const ASTRO_URL = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
+const ASTRO_URL    = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
+const ADMIN_EMAIL  = import.meta.env.VITE_ADMIN_EMAIL || ''
+const ADMIN_PASS   = import.meta.env.VITE_ADMIN_PASSWORD || ''
 
-function adminHeaders(email, password) {
+function adminHeaders() {
   return {
     'Content-Type': 'application/json',
-    'x-admin-email':    email,
-    'x-admin-password': password,
+    'x-admin-email':    ADMIN_EMAIL,
+    'x-admin-password': ADMIN_PASS,
   }
 }
 
@@ -430,12 +432,7 @@ function AuthStatsTab({ email, password }) {
 }
 
 export default function AdminPartners() {
-  const [creds, setCreds] = useState(() => ({
-    email:    sessionStorage.getItem('admin_email')    ?? '',
-    password: sessionStorage.getItem('admin_password') ?? '',
-  }))
-  const [authed, setAuthed] = useState(false)
-  const [loginErr, setLoginErr] = useState('')
+  const [authed] = useState(true)
 
   const [partners, setPartners] = useState([])
   const [stats, setStats] = useState(null)
@@ -452,36 +449,13 @@ export default function AdminPartners() {
   const [editFeatured, setEditFeatured] = useState(false)
   const [section, setSection] = useState('partners')
 
-  async function login(e) {
-    e.preventDefault()
-    setLoginErr('')
-    // Test credentials against the API
-    const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners`, {
-      headers: adminHeaders(creds.email, creds.password),
-    })
-    if (res.status === 401 || res.status === 403) {
-      setLoginErr('Invalid credentials.')
-      return
-    }
-    sessionStorage.setItem('admin_email',    creds.email)
-    sessionStorage.setItem('admin_password', creds.password)
-    setAuthed(true)
-  }
-
-  function logout() {
-    sessionStorage.removeItem('admin_email')
-    sessionStorage.removeItem('admin_password')
-    setAuthed(false)
-    setPartners([])
-    setStats(null)
-  }
 
   async function loadData() {
     setLoading(true)
     try {
       const [pRes, sRes] = await Promise.all([
-        fetch(`${ASTRO_URL}/api/v1/admin/partners?status=${statusFilter}`, { headers: adminHeaders(creds.email, creds.password) }),
-        fetch(`${ASTRO_URL}/api/v1/admin/partners/stats`,                  { headers: adminHeaders(creds.email, creds.password) }),
+        fetch(`${ASTRO_URL}/api/v1/admin/partners?status=${statusFilter}`, { headers: adminHeaders() }),
+        fetch(`${ASTRO_URL}/api/v1/admin/partners/stats`,                  { headers: adminHeaders() }),
       ])
       if (pRes.ok) setPartners(await pRes.json())
       if (sRes.ok) setStats(await sRes.json())
@@ -504,7 +478,7 @@ export default function AdminPartners() {
     setEditTier(partner.tier)
     setEditFeatured(partner.manuallyFeatured ?? false)
     const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners/${partner.id}`, {
-      headers: adminHeaders(creds.email, creds.password),
+      headers: adminHeaders(),
     })
     if (res.ok) setDetail(await res.json())
     setDetailLoading(false)
@@ -515,7 +489,7 @@ export default function AdminPartners() {
     setActionMsg('')
     const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners/${selected.id}/approve`, {
       method: 'POST',
-      headers: adminHeaders(creds.email, creds.password),
+      headers: adminHeaders(),
     })
     const data = await res.json()
     setActionMsg(res.ok ? '✓ Approved — magic link sent.' : (data.error ?? 'Error'))
@@ -529,7 +503,7 @@ export default function AdminPartners() {
     setActionMsg('')
     const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners/${selected.id}/reject`, {
       method: 'POST',
-      headers: adminHeaders(creds.email, creds.password),
+      headers: adminHeaders(),
       body: JSON.stringify({ reason: rejectReason }),
     })
     const data = await res.json()
@@ -543,46 +517,13 @@ export default function AdminPartners() {
     setActionMsg('')
     const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners/${selected.id}`, {
       method: 'PATCH',
-      headers: adminHeaders(creds.email, creds.password),
+      headers: adminHeaders(),
       body: JSON.stringify({ tier: editTier, manuallyFeatured: editFeatured }),
     })
     const data = await res.json()
     setActionMsg(res.ok ? '✓ Saved.' : (data.error ?? 'Error'))
     if (res.ok) loadData()
     setActionLoading(false)
-  }
-
-  if (!authed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#070b16' }}>
-        <div className="w-full max-w-sm mx-4">
-          <div className="rounded-xl p-8" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-            <h1 className="text-xl font-bold mb-1 text-center" style={{ color: '#f1f5f9' }}>Partner Admin</h1>
-            <p className="text-xs text-center mb-6" style={{ color: '#94a3b8' }}>Admin access only</p>
-            {loginErr && (
-              <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ background: '#2d1515', border: '1px solid #f87171', color: '#fca5a5' }}>
-                {loginErr}
-              </div>
-            )}
-            <form onSubmit={login} className="flex flex-col gap-3">
-              <input type="email" placeholder="Admin email" value={creds.email}
-                onChange={e => setCreds(c => ({ ...c, email: e.target.value }))}
-                className="px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ background: '#070b16', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
-              <input type="password" placeholder="Password" value={creds.password}
-                onChange={e => setCreds(c => ({ ...c, password: e.target.value }))}
-                className="px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ background: '#070b16', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
-              <button type="submit"
-                className="py-2.5 rounded-lg text-sm font-semibold"
-                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                Login
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -601,10 +542,6 @@ export default function AdminPartners() {
           </div>
           <div className="flex items-center gap-3 text-xs" style={{ color: '#94a3b8' }}>
             <Link to="/admin/outreach" style={{ color: '#94a3b8', textDecoration: 'none' }}>Outreach</Link>
-            <button onClick={logout} className="px-3 py-1.5 rounded-lg"
-              style={{ background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
-              Log out
-            </button>
           </div>
         </div>
       </header>

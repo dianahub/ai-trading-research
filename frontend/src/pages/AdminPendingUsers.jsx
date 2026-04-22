@@ -1,71 +1,35 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { isPublicDomain } from '../lib/auth'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const STAGING_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || ''
-const STAGING_PASS  = import.meta.env.VITE_ADMIN_PASSWORD || ''
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || ''
+const ADMIN_PASS  = import.meta.env.VITE_ADMIN_PASSWORD || ''
 
-function headers(email, pass) {
-  return { 'x-admin-email': email, 'x-admin-password': pass, 'Content-Type': 'application/json' }
+function headers() {
+  return { 'x-admin-email': ADMIN_EMAIL, 'x-admin-password': ADMIN_PASS, 'Content-Type': 'application/json' }
 }
 
 export default function AdminPendingUsers() {
-  const [email, setEmail] = useState(localStorage.getItem('admin_email') || '')
-  const [pass, setPass]   = useState(localStorage.getItem('admin_pass')  || '')
-  const [authed, setAuthed] = useState(false)
   const [list, setList]   = useState([])
   const [loading, setLoading] = useState(false)
-  const [err, setErr]     = useState('')
   const [filter, setFilter] = useState('pending')
   const [actioning, setActioning] = useState('')
   const [actionErr, setActionErr] = useState('')
-  const [showPass, setShowPass] = useState(false)
 
-  useEffect(() => {
-    if (isPublicDomain() && STAGING_EMAIL && STAGING_PASS) {
-      autoLogin(STAGING_EMAIL, STAGING_PASS)
-    }
-  }, [])
-
-  async function autoLogin(e, p) {
-    setLoading(true)
-    try {
-      const r = await fetch(`${API}/admin/beta-applications`, { headers: headers(e, p) })
-      if (!r.ok) return
-      setEmail(e)
-      setPass(p)
-      setList(await r.json())
-      setAuthed(true)
-    } finally { setLoading(false) }
-  }
-
-  async function login(e) {
-    e.preventDefault()
-    setLoading(true)
-    setErr('')
-    try {
-      const r = await fetch(`${API}/admin/beta-applications`, { headers: headers(email, pass) })
-      if (!r.ok) { setErr('Invalid credentials'); setLoading(false); return }
-      const d = await r.json()
-      localStorage.setItem('admin_email', email)
-      localStorage.setItem('admin_pass', pass)
-      setList(d)
-      setAuthed(true)
-    } catch { setErr('Network error') }
-    finally { setLoading(false) }
-  }
+  useEffect(() => { refresh() }, [])
 
   async function refresh() {
-    const r = await fetch(`${API}/admin/beta-applications`, { headers: headers(email, pass) })
+    setLoading(true)
+    const r = await fetch(`${API}/admin/beta-applications`, { headers: headers() })
     if (r.ok) setList(await r.json())
+    setLoading(false)
   }
 
   async function approve(id) {
     setActioning(id)
     setActionErr('')
     try {
-      const r = await fetch(`${API}/admin/beta-applications/${id}/approve`, { method: 'PATCH', headers: headers(email, pass) })
+      const r = await fetch(`${API}/admin/beta-applications/${id}/approve`, { method: 'PATCH', headers: headers() })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
         setActionErr(`Failed: ${d.detail || r.status}`)
@@ -79,7 +43,7 @@ export default function AdminPendingUsers() {
     setActioning(id)
     setActionErr('')
     try {
-      const r = await fetch(`${API}/admin/beta-applications/${id}/reject`, { method: 'PATCH', headers: headers(email, pass) })
+      const r = await fetch(`${API}/admin/beta-applications/${id}/reject`, { method: 'PATCH', headers: headers() })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
         setActionErr(`Failed: ${d.detail || r.status}`)
@@ -93,45 +57,7 @@ export default function AdminPendingUsers() {
   const counts = { pending: 0, approved: 0, rejected: 0 }
   list.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++ })
 
-  if (!authed) {
-    if (isPublicDomain()) {
-      return (
-        <div className="min-h-screen flex items-center justify-center" style={{ background: '#060a14' }}>
-          <p style={{ color: '#64748b', fontSize: 14 }}>{loading ? 'Loading…' : 'Set VITE_ADMIN_EMAIL and VITE_ADMIN_PASSWORD in Vercel to enable auto-login.'}</p>
-        </div>
-      )
-    }
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#060a14' }}>
-        <div className="w-full max-w-sm px-4">
-          <Link to="/admin" className="text-xs mb-6 inline-block" style={{ color: '#94a3b8', textDecoration: 'none' }}>← Admin</Link>
-          <div className="rounded-xl p-8" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
-            <h1 className="text-xl font-bold mb-6" style={{ color: '#f1f5f9' }}>Pending Users</h1>
-            {err && <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ background: '#2d1515', border: '1px solid #f87171', color: '#fca5a5' }}>{err}</div>}
-            <form onSubmit={login} className="flex flex-col gap-3">
-              <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Admin email" type="email" required
-                className="px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
-              <div className="relative">
-                <input value={pass} onChange={e => setPass(e.target.value)} placeholder="Admin password" type={showPass ? 'text' : 'password'} required
-                  className="px-3 py-2.5 rounded-lg text-sm outline-none w-full pr-10"
-                  style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }} />
-                <button type="button" onClick={() => setShowPass(v => !v)}
-                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 16, lineHeight: 1 }}>
-                  {showPass ? '🙈' : '👁'}
-                </button>
-              </div>
-              <button type="submit" disabled={loading}
-                className="py-2.5 rounded-lg text-sm font-semibold"
-                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                {loading ? 'Loading…' : 'Sign In'}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (loading && !list.length) return <div className="min-h-screen flex items-center justify-center" style={{ background: '#060a14' }}><p style={{ color: '#64748b' }}>Loading…</p></div>
 
   return (
     <div className="min-h-screen" style={{ background: '#060a14', color: '#e2e8f0' }}>

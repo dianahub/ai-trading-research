@@ -58,9 +58,6 @@ function Modal({ onClose, children }) {
 }
 
 export default function AdminOutreach() {
-  const [authed, setAuthed]         = useState(() => !!sessionStorage.getItem('admin_email'))
-  const [authForm, setAuthForm]     = useState({ email: sessionStorage.getItem('admin_email') || '', password: sessionStorage.getItem('admin_pw') || '' })
-  const [authError, setAuthError]   = useState('')
 
   const [mode, setMode]             = useState('partners') // 'partners' | 'apileads'
   const [tab, setTab]               = useState('discover')
@@ -94,25 +91,9 @@ export default function AdminOutreach() {
 
   const adminHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
-    'x-admin-email':    sessionStorage.getItem('admin_email') || '',
-    'x-admin-password': sessionStorage.getItem('admin_pw')    || '',
+    'x-admin-email':    import.meta.env.VITE_ADMIN_EMAIL    || '',
+    'x-admin-password': import.meta.env.VITE_ADMIN_PASSWORD || '',
   }), [])
-
-  // ── Auth ──────────────────────────────────────────────────────────────────
-
-  const handleLogin = async e => {
-    e.preventDefault()
-    setAuthError('')
-    try {
-      const res = await fetch(`${API}/signups`, {
-        headers: { 'x-admin-email': authForm.email, 'x-admin-password': authForm.password }
-      })
-      if (res.status === 401) { setAuthError('Invalid credentials'); return }
-      sessionStorage.setItem('admin_email', authForm.email)
-      sessionStorage.setItem('admin_pw',    authForm.password)
-      setAuthed(true)
-    } catch { setAuthError('Connection failed') }
-  }
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
@@ -138,11 +119,10 @@ export default function AdminOutreach() {
   }, [adminHeaders])
 
   useEffect(() => {
-    if (!authed) return
     loadContacts()
     loadFollowUps()
     loadAnalytics()
-  }, [authed, loadContacts, loadFollowUps, loadAnalytics])
+  }, [loadContacts, loadFollowUps, loadAnalytics])
 
   // ── Discover ──────────────────────────────────────────────────────────────
 
@@ -320,39 +300,6 @@ export default function AdminOutreach() {
     loadFollowUps()
     loadAnalytics()
   }
-
-  // ── Login screen ──────────────────────────────────────────────────────────
-
-  if (!authed) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#070b16' }}>
-      <form onSubmit={handleLogin} className="w-full max-w-sm p-8 rounded-xl space-y-4"
-        style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
-        <div>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-4"
-            style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
-            <span className="text-white text-xs font-bold">AI</span>
-          </div>
-          <h1 className="text-lg font-bold" style={{ color: '#f1f5f9' }}>Outreach Admin</h1>
-          <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>Starsignal.io</p>
-        </div>
-        {authError && (
-          <p className="text-sm" style={{ color: '#f87171' }}>{authError}</p>
-        )}
-        <input type="email" placeholder="Admin email" required value={authForm.email}
-          onChange={e => setAuthForm(f => ({ ...f, email: e.target.value }))}
-          className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-          style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
-        <input type="password" placeholder="Password" required value={authForm.password}
-          onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))}
-          className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-          style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#e2e8f0' }} />
-        <button type="submit" className="w-full py-2.5 rounded-lg text-sm font-semibold cursor-pointer"
-          style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', color: '#fff' }}>
-          Sign In
-        </button>
-      </form>
-    </div>
-  )
 
   // ── Follow-up ids for badge ───────────────────────────────────────────────
 
