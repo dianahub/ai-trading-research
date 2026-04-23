@@ -3535,15 +3535,15 @@ TIER_UPGRADE_COPY = {
 def _run_migrations():
     """Add columns to existing tables that predate this migration."""
     stmts = [
-        "ALTER TABLE outreach_contacts ADD COLUMN slug TEXT DEFAULT ''",
-        "ALTER TABLE outreach_contacts ADD COLUMN stripe_connect_account_id TEXT DEFAULT ''",
-        "ALTER TABLE outreach_contacts ADD COLUMN referral_click_count INTEGER DEFAULT 0",
-        "ALTER TABLE outreach_contacts ADD COLUMN discount_code TEXT DEFAULT ''",
-        "ALTER TABLE outreach_contacts ADD COLUMN discount_code_active INTEGER DEFAULT 1",
-        "ALTER TABLE outreach_contacts ADD COLUMN discount_code_uses INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN discount_code_used TEXT DEFAULT ''",
-        "ALTER TABLE users ADD COLUMN pricing_tier TEXT",
-        "ALTER TABLE beta_applications ADD COLUMN discount_code TEXT DEFAULT ''",
+        "ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS slug TEXT DEFAULT ''",
+        "ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS stripe_connect_account_id TEXT DEFAULT ''",
+        "ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS referral_click_count INTEGER DEFAULT 0",
+        "ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS discount_code TEXT DEFAULT ''",
+        "ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS discount_code_active INTEGER DEFAULT 1",
+        "ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS discount_code_uses INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_code_used TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS pricing_tier TEXT",
+        "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS discount_code TEXT DEFAULT ''",
         "INSERT INTO site_config (key, value) VALUES ('beta_open', 'true') ON CONFLICT DO NOTHING",
     ]
     with _engine.connect() as conn:
