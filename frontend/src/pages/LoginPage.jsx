@@ -5,7 +5,7 @@ import { login } from '../lib/auth'
 export default function LoginPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const redirect = params.get('redirect') || '/dashboard'
+  const redirect = params.get('redirect') || '/'
 
   const [form, setForm] = useState({ email: '', password: '', rememberMe: false })
   const [error, setError] = useState('')
