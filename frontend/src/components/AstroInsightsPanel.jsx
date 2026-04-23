@@ -14,6 +14,42 @@ function outlookCfg(outlook) {
   return OUTLOOK_CONFIG[outlook?.toLowerCase()] ?? OUTLOOK_CONFIG.stable
 }
 
+function MoodIllustration({ score }) {
+  const s = parseFloat(score) || 0
+  if (s > 0.1) return (
+    <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
+      <g stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round">
+        <line x1="32" y1="4" x2="32" y2="13"/>
+        <line x1="32" y1="51" x2="32" y2="60"/>
+        <line x1="4" y1="32" x2="13" y2="32"/>
+        <line x1="51" y1="32" x2="60" y2="32"/>
+        <line x1="11.5" y1="11.5" x2="17.9" y2="17.9"/>
+        <line x1="46.1" y1="46.1" x2="52.5" y2="52.5"/>
+        <line x1="52.5" y1="11.5" x2="46.1" y2="17.9"/>
+        <line x1="17.9" y1="46.1" x2="11.5" y2="52.5"/>
+      </g>
+      <circle cx="32" cy="32" r="13" fill="#f59e0b" opacity="0.85"/>
+      <circle cx="32" cy="32" r="9" fill="#fde68a"/>
+    </svg>
+  )
+  if (s < -0.1) return (
+    <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
+      <path d="M12 38 Q10 26 22 24 Q24 14 36 14 Q50 14 50 28 Q58 28 58 38 Q58 46 50 46 H16 Q8 46 12 38Z" fill="#475569" opacity="0.85"/>
+      <line x1="22" y1="50" x2="18" y2="59" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="32" y1="50" x2="28" y2="59" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="42" y1="50" x2="38" y2="59" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  )
+  return (
+    <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
+      <path d="M38 10 A20 20 0 1 0 38 54 A13 13 0 1 1 38 10Z" fill="#94a3b8" opacity="0.8"/>
+      <circle cx="50" cy="14" r="2.5" fill="#e2e8f0" opacity="0.7"/>
+      <circle cx="55" cy="26" r="1.5" fill="#e2e8f0" opacity="0.5"/>
+      <circle cx="48" cy="34" r="1" fill="#e2e8f0" opacity="0.6"/>
+    </svg>
+  )
+}
+
 function ConfidenceBar({ value }) {
   const pct = Math.round((parseFloat(value) || 0) * 100)
   const color = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444'
@@ -332,19 +368,37 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
               {matchedTopics.length === 0 && <SentimentGauge score={sentiment_score} />}
 
               {/* Overall summary */}
-              {overall_summary && (
-                <div
-                  className="rounded-lg p-4 space-y-2"
-                  style={{ background: 'linear-gradient(135deg, #1e1b4b, #0f1a2e)', border: '1px solid #4338ca', boxShadow: '0 0 18px #3730a322' }}
-                >
-                  <p className="text-sm font-bold tracking-wide" style={{ color: '#a5b4fc' }}>
-                    ♅ Astrological Market Outlook Summary
-                  </p>
-                  <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
-                    {overall_summary}
-                  </p>
-                </div>
-              )}
+              {overall_summary && (() => {
+                const bullets = overall_summary
+                  .split('\n')
+                  .map(l => l.replace(/^[\s•\-\*\d\.]+/, '').trim())
+                  .filter(l => l.length > 10)
+                return (
+                  <div
+                    className="rounded-lg p-4"
+                    style={{ background: 'linear-gradient(135deg, #1e1b4b, #0f1a2e)', border: '1px solid #4338ca', boxShadow: '0 0 18px #3730a322' }}
+                  >
+                    <div className="flex items-center gap-4 mb-3">
+                      <MoodIllustration score={sentiment_score} />
+                      <p className="text-sm font-bold tracking-wide" style={{ color: '#a5b4fc' }}>
+                        ♅ Astrological Market Outlook Summary
+                      </p>
+                    </div>
+                    {bullets.length > 1 ? (
+                      <ul className="space-y-2">
+                        {bullets.map((b, i) => (
+                          <li key={i} className="flex gap-2 text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
+                            <span style={{ color: '#6366f1', flexShrink: 0 }}>•</span>
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{overall_summary}</p>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* 3 most recent related insight cards — shown below summary */}
               {previewInsights.length > 0 && (
