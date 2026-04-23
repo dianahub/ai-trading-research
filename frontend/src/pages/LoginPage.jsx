@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '', rememberMe: false })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPass, setShowPass] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -66,13 +67,20 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <input
-                type="password" value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input
+                  type={showPass ? 'text' : 'password'} value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none pr-10"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
+                  placeholder="••••••••"
+                />
+                <button type="button" onClick={() => setShowPass(s => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
+                  style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  {showPass ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.rememberMe}
