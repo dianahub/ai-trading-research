@@ -4007,7 +4007,7 @@ def forgot_password(body: dict):
         db.commit()
         link = f"{SITE_URL}/reset-password?token={token}&email={email}"
         _send_email(email, "Reset your Star Signal password",
-            f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px'>
+            f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b1120;color:#e2e8f0'>
             <h2 style='color:#f1f5f9'>Reset your password</h2>
             <p style='color:#94a3b8'>Click the button below to reset your password. This link expires in 1 hour.</p>
             <a href='{link}' style='display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0'>Reset Password</a>
