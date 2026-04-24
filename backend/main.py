@@ -102,7 +102,7 @@ class WaitlistSignup(_Base):
     id              = Column(Integer, primary_key=True, autoincrement=True)
     name            = Column(String, nullable=False)
     email           = Column(String, nullable=False, unique=True)
-    trading_type    = Column(String, nullable=False)
+    trading_type    = Column(String, nullable=True, default="")
     referral_source = Column(String, nullable=False)
     promo_code      = Column(String, nullable=True)
     created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -2298,7 +2298,7 @@ VALID_REFERRAL = {"twitter", "instagram", "tiktok", "youtube", "reddit", "friend
 class SignupRequest(BaseModel):
     name:            str
     email:           str
-    trading_type:    str
+    trading_type:    str = ""
     referral_source: str
     promo_code:      str = ""
 
@@ -2308,7 +2308,7 @@ def create_signup(req: SignupRequest):
         raise HTTPException(400, "Name is required")
     if not req.email.strip():
         raise HTTPException(400, "Email is required")
-    if req.trading_type not in VALID_TRADING:
+    if req.trading_type and req.trading_type not in VALID_TRADING:
         raise HTTPException(400, "Invalid trading type")
     if req.referral_source not in VALID_REFERRAL:
         raise HTTPException(400, "Invalid referral source")
