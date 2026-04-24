@@ -17,35 +17,43 @@ function outlookCfg(outlook) {
 function MoodIllustration({ score }) {
   const s = parseFloat(score) || 0
   if (s > 0.1) return (
+    // Bullish: glowing sun
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="20" fill="#f59e0b" opacity="0.12"/>
       <g stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round">
-        <line x1="32" y1="4" x2="32" y2="13"/>
-        <line x1="32" y1="51" x2="32" y2="60"/>
-        <line x1="4" y1="32" x2="13" y2="32"/>
-        <line x1="51" y1="32" x2="60" y2="32"/>
-        <line x1="11.5" y1="11.5" x2="17.9" y2="17.9"/>
-        <line x1="46.1" y1="46.1" x2="52.5" y2="52.5"/>
-        <line x1="52.5" y1="11.5" x2="46.1" y2="17.9"/>
-        <line x1="17.9" y1="46.1" x2="11.5" y2="52.5"/>
+        <line x1="32" y1="4" x2="32" y2="12"/>
+        <line x1="32" y1="52" x2="32" y2="60"/>
+        <line x1="4" y1="32" x2="12" y2="32"/>
+        <line x1="52" y1="32" x2="60" y2="32"/>
+        <line x1="11.5" y1="11.5" x2="17.2" y2="17.2"/>
+        <line x1="46.8" y1="46.8" x2="52.5" y2="52.5"/>
+        <line x1="52.5" y1="11.5" x2="46.8" y2="17.2"/>
+        <line x1="17.2" y1="46.8" x2="11.5" y2="52.5"/>
       </g>
-      <circle cx="32" cy="32" r="13" fill="#f59e0b" opacity="0.85"/>
-      <circle cx="32" cy="32" r="9" fill="#fde68a"/>
+      <circle cx="32" cy="32" r="12" fill="#f59e0b" opacity="0.9"/>
+      <circle cx="32" cy="32" r="8" fill="#fde68a"/>
     </svg>
   )
   if (s < -0.1) return (
+    // Bearish: storm cloud with lightning bolt
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
-      <path d="M12 38 Q10 26 22 24 Q24 14 36 14 Q50 14 50 28 Q58 28 58 38 Q58 46 50 46 H16 Q8 46 12 38Z" fill="#475569" opacity="0.85"/>
-      <line x1="22" y1="50" x2="18" y2="59" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round"/>
-      <line x1="32" y1="50" x2="28" y2="59" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round"/>
-      <line x1="42" y1="50" x2="38" y2="59" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M14 36 Q12 26 22 24 Q24 14 36 14 Q50 14 50 26 Q58 26 58 36 Q58 44 50 44 H16 Q8 44 14 36Z" fill="#334155" opacity="0.9"/>
+      <path d="M36 26 L27 38 H33 L25 52 L43 34 H37 L43 26Z" fill="#ef4444" opacity="0.9"/>
     </svg>
   )
   return (
+    // Neutral: Libra balance scales
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
-      <path d="M38 10 A20 20 0 1 0 38 54 A13 13 0 1 1 38 10Z" fill="#94a3b8" opacity="0.8"/>
-      <circle cx="50" cy="14" r="2.5" fill="#e2e8f0" opacity="0.7"/>
-      <circle cx="55" cy="26" r="1.5" fill="#e2e8f0" opacity="0.5"/>
-      <circle cx="48" cy="34" r="1" fill="#e2e8f0" opacity="0.6"/>
+      <line x1="32" y1="10" x2="32" y2="54" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="10" y1="20" x2="54" y2="20" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
+      <circle cx="32" cy="20" r="2.5" fill="#94a3b8"/>
+      <line x1="15" y1="20" x2="12" y2="36" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="15" y1="20" x2="22" y2="36" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="49" y1="20" x2="42" y2="36" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="49" y1="20" x2="56" y2="36" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M10 36 Q17 42 24 36" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <path d="M40 36 Q47 42 54 36" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round"/>
+      <line x1="22" y1="54" x2="42" y2="54" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
     </svg>
   )
 }
