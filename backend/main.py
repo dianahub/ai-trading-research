@@ -3439,6 +3439,7 @@ class BetaApplication(_Base):
     trader_type   = Column(String, default="")
     why_text      = Column(String, default="")
     discount_code = Column(String, default="")
+    password_hash = Column(String, nullable=True)
     status        = Column(String, default="pending")  # pending|approved|rejected
     created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -3544,6 +3545,7 @@ def _run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_code_used TEXT DEFAULT ''",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS pricing_tier TEXT",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS discount_code TEXT DEFAULT ''",
+        "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS password_hash TEXT",
         "INSERT INTO site_config (key, value) VALUES ('beta_open', 'true') ON CONFLICT DO NOTHING",
     ]
     with _engine.connect() as conn:
@@ -4049,6 +4051,7 @@ def reset_password(req: ResetPasswordRequest):
 class BetaApplyRequest(BaseModel):
     name: str
     email: str
+    password: Optional[str] = None
     how_heard: str = ""
     trader_type: str = ""
     why_text: str = ""
@@ -4080,6 +4083,7 @@ def beta_apply(req: BetaApplyRequest):
             how_heard=req.how_heard, trader_type=req.trader_type,
             why_text=req.why_text, status="pending",
             discount_code=req.discount_code.upper().strip() if req.discount_code and partner_from_code else "",
+            password_hash=_hash_password(req.password) if req.password else None,
         )
         db.add(app_row)
         db.commit()
@@ -4162,6 +4166,7 @@ def approve_beta_application(
                 referral_code=ref_code,
                 discount_code_used=app_row.discount_code or None,
                 pricing_tier=user_pricing_tier,
+                password_hash=app_row.password_hash or None,
                 email_verification_token=_hash_password(magic_token),
                 email_verification_expires=now + timedelta(hours=72),
             )
@@ -4177,6 +4182,8 @@ def approve_beta_application(
             user.discount_code_used = app_row.discount_code or user.discount_code_used
             if not user.pricing_tier:  # never overwrite an already-set pricing_tier
                 user.pricing_tier = user_pricing_tier
+            if app_row.password_hash and not user.password_hash:
+                user.password_hash = app_row.password_hash
             magic_token = secrets.token_urlsafe(32)
             user.email_verification_token = _hash_password(magic_token)
             user.email_verification_expires = now + timedelta(hours=72)

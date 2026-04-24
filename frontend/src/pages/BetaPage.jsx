@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-const TRADER_TYPES = ['Crypto', 'Stocks', 'Both', 'Just getting started']
 const HOW_HEARD = ['TikTok', 'Friend', 'Astrologer referral', 'Other']
 
 function getRefFromCookie() {
@@ -18,9 +17,10 @@ export default function BetaPage() {
 
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '',
-    trader_type: '', how_heard: '', agreed: false,
+    password: '', how_heard: '', agreed: false,
     discount_code: '',
   })
+  const [showPass, setShowPass] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [trialDays, setTrialDays] = useState(30)
   const [error, setError] = useState('')
@@ -68,6 +68,8 @@ export default function BetaPage() {
     if (!form.first_name || !form.last_name) { setError('First and last name are required'); return }
     if (!form.email) { setError('Email is required'); return }
     if (!/\S+@\S+\.\S+/.test(form.email)) { setError('Invalid email address'); return }
+    if (!form.password) { setError('Please choose a password'); return }
+    if (form.password.length < 8) { setError('Password must be at least 8 characters'); return }
     if (!form.agreed) { setError('Please agree to the beta terms to continue'); return }
     setLoading(true)
     try {
@@ -77,7 +79,7 @@ export default function BetaPage() {
         body: JSON.stringify({
           name: `${form.first_name} ${form.last_name}`.trim(),
           email: form.email,
-          trader_type: form.trader_type,
+          password: form.password,
           how_heard: form.how_heard,
           ref: ref || undefined,
           discount_code: form.discount_code.trim() || undefined,
@@ -182,14 +184,32 @@ export default function BetaPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>What kind of trader are you?</label>
-                  <select value={form.trader_type} onChange={set('trader_type')}
-                    className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-                    style={{ background: '#0f1a2e', border: '1px solid #1e2d45',
-                      color: form.trader_type ? '#e2e8f0' : '#94a3b8' }}>
-                    <option value="">Select one…</option>
-                    {TRADER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#94a3b8' }}>Choose a password *</label>
+                  <div className="relative">
+                    <input
+                      type={showPass ? 'text' : 'password'} value={form.password}
+                      onChange={set('password')}
+                      className="w-full px-3 py-2.5 rounded-lg text-sm outline-none pr-10"
+                      style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
+                      placeholder="Min. 8 characters"
+                    />
+                    <button type="button" onClick={() => setShowPass(s => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 0 }}>
+                      {showPass ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                          <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
