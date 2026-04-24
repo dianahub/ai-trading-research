@@ -2412,7 +2412,7 @@ class OutreachContact(_Base):
     stripe_connect_account_id   = Column(String,   default="")
     referral_click_count        = Column(Integer,  default=0)
     discount_code               = Column(String,   default="")   # e.g. ROWAN
-    discount_code_active        = Column(Boolean,  default=True)
+    discount_code_active        = Column(Integer,  default=1)
     discount_code_uses          = Column(Integer,  default=0)
     created_at       = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -2478,7 +2478,7 @@ def _contact_dict(c):
         "stripe_connect_account_id": getattr(c, 'stripe_connect_account_id', '') or "",
         "referral_click_count":      getattr(c, 'referral_click_count', 0) or 0,
         "discount_code":             getattr(c, 'discount_code', '') or "",
-        "discount_code_active":      getattr(c, 'discount_code_active', True),
+        "discount_code_active":      bool(getattr(c, 'discount_code_active', 1)),
         "discount_code_uses":        getattr(c, 'discount_code_uses', 0) or 0,
         "last_message_sent": c.last_message_sent or "",
         "created_at":        c.created_at.isoformat() if c.created_at else None,
