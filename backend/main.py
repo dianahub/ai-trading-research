@@ -158,6 +158,14 @@ class BetaTesterFeedback(_Base):
     page       = Column(String, nullable=True, default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+class ContactMessage(_Base):
+    __tablename__ = "contact_messages"
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    name       = Column(String, nullable=False)
+    email      = Column(String, nullable=False)
+    message    = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 _Base.metadata.create_all(_engine)  # creates table if it doesn't exist
 # Add promo_code column to existing tables that predate this field
 with _engine.connect() as _conn:
@@ -612,14 +620,6 @@ def root():
 # ---------------------------------------------------------------------------
 # Contact form
 # ---------------------------------------------------------------------------
-
-class ContactMessage(_Base):
-    __tablename__ = "contact_messages"
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    name       = Column(String, nullable=False)
-    email      = Column(String, nullable=False)
-    message    = Column(String, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class ContactRequest(BaseModel):
     name: str
