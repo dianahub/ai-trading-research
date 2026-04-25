@@ -3,6 +3,7 @@ import json
 import time
 import secrets
 import threading
+import traceback
 import resend
 import requests
 import anthropic
@@ -12,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Cookie, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Float, text
@@ -56,6 +58,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def _log_error(method: str, path: str, status: int, exc: Exception):
+    try:
+        with Session(_engine) as db:
+            db.add(ErrorLog(
+                method=method,
+                path=path,
+                status=status,
+                error_type=type(exc).__name__,
+                message=str(exc)[:2000],
+                tb=traceback.format_exc()[:4000],
+            ))
+            db.commit()
+    except Exception:
+        pass  # never let logging crash the app
+
+@app.middleware("http")
+async def _error_logging_middleware(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        if response.status_code >= 500:
+            # Body already consumed — log what we can without a traceback
+            _log_error(request.method, request.url.path, response.status_code,
+                       Exception(f"HTTP {response.status_code}"))
+        return response
+    except Exception as exc:
+        _log_error(request.method, request.url.path, 500, exc)
+        return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY")
 RESEND_API_KEY      = os.getenv("RESEND_API_KEY", "")
@@ -106,6 +136,17 @@ class WaitlistSignup(_Base):
     referral_source = Column(String, nullable=False)
     promo_code      = Column(String, nullable=True)
     created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class ErrorLog(_Base):
+    __tablename__ = "error_logs"
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    method     = Column(String, nullable=True, default="")
+    path       = Column(String, nullable=True, default="")
+    status     = Column(Integer, nullable=True)
+    error_type = Column(String, nullable=True, default="")
+    message    = Column(String, nullable=False)
+    tb         = Column(String, nullable=True, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class BetaTesterFeedback(_Base):
     __tablename__ = "beta_feedback"
@@ -572,6 +613,14 @@ def root():
 # Contact form
 # ---------------------------------------------------------------------------
 
+class ContactMessage(_Base):
+    __tablename__ = "contact_messages"
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    name       = Column(String, nullable=False)
+    email      = Column(String, nullable=False)
+    message    = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 class ContactRequest(BaseModel):
     name: str
     email: str
@@ -579,21 +628,39 @@ class ContactRequest(BaseModel):
 
 @app.post("/contact")
 def contact(req: ContactRequest):
-    if not RESEND_API_KEY:
-        raise HTTPException(status_code=503, detail="Email service not configured")
+    with Session(_engine) as db:
+        db.add(ContactMessage(name=req.name, email=req.email, message=req.message))
+        db.commit()
 
-    try:
-        resend.api_key = RESEND_API_KEY
-        resend.Emails.send({
-            "from":     "Starsignal <onboarding@resend.dev>",
-            "to":       ["contact@starsignal.io"],
-            "reply_to": req.email,
-            "subject":  f"Star Signal Contact: {req.name}",
-            "text":     f"Name: {req.name}\nEmail: {req.email}\n\n{req.message}",
-        })
-        return {"ok": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    if RESEND_API_KEY:
+        try:
+            resend.api_key = RESEND_API_KEY
+            resend.Emails.send({
+                "from":     "Starsignal <onboarding@resend.dev>",
+                "to":       ["contact@starsignal.io"],
+                "reply_to": req.email,
+                "subject":  f"Star Signal Contact: {req.name}",
+                "text":     f"Name: {req.name}\nEmail: {req.email}\n\n{req.message}",
+            })
+        except Exception as e:
+            print(f"[contact] Email send failed: {e}")
+
+    return {"ok": True}
+
+
+@app.get("/admin/contact-messages")
+def list_contact_messages(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        rows = db.query(ContactMessage).order_by(ContactMessage.created_at.desc()).all()
+        return [
+            {"id": r.id, "name": r.name, "email": r.email, "message": r.message,
+             "created_at": r.created_at.isoformat() if r.created_at else None}
+            for r in rows
+        ]
 
 
 class FeedbackRequest(BaseModel):
@@ -662,6 +729,42 @@ def list_feedback(
             }
             for r in rows
         ]
+
+
+@app.get("/admin/errors")
+def list_errors(
+    limit: int = 200,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        rows = db.query(ErrorLog).order_by(ErrorLog.created_at.desc()).limit(limit).all()
+        return [
+            {
+                "id": r.id,
+                "method": r.method,
+                "path": r.path,
+                "status": r.status,
+                "error_type": r.error_type,
+                "message": r.message,
+                "tb": r.tb,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+
+
+@app.delete("/admin/errors")
+def clear_errors(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        db.query(ErrorLog).delete()
+        db.commit()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

@@ -49,6 +49,12 @@ const PAGES = [
     desc:  'Toggle beta open/closed and other site-wide settings without redeploying.',
     icon:  '⚙',
   },
+  {
+    path:  '/admin/errors',
+    title: 'Error Log',
+    desc:  'View all backend errors — path, status code, error type, and full traceback.',
+    icon:  '🔴',
+  },
 ]
 
 export default function AdminPage() {
