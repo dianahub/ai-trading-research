@@ -1,7 +1,6 @@
 // AstroInsightsPanel.jsx
 // Displays financial astrology insights from the Astro API microservice.
 import { useState } from 'react'
-import { flushSync } from 'react-dom'
 
 const OUTLOOK_CONFIG = {
   bullish:  { color: '#10b981', bg: '#052e16', border: '#065f46', label: 'BULLISH' },
@@ -236,15 +235,9 @@ function isFutureOrCurrent(timeframe) {
 
 export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic }) {
   const [visibleCount, setVisibleCount] = useState(0)
-  const [loadingMore, setLoadingMore] = useState(false)
 
   function loadMore() {
-    // flushSync forces React to commit the spinner to the DOM before setTimeout fires
-    flushSync(() => setLoadingMore(true))
-    setTimeout(() => {
-      setVisibleCount(c => c + 10)
-      setLoadingMore(false)
-    }, 200)
+    setVisibleCount(c => c + 10)
   }
 
   if (!astroData) return null
@@ -480,24 +473,15 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 ) : (
                   <button
                     onClick={loadMore}
-                    disabled={loadingMore}
                     className="w-full py-3 rounded-lg text-sm font-semibold tracking-wide transition-all cursor-pointer hover:brightness-125 active:scale-[0.99]"
                     style={{
                       background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
                       color: '#a5b4fc',
                       border: '1px solid #3730a3',
                       boxShadow: '0 0 16px #3730a344',
-                      opacity: loadingMore ? 0.7 : 1,
                     }}
                   >
-                    {loadingMore ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="w-3 h-3 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin inline-block" />
-                        Loading ten more insights…
-                      </span>
-                    ) : (
-                      `♅ See ${Math.min(10, remaining)} more insight${Math.min(10, remaining) !== 1 ? 's' : ''} ↓`
-                    )}
+                    {`♅ See ${Math.min(10, remaining)} more insight${Math.min(10, remaining) !== 1 ? 's' : ''} ↓`}
                   </button>
                 )
               })()}
