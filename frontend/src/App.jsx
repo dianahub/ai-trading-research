@@ -195,6 +195,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       setShowAuthPrompt(true)
       return
     }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     setLoading(true)
     setAnalyzing(false)
     setError(null)
