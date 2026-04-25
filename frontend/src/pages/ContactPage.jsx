@@ -64,7 +64,7 @@ export default function ContactPage() {
       })
       if (!res.ok) {
         let msg = 'Failed to send message'
-        try { const d = await res.json(); msg = d.detail || msg } catch {}
+        try { const text = await res.text(); if (text) msg = JSON.parse(text).detail || msg } catch {}
         throw new Error(msg)
       }
       setSubmitted(true)

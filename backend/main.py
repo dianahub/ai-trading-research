@@ -74,18 +74,10 @@ def _log_error(method: str, path: str, status: int, exc: Exception):
     except Exception:
         pass  # never let logging crash the app
 
-@app.middleware("http")
-async def _error_logging_middleware(request: Request, call_next):
-    try:
-        response = await call_next(request)
-        if response.status_code >= 500:
-            # Body already consumed — log what we can without a traceback
-            _log_error(request.method, request.url.path, response.status_code,
-                       Exception(f"HTTP {response.status_code}"))
-        return response
-    except Exception as exc:
-        _log_error(request.method, request.url.path, 500, exc)
-        return JSONResponse(status_code=500, content={"detail": str(exc)})
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    _log_error(request.method, request.url.path, 500, exc)
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY")
 RESEND_API_KEY      = os.getenv("RESEND_API_KEY", "")
