@@ -107,6 +107,16 @@ class WaitlistSignup(_Base):
     promo_code      = Column(String, nullable=True)
     created_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+class BetaTesterFeedback(_Base):
+    __tablename__ = "beta_feedback"
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    name       = Column(String, nullable=True, default="")
+    email      = Column(String, nullable=True, default="")
+    rating     = Column(Integer, nullable=True)
+    message    = Column(String, nullable=False)
+    page       = Column(String, nullable=True, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 _Base.metadata.create_all(_engine)  # creates table if it doesn't exist
 # Add promo_code column to existing tables that predate this field
 with _engine.connect() as _conn:
@@ -576,7 +586,7 @@ def contact(req: ContactRequest):
         resend.api_key = RESEND_API_KEY
         resend.Emails.send({
             "from":     "Starsignal <onboarding@resend.dev>",
-            "to":       ["dianahelene@gmail.com"],
+            "to":       ["contact@starsignal.io"],
             "reply_to": req.email,
             "subject":  f"Star Signal Contact: {req.name}",
             "text":     f"Name: {req.name}\nEmail: {req.email}\n\n{req.message}",
@@ -584,6 +594,72 @@ def contact(req: ContactRequest):
         return {"ok": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class FeedbackRequest(BaseModel):
+    name: str = ""
+    email: str = ""
+    rating: Optional[int] = None
+    message: str
+    page: str = "main"
+
+@app.post("/feedback")
+def submit_feedback(req: FeedbackRequest):
+    with Session(_engine) as db:
+        row = BetaTesterFeedback(
+            name=req.name,
+            email=req.email,
+            rating=req.rating,
+            message=req.message,
+            page=req.page,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+
+    if RESEND_API_KEY:
+        try:
+            stars = ("★" * (req.rating or 0)) + ("☆" * (5 - (req.rating or 0)))
+            rating_line = f"Rating: {stars} ({req.rating}/5)<br>" if req.rating else ""
+            resend.api_key = RESEND_API_KEY
+            resend.Emails.send({
+                "from":    "Starsignal <onboarding@resend.dev>",
+                "to":      ["contact@starsignal.io"],
+                "reply_to": req.email if req.email else None,
+                "subject": f"Beta Feedback from {req.name or 'anonymous'}",
+                "html": (
+                    f"<p><b>{req.name or 'Anonymous'}</b>"
+                    + (f" ({req.email})" if req.email else "")
+                    + f" left feedback on <em>{req.page}</em>.</p>"
+                    f"<p>{rating_line}Message: {req.message}</p>"
+                ),
+            })
+        except Exception as e:
+            print(f"[feedback] Email notification failed: {e}")
+
+    return {"ok": True}
+
+
+@app.get("/admin/feedback")
+def list_feedback(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        rows = db.query(BetaTesterFeedback).order_by(BetaTesterFeedback.created_at.desc()).all()
+        return [
+            {
+                "id": r.id,
+                "name": r.name,
+                "email": r.email,
+                "rating": r.rating,
+                "message": r.message,
+                "page": r.page,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -2342,7 +2418,7 @@ def create_signup(req: SignupRequest):
                 resend.api_key = RESEND_API_KEY
                 resend.Emails.send({
                     "from": "Starsignal <onboarding@resend.dev>",
-                    "to": ["dianahelene@gmail.com"],
+                    "to": ["contact@starsignal.io"],
                     "subject": f"⭐ New Starsignal Beta Signup: {req.name}",
                     "text": (
                         f"New beta signup on Starsignal.io!\n\n"

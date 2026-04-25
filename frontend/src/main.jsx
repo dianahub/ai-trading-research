@@ -30,6 +30,7 @@ import AdminCommissions from './pages/AdminCommissions.jsx'
 import AdminPendingUsers from './pages/AdminPendingUsers.jsx'
 import AdminUsers from './pages/AdminUsers.jsx'
 import AdminConfig from './pages/AdminConfig.jsx'
+import FeedbackPage from './pages/FeedbackPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -67,6 +68,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/pending-users" element={<AdminPendingUsers />} />
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/config" element={<AdminConfig />} />
+        <Route path="/feedback" element={<FeedbackPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
