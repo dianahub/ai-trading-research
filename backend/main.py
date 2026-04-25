@@ -637,7 +637,9 @@ def contact(req: ContactRequest):
                 "text":     f"Name: {req.name}\nEmail: {req.email}\n\n{req.message}",
             })
         except Exception as e:
-            print(f"[contact] Email send failed: {e}")
+            _log_error("POST", "/contact", 0, e)
+    else:
+        _log_error("POST", "/contact", 0, Exception("RESEND_API_KEY not set — email not sent"))
 
     return {"ok": True}
 
@@ -698,7 +700,9 @@ def submit_feedback(req: FeedbackRequest):
                 email_payload["reply_to"] = req.email
             resend.Emails.send(email_payload)
         except Exception as e:
-            print(f"[feedback] Email notification failed: {e}")
+            _log_error("POST", "/feedback", 0, e)
+    else:
+        _log_error("POST", "/feedback", 0, Exception("RESEND_API_KEY not set — email not sent"))
 
     return {"ok": True}
 
