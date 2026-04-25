@@ -14,6 +14,7 @@ const STATUS_COLOR = {
 export default function AdminErrors() {
   const [errors, setErrors] = useState([])
   const [loading, setLoading] = useState(false)
+  const [authError, setAuthError] = useState(false)
   const [expanded, setExpanded] = useState(null)
   const [clearing, setClearing] = useState(false)
   const [filter, setFilter] = useState('')
@@ -22,7 +23,9 @@ export default function AdminErrors() {
 
   async function refresh() {
     setLoading(true)
+    setAuthError(false)
     const r = await fetch(`${API}/admin/errors`, { headers: headers() })
+    if (r.status === 401) { setAuthError(true); setLoading(false); return }
     if (r.ok) setErrors(await r.json())
     setLoading(false)
   }
@@ -76,7 +79,13 @@ export default function AdminErrors() {
           style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}
         />
 
-        {filtered.length === 0 && !loading && (
+        {authError && (
+          <div className="rounded-xl px-6 py-4 mb-4" style={{ background: '#1f0a0a', border: '1px solid #7f1d1d' }}>
+            <p style={{ color: '#fca5a5' }}>401 Unauthorized — the ADMIN_EMAIL or ADMIN_PASSWORD on Railway doesn't match. Update the Railway env var to fix this.</p>
+          </div>
+        )}
+
+        {filtered.length === 0 && !loading && !authError && (
           <div className="rounded-xl px-6 py-12 text-center" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
             <div className="text-3xl mb-3">✅</div>
             <p style={{ color: '#94a3b8' }}>{filter ? 'No errors match that filter.' : 'No errors logged.'}</p>
