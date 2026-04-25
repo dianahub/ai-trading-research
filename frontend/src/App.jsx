@@ -195,7 +195,6 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       setShowAuthPrompt(true)
       return
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' })
     setLoading(true)
     setAnalyzing(false)
     setError(null)
@@ -236,6 +235,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
       setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name })
       setLoading(false)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
 
       // Only run AI analysis when price is available — technicals being unavailable is non-fatal
       const hasCoreData = !price?._unavailable
