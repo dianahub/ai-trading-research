@@ -5,7 +5,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const TIERS = ['free', 'beta', 'founding', 'pro', 'premium', 'platform', 'partner_preview']
 
 function headers() {
-  return { 'x-admin-email': 'dianahelene@gmail.com', 'x-admin-password': 'BISCUITLOVE', 'Content-Type': 'application/json' }
+  return { 'x-admin-email': 'contact@starsignal.io', 'x-admin-password': 'BISCUITLOVE', 'Content-Type': 'application/json' }
 }
 
 export default function AdminUsers() {

@@ -91,7 +91,7 @@ export default function AdminOutreach() {
 
   const adminHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
-    'x-admin-email':    'dianahelene@gmail.com',
+    'x-admin-email':    'contact@starsignal.io',
     'x-admin-password': 'BISCUITLOVE',
   }), [])
 

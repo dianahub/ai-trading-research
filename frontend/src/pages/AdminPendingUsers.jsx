@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 function headers() {
-  return { 'x-admin-email': 'dianahelene@gmail.com', 'x-admin-password': 'BISCUITLOVE', 'Content-Type': 'application/json' }
+  return { 'x-admin-email': 'contact@starsignal.io', 'x-admin-password': 'BISCUITLOVE', 'Content-Type': 'application/json' }
 }
 
 export default function AdminPendingUsers() {

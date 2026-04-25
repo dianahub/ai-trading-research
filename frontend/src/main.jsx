@@ -31,6 +31,8 @@ import AdminPendingUsers from './pages/AdminPendingUsers.jsx'
 import AdminUsers from './pages/AdminUsers.jsx'
 import AdminConfig from './pages/AdminConfig.jsx'
 import AdminErrors from './pages/AdminErrors.jsx'
+import AdminContacts from './pages/AdminContacts.jsx'
+import AdminFeedback from './pages/AdminFeedback.jsx'
 import FeedbackPage from './pages/FeedbackPage.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -70,6 +72,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/config" element={<AdminConfig />} />
         <Route path="/admin/errors" element={<AdminErrors />} />
+        <Route path="/admin/contacts" element={<AdminContacts />} />
+        <Route path="/admin/feedback" element={<AdminFeedback />} />
         <Route path="/feedback" element={<FeedbackPage />} />
       </Routes>
     </BrowserRouter>

@@ -5,7 +5,7 @@ const ASTRO_URL    = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-produc
 function adminHeaders() {
   return {
     'Content-Type': 'application/json',
-    'x-admin-email':    'dianahelene@gmail.com',
+    'x-admin-email':    'contact@starsignal.io',
     'x-admin-password': 'BISCUITLOVE',
   }
 }

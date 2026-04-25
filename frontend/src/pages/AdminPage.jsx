@@ -55,6 +55,18 @@ const PAGES = [
     desc:  'View all backend errors — path, status code, error type, and full traceback.',
     icon:  '🔴',
   },
+  {
+    path:  '/admin/contacts',
+    title: 'Contact Messages',
+    desc:  'Messages submitted via the contact form.',
+    icon:  '✉',
+  },
+  {
+    path:  '/admin/feedback',
+    title: 'Beta Feedback',
+    desc:  'Feedback submissions from beta testers with ratings.',
+    icon:  '⭐',
+  },
 ]
 
 export default function AdminPage() {
