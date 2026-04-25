@@ -38,6 +38,11 @@ export default function AdminErrors() {
     setClearing(false)
   }
 
+  async function testLog() {
+    await fetch(`${API}/admin/test-error-log`, { method: 'POST', headers: headers() })
+    setTimeout(refresh, 500)
+  }
+
   const filtered = errors.filter(e =>
     !filter ||
     e.path?.toLowerCase().includes(filter.toLowerCase()) ||
@@ -58,6 +63,11 @@ export default function AdminErrors() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button onClick={testLog}
+              className="px-3 py-2 rounded-lg text-xs"
+              style={{ background: '#0f1a2e', border: '1px solid #1e3a5f', color: '#38bdf8', cursor: 'pointer' }}>
+              Test log
+            </button>
             <button onClick={refresh} disabled={loading}
               className="px-3 py-2 rounded-lg text-xs"
               style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#94a3b8', cursor: 'pointer' }}>

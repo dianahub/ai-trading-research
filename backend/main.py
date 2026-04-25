@@ -71,8 +71,8 @@ def _log_error(method: str, path: str, status: int, exc: Exception):
                 tb=traceback.format_exc()[:4000],
             ))
             db.commit()
-    except Exception:
-        pass  # never let logging crash the app
+    except Exception as log_exc:
+        print(f"[error_log] FAILED to write to ErrorLog table: {log_exc}", flush=True)
 
 @app.exception_handler(Exception)
 async def _unhandled_exception_handler(request: Request, exc: Exception):
@@ -763,6 +763,20 @@ def clear_errors(
         db.query(ErrorLog).delete()
         db.commit()
     return {"ok": True}
+
+
+@app.post("/admin/test-error-log")
+def test_error_log(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Write a test entry to the error log to verify the table exists and logging works."""
+    _require_admin(x_admin_email, x_admin_password)
+    try:
+        raise ValueError("Test error log entry — this is intentional")
+    except Exception as e:
+        _log_error("POST", "/admin/test-error-log", 500, e)
+    return {"ok": True, "message": "Test error written — check /admin/errors"}
 
 
 # ---------------------------------------------------------------------------
