@@ -62,8 +62,9 @@ export default function FeedbackPage() {
         body: JSON.stringify({ ...form, page: 'main' }),
       })
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail || 'Failed to submit feedback')
+        let msg = 'Failed to submit feedback'
+        try { const d = await res.json(); msg = d.detail || msg } catch {}
+        throw new Error(msg)
       }
       setSubmitted(true)
     } catch (err) {

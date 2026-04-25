@@ -622,10 +622,9 @@ def submit_feedback(req: FeedbackRequest):
             stars = ("★" * (req.rating or 0)) + ("☆" * (5 - (req.rating or 0)))
             rating_line = f"Rating: {stars} ({req.rating}/5)<br>" if req.rating else ""
             resend.api_key = RESEND_API_KEY
-            resend.Emails.send({
+            email_payload = {
                 "from":    "Starsignal <onboarding@resend.dev>",
                 "to":      ["contact@starsignal.io"],
-                "reply_to": req.email if req.email else None,
                 "subject": f"Beta Feedback from {req.name or 'anonymous'}",
                 "html": (
                     f"<p><b>{req.name or 'Anonymous'}</b>"
@@ -633,7 +632,10 @@ def submit_feedback(req: FeedbackRequest):
                     + f" left feedback on <em>{req.page}</em>.</p>"
                     f"<p>{rating_line}Message: {req.message}</p>"
                 ),
-            })
+            }
+            if req.email:
+                email_payload["reply_to"] = req.email
+            resend.Emails.send(email_payload)
         except Exception as e:
             print(f"[feedback] Email notification failed: {e}")
 
