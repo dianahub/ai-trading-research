@@ -239,10 +239,13 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
   function loadMore() {
     setLoadingMore(true)
-    setTimeout(() => {
-      setVisibleCount(c => c + 10)
-      setLoadingMore(false)
-    }, 50)
+    // Double rAF: first frame lets React paint the spinner; second frame adds cards
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setVisibleCount(c => c + 10)
+        setLoadingMore(false)
+      })
+    })
   }
 
   if (!astroData) return null
