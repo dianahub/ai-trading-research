@@ -4049,7 +4049,7 @@ def auth_signup(req: AuthSignupRequest, response: Response):
         )
 
         raw_token = _create_session(db, user.id)
-        response.set_cookie("ss_session", raw_token, httponly=True, samesite="none",
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
                             secure=True, max_age=60*60*24*7)
         return {"user": _user_dict(user), "message": "Account created. Please verify your email."}
 
@@ -4093,7 +4093,7 @@ def auth_login(req: AuthLoginRequest, response: Response):
 
         raw_token = _create_session(db, user.id, req.remember_me)
         max_age = 60*60*24*30 if req.remember_me else 60*60*24*7
-        response.set_cookie("ss_session", raw_token, httponly=True, samesite="none",
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
                             secure=True, max_age=max_age)
 
         beta_expired = (user.tier == "beta" and user.beta_expires_at and
@@ -4459,7 +4459,7 @@ def magic_login(body: dict, response: Response):
         user.email_verification_expires = None
         db.commit()
         raw_token = _create_session(db, user.id)
-        response.set_cookie("ss_session", raw_token, httponly=True, samesite="none",
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
                             secure=True, max_age=60*60*24*7)
         return {"user": _user_dict(user)}
 
