@@ -132,7 +132,7 @@ function InsightCard({ insight }) {
           <span className="text-xs font-medium" style={{ color: '#cbd5e1' }}>
             {insight.timeframe}
           </span>
-          {insight.trend_type && (
+          {insight.trend_type && isDateRange(insight.timeframe) && (
             <span
               className="px-2 py-0.5 rounded text-xs tracking-wider"
               style={{
@@ -208,6 +208,31 @@ function DirectMatchHeader({ ticker, topic, insights, breakdown }) {
   )
 }
 
+function isDateRange(timeframe) {
+  return /[-–]/.test(timeframe ?? '')
+}
+
+function isFutureOrCurrent(timeframe) {
+  if (!timeframe) return true
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const MONTHS = { january:1, february:2, march:3, april:4, may:5, june:6, july:7, august:8, september:9, october:10, november:11, december:12 }
+  // Extract all 4-digit years and month names to find the latest date mentioned
+  const year = parseInt((timeframe.match(/\b(20\d{2})\b/) || [])[1]) || today.getFullYear()
+  // Find last day number in string
+  const nums = [...timeframe.matchAll(/\b(\d{1,2})\b/g)].map(m => parseInt(m[1])).filter(n => n >= 1 && n <= 31)
+  const monthNames = Object.keys(MONTHS)
+  const months = monthNames.filter(m => timeframe.toLowerCase().includes(m))
+  if (months.length === 0) {
+    // e.g. bare year "2026"
+    return new Date(year, 11, 31) >= today
+  }
+  const lastMonth = MONTHS[months[months.length - 1]]
+  const lastDay = nums.length > 0 ? nums[nums.length - 1] : new Date(year, lastMonth, 0).getDate()
+  const endDate = new Date(year, lastMonth - 1, lastDay)
+  return endDate >= today
+}
+
 export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic }) {
   const [visibleCount, setVisibleCount] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -217,12 +242,15 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     setTimeout(() => {
       setVisibleCount(c => c + 10)
       setLoadingMore(false)
-    }, 0)
+    }, 50)
   }
 
   if (!astroData) return null
 
-  const { available, sentiment_score, overall_summary, insights = [], total_insights, breakdown = {} } = astroData
+  const { available, sentiment_score, overall_summary, insights: rawInsights = [], total_insights, breakdown = {} } = astroData
+
+  // Filter out insights whose timeframe has already passed
+  const insights = rawInsights.filter(i => isFutureOrCurrent(i.timeframe))
 
   // matchedTopic can be a string or array of strings
   const matchedTopics = matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
