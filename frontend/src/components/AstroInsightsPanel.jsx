@@ -209,7 +209,7 @@ function DirectMatchHeader({ ticker, topic, insights, breakdown }) {
 }
 
 export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic }) {
-  const [showAll, setShowAll] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(0)
 
   if (!astroData) return null
 
@@ -417,20 +417,22 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </div>
               )}
 
-              {/* Expanded insights (remaining matched + others, no repeats) */}
-              {showAll && viewAllInsights.length > 0 && (
+              {/* Incrementally loaded insights */}
+              {visibleCount > 0 && viewAllInsights.length > 0 && (
                 <div className="space-y-3">
-                  {viewAllInsights.map((insight, i) => (
+                  {viewAllInsights.slice(0, visibleCount).map((insight, i) => (
                     <InsightCard key={insight.id ?? i} insight={insight} />
                   ))}
                 </div>
               )}
 
-              {/* View All / Show Less button */}
-              {showViewAll && (
-                showAll ? (
+              {/* Load more / Show less */}
+              {showViewAll && (() => {
+                const remaining = viewAllInsights.length - visibleCount
+                const allLoaded = visibleCount >= viewAllInsights.length
+                return allLoaded ? (
                   <button
-                    onClick={() => setShowAll(false)}
+                    onClick={() => setVisibleCount(0)}
                     className="w-full text-xs py-2 rounded transition-colors cursor-pointer"
                     style={{ background: '#111827', color: '#94a3b8', border: '1px solid #1e2d45' }}
                   >
@@ -438,7 +440,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   </button>
                 ) : (
                   <button
-                    onClick={() => setShowAll(true)}
+                    onClick={() => setVisibleCount(c => c + 10)}
                     className="w-full py-3 rounded-lg text-sm font-semibold tracking-wide transition-all cursor-pointer hover:brightness-125 active:scale-[0.99]"
                     style={{
                       background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
@@ -447,10 +449,10 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                       boxShadow: '0 0 16px #3730a344',
                     }}
                   >
-                    ♅ View All Astro Insights ({total_insights}) ↓
+                    ♅ See {Math.min(10, remaining)} more insight{Math.min(10, remaining) !== 1 ? 's' : ''} ↓
                   </button>
                 )
-              )}
+              })()}
             </>
           )}
 
