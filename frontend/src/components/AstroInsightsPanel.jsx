@@ -1,6 +1,6 @@
 // AstroInsightsPanel.jsx
 // Displays financial astrology insights from the Astro API microservice.
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 const OUTLOOK_CONFIG = {
   bullish:  { color: '#10b981', bg: '#052e16', border: '#065f46', label: 'BULLISH' },
@@ -233,6 +233,53 @@ function isFutureOrCurrent(timeframe) {
   return endDate >= today
 }
 
+function pickOnePerAstrologer(pool, max = 3) {
+  const seen = new Set()
+  const picked = []
+  for (const insight of pool) {
+    if (!seen.has(insight.source_name)) {
+      seen.add(insight.source_name)
+      picked.push(insight)
+      if (picked.length === max) break
+    }
+  }
+  if (picked.length < max) {
+    for (const insight of pool) {
+      if (!picked.includes(insight)) {
+        picked.push(insight)
+        if (picked.length === max) break
+      }
+    }
+  }
+  return picked
+}
+
+function deduplicateSimilar(pool) {
+  const JACCARD_THRESHOLD = 0.45
+  const CONFIDENCE_RANK = { high: 3, medium: 2, low: 1 }
+  function words(text) {
+    return new Set((text ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean))
+  }
+  function jaccard(a, b) {
+    const wa = words(a); const wb = words(b)
+    const intersection = [...wa].filter(w => wb.has(w)).length
+    const union = new Set([...wa, ...wb]).size
+    return union === 0 ? 0 : intersection / union
+  }
+  function isSimilar(a, b) {
+    if (a.topic === b.topic && a.outlook === b.outlook && a.timeframe === b.timeframe) return true
+    return jaccard(a.summary, b.summary) >= JACCARD_THRESHOLD
+  }
+  const sorted = [...pool].sort(
+    (a, b) => (CONFIDENCE_RANK[b.confidence] ?? 0) - (CONFIDENCE_RANK[a.confidence] ?? 0)
+  )
+  const kept = []
+  for (const candidate of sorted) {
+    if (!kept.some(k => isSimilar(k, candidate))) kept.push(candidate)
+  }
+  return kept
+}
+
 export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic }) {
   const [visibleCount, setVisibleCount] = useState(0)
 
@@ -240,97 +287,31 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     setVisibleCount(c => c + 10)
   }
 
+  const { available, sentiment_score, overall_summary, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
+
+  // All expensive filtering/dedup runs only when astroData or matchedTopic changes
+  const { previewInsights, viewAllInsights } = useMemo(() => {
+    const matchedTopics = matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
+    const insights = (rawInsights ?? []).filter(i => isFutureOrCurrent(i.timeframe))
+    const hasDirectMatch = matchedTopics.length > 0 && available && insights.some(i => matchedTopics.includes(i.topic))
+    const matchedInsights = hasDirectMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
+    const otherInsights   = hasDirectMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
+    const previewPool     = hasDirectMatch ? matchedInsights : insights
+    const preview         = pickOnePerAstrologer(previewPool, 3)
+    const previewIds      = new Set(preview.map(i => i.id ?? i.summary))
+    const expandedRaw     = [
+      ...matchedInsights.filter(i => !previewIds.has(i.id ?? i.summary)),
+      ...otherInsights,
+    ]
+    const viewAll = hasDirectMatch
+      ? deduplicateSimilar(expandedRaw)
+      : deduplicateSimilar(insights.filter(i => !previewIds.has(i.id ?? i.summary)))
+    return { previewInsights: preview, viewAllInsights: viewAll }
+  }, [rawInsights, matchedTopic, available])
+
   if (!astroData) return null
 
-  const { available, sentiment_score, overall_summary, insights: rawInsights = [], total_insights, breakdown = {} } = astroData
-
-  // Filter out insights whose timeframe has already passed
-  const insights = rawInsights.filter(i => isFutureOrCurrent(i.timeframe))
-
-  // matchedTopic can be a string or array of strings
-  const matchedTopics = matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
-  const hasDirectMatch = matchedTopics.length > 0 && available && insights.some(i => matchedTopics.includes(i.topic))
-
-  // Split matched vs others
-  const matchedInsights = hasDirectMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
-  const otherInsights   = hasDirectMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
-
-  // Pick up to 3 preview cards, one per unique source_name (astrologer)
-  function pickOnePerAstrologer(pool, max = 3) {
-    const seen = new Set()
-    const picked = []
-    for (const insight of pool) {
-      if (!seen.has(insight.source_name)) {
-        seen.add(insight.source_name)
-        picked.push(insight)
-        if (picked.length === max) break
-      }
-    }
-    // If we still have slots and ran out of unique astrologers, fill from remainder
-    if (picked.length < max) {
-      for (const insight of pool) {
-        if (!picked.includes(insight)) {
-          picked.push(insight)
-          if (picked.length === max) break
-        }
-      }
-    }
-    return picked
-  }
-
-  // Remove insights whose summary is very similar to one already kept.
-  // Two insights are considered duplicates if:
-  //   • same topic + outlook + timeframe, OR
-  //   • Jaccard word-overlap of their summaries exceeds 0.45
-  function deduplicateSimilar(pool) {
-    const JACCARD_THRESHOLD = 0.45
-    const CONFIDENCE_RANK = { high: 3, medium: 2, low: 1 }
-
-    function words(text) {
-      return new Set((text ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean))
-    }
-
-    function jaccard(a, b) {
-      const wa = words(a)
-      const wb = words(b)
-      const intersection = [...wa].filter(w => wb.has(w)).length
-      const union = new Set([...wa, ...wb]).size
-      return union === 0 ? 0 : intersection / union
-    }
-
-    function isSimilar(a, b) {
-      if (a.topic === b.topic && a.outlook === b.outlook && a.timeframe === b.timeframe) return true
-      return jaccard(a.summary, b.summary) >= JACCARD_THRESHOLD
-    }
-
-    // Sort by confidence desc so we keep the best version when there's a clash
-    const sorted = [...pool].sort(
-      (a, b) => (CONFIDENCE_RANK[b.confidence] ?? 0) - (CONFIDENCE_RANK[a.confidence] ?? 0)
-    )
-
-    const kept = []
-    for (const candidate of sorted) {
-      if (!kept.some(k => isSimilar(k, candidate))) {
-        kept.push(candidate)
-      }
-    }
-    return kept
-  }
-
-  const previewPool    = hasDirectMatch ? matchedInsights : insights
-  const previewInsights = pickOnePerAstrologer(previewPool, 3)
-
-  // View All: remaining matched (no repeat of preview) + others, deduplicated
-  const previewIds     = new Set(previewInsights.map(i => i.id ?? i.summary))
-  const expandedRaw    = [
-    ...matchedInsights.filter(i => !previewIds.has(i.id ?? i.summary)),
-    ...otherInsights,
-  ]
-  const expandedInsights = deduplicateSimilar(expandedRaw)
-
-  // When no direct match, "View All" shows everything (deduplicated)
-  const viewAllInsights = hasDirectMatch ? expandedInsights : deduplicateSimilar(insights.filter(i => !previewIds.has(i.id ?? i.summary)))
-  const showViewAll     = viewAllInsights.length > 0
+  const showViewAll = viewAllInsights.length > 0
 
   return (
     <div
