@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://ai-trading-backend-staging.up.railway.app/:path*" },
+    { "source": "/api/:path*", "destination": "https://aitrading.starsignal.io/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
