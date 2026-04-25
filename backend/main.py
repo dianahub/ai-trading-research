@@ -76,6 +76,8 @@ def _log_error(method: str, path: str, status: int, exc: Exception):
 
 @app.exception_handler(Exception)
 async def _unhandled_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     _log_error(request.method, request.url.path, 500, exc)
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 

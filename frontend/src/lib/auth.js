@@ -21,7 +21,8 @@ export async function login(email, password, rememberMe = false) {
     credentials: 'include',
     body: JSON.stringify({ email, password, remember_me: rememberMe }),
   })
-  const d = await r.json()
+  let d = {}
+  try { const t = await r.text(); if (t) d = JSON.parse(t) } catch {}
   if (!r.ok) throw new Error(d.detail || 'Login failed')
   return d
 }
@@ -33,7 +34,8 @@ export async function signup(email, password, firstName, lastName, ref) {
     credentials: 'include',
     body: JSON.stringify({ email, password, first_name: firstName, last_name: lastName, ref }),
   })
-  const d = await r.json()
+  let d = {}
+  try { const t = await r.text(); if (t) d = JSON.parse(t) } catch {}
   if (!r.ok) throw new Error(d.detail || 'Signup failed')
   return d
 }
