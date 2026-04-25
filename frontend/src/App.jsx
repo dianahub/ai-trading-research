@@ -506,12 +506,10 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               {AUTH_ACTIVE && !authedUser && (
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
                   <div style={{ borderRadius: 16, overflow: 'hidden', width: '100%', maxWidth: 315, aspectRatio: '9/16', background: '#0b1120' }}>
-                    <iframe
-                      src="https://www.youtube.com/embed/J_-8CXGhxt0?modestbranding=1&rel=0"
-                      title="Star Signal"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                    <video
+                      src="/promo.mp4"
+                      autoPlay muted loop playsInline
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                     />
                   </div>
                 </div>
