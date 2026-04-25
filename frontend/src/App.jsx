@@ -482,19 +482,23 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               ))}
             </div>
 
-            {/* Quick tickers */}
+            {/* Quick tickers — hidden for logged-out users when auth is active */}
             <div className="text-center space-y-2">
-              <p className="text-base font-semibold" style={{ color: '#94a3b8' }}>👇 Try a quick search below, or enter any symbol above in the search bar and click Analyze</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
-                  <button key={t}
-                    onClick={() => AUTH_ACTIVE && !authedUser ? setShowAuthPrompt(true) : handleSearch(t)}
-                    className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all"
-                    style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
-                    {t}
-                  </button>
-                ))}
-              </div>
+              {(!AUTH_ACTIVE || authedUser) && (
+                <>
+                  <p className="text-base font-semibold" style={{ color: '#94a3b8' }}>👇 Try a quick search below, or enter any symbol above in the search bar and click Analyze</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
+                      <button key={t}
+                        onClick={() => handleSearch(t)}
+                        className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all"
+                        style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               {AUTH_ACTIVE && !authedUser && (
                 <p className="text-sm mt-2 font-medium" style={{ color: '#94a3b8' }}>
                   Please{' '}
