@@ -494,7 +494,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                     {loadingMore ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="w-3 h-3 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin inline-block" />
-                        Loading…
+                        Loading ten more insights…
                       </span>
                     ) : (
                       `♅ See ${Math.min(10, remaining)} more insight${Math.min(10, remaining) !== 1 ? 's' : ''} ↓`
