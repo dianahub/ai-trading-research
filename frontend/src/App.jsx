@@ -507,7 +507,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
                   <div style={{ borderRadius: 16, overflow: 'hidden', width: '100%', maxWidth: 315, aspectRatio: '9/16', background: '#0b1120' }}>
                     <iframe
-                      src="https://www.youtube.com/embed/J_-8CXGhxt0"
+                      src="https://www.youtube.com/embed/J_-8CXGhxt0?modestbranding=1&rel=0"
                       title="Star Signal"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
