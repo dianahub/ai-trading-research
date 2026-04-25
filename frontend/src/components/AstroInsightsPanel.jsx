@@ -1,6 +1,7 @@
 // AstroInsightsPanel.jsx
 // Displays financial astrology insights from the Astro API microservice.
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
 
 const OUTLOOK_CONFIG = {
   bullish:  { color: '#10b981', bg: '#052e16', border: '#065f46', label: 'BULLISH' },
@@ -238,14 +239,12 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
   const [loadingMore, setLoadingMore] = useState(false)
 
   function loadMore() {
-    setLoadingMore(true)
-    // Double rAF: first frame lets React paint the spinner; second frame adds cards
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setVisibleCount(c => c + 10)
-        setLoadingMore(false)
-      })
-    })
+    // flushSync forces React to commit the spinner to the DOM before setTimeout fires
+    flushSync(() => setLoadingMore(true))
+    setTimeout(() => {
+      setVisibleCount(c => c + 10)
+      setLoadingMore(false)
+    }, 200)
   }
 
   if (!astroData) return null
