@@ -297,11 +297,11 @@ export default function AccountPage() {
                 Manual activation only.
               </p>
             </div>
-            <a href="mailto:contact@starsignal.io?subject=Platform Tier Inquiry"
+            <Link to="/contact-api"
               className="px-4 py-2 rounded-lg text-xs font-bold flex-shrink-0"
               style={{ background: 'linear-gradient(135deg,#d4a847,#b8860b)', color: '#0a0a0a', textDecoration: 'none' }}>
               Contact us
-            </a>
+            </Link>
           </div>
         </div>
       </div>
