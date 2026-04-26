@@ -629,8 +629,8 @@ def contact(req: ContactRequest):
         try:
             resend.api_key = RESEND_API_KEY
             resend.Emails.send({
-                "from":     "Starsignal <onboarding@starsignal.io>",
-                "to":       ["dianahelene@gmail.com"],
+                "from":    "Starsignal <contact@starsignal.io>",
+                "to":      ["contact@starsignal.io"],
                 "reply_to": req.email,
                 "subject":  f"Star Signal Contact: {req.name}",
                 "text":     f"Name: {req.name}\nEmail: {req.email}\n\n{req.message}",
@@ -662,8 +662,8 @@ def contact_api(req: ContactApiRequest):
         try:
             resend.api_key = RESEND_API_KEY
             resend.Emails.send({
-                "from":     "Starsignal <onboarding@starsignal.io>",
-                "to":       ["dianahelene@gmail.com"],
+                "from":    "Starsignal <contact@starsignal.io>",
+                "to":      ["contact@starsignal.io"],
                 "reply_to": req.email,
                 "subject":  f"PLATFORM INQUIRY: {req.name}",
                 "text":     (
@@ -2572,8 +2572,8 @@ def create_signup(req: SignupRequest):
 
                 resend.api_key = RESEND_API_KEY
                 resend.Emails.send({
-                    "from": "Starsignal <onboarding@starsignal.io>",
-                    "to": ["dianahelene@gmail.com"],
+                    "from": "Starsignal <contact@starsignal.io>",
+                    "to": ["contact@starsignal.io"],
                     "subject": f"⭐ New Starsignal Beta Signup: {req.name}",
                     "text": (
                         f"New beta signup on Starsignal.io!\n\n"
@@ -3866,7 +3866,7 @@ def _send_email(to: str, subject: str, html: str):
     try:
         resend.api_key = RESEND_API_KEY
         resend.Emails.send({
-            "from": "Star Signal <onboarding@starsignal.io>",
+            "from": "Star Signal <contact@starsignal.io>",
             "to": [to],
             "subject": subject,
             "html": html,
