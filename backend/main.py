@@ -28,9 +28,8 @@ try:
         try: return _pwd_context.verify(pw, hashed)
         except Exception: return False
 except ImportError:
-    import hashlib, hmac
-    def _hash_password(pw: str) -> str: return hashlib.sha256(pw.encode()).hexdigest()
-    def _verify_password(pw: str, hashed: str) -> bool: return hmac.compare_digest(_hash_password(pw), hashed)
+    # Fail loudly if passlib is missing — never fall back to unsalted sha256
+    raise RuntimeError("passlib is required for secure password hashing. Install with 'pip install passlib[bcrypt]'")
 
 try:
     import stripe as _stripe
@@ -2642,11 +2641,7 @@ class ServiceJob(_Base):
 
 _Base.metadata.create_all(_engine)
 
-_STAGING_KEY = "ss-staging-bypass-2026"
-
 def _require_admin(x_admin_email: str, x_admin_password: str):
-    if x_admin_email == _STAGING_KEY:
-        return
     ae = os.getenv("ADMIN_EMAIL", "")
     ap = os.getenv("ADMIN_PASSWORD", "")
     if not ae or x_admin_email != ae or x_admin_password != ap:
@@ -3617,9 +3612,9 @@ class User(_Base):
 class UserSession(_Base):
     __tablename__ = "user_sessions"
     id         = Column(String, primary_key=True, default=lambda: secrets.token_hex(16))
-    user_id    = Column(String, nullable=False)
+    user_id    = Column(String, nullable=False, index=True)
     token_hash = Column(String, unique=True, nullable=False)
-    expires_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -3806,18 +3801,23 @@ def _create_session(db: Session, user_id: str, remember: bool = False) -> str:
     )
     db.add(sess)
     db.commit()
-    return raw
+    db.refresh(sess)
+    return f"{sess.id}:{raw}"
 
 
 def _get_user_from_cookie(session_token: Optional[str], db: Session) -> Optional[User]:
-    if not session_token:
+    if not session_token or ":" not in session_token:
         return None
-    for sess in db.query(UserSession).filter(UserSession.expires_at > datetime.now(timezone.utc)).all():
-        try:
-            if _verify_password(session_token, sess.token_hash):
-                return db.query(User).filter(User.id == sess.user_id).first()
-        except Exception:
-            continue
+    try:
+        sess_id, raw = session_token.split(":", 1)
+        sess = db.query(UserSession).filter(
+            UserSession.id == sess_id,
+            UserSession.expires_at > datetime.now(timezone.utc)
+        ).first()
+        if sess and _verify_password(raw, sess.token_hash):
+            return db.query(User).filter(User.id == sess.user_id).first()
+    except Exception:
+        pass
     return None
 
 
@@ -4121,15 +4121,15 @@ def auth_login(req: AuthLoginRequest, response: Response):
 @app.post("/auth/logout")
 def auth_logout(response: Response, ss_session: Optional[str] = Cookie(None)):
     with Session(_engine) as db:
-        if ss_session:
-            for sess in db.query(UserSession).all():
-                try:
-                    if _verify_password(ss_session, sess.token_hash):
-                        db.delete(sess)
-                        break
-                except Exception:
-                    pass
-            db.commit()
+        if ss_session and ":" in ss_session:
+            try:
+                sess_id, raw = ss_session.split(":", 1)
+                sess = db.query(UserSession).filter(UserSession.id == sess_id).first()
+                if sess and _verify_password(raw, sess.token_hash):
+                    db.delete(sess)
+                    db.commit()
+            except Exception:
+                pass
     response.delete_cookie("ss_session")
     return {"ok": True}
 
