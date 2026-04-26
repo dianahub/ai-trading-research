@@ -643,6 +643,45 @@ def contact(req: ContactRequest):
     return {"ok": True}
 
 
+class ContactApiRequest(BaseModel):
+    name: str
+    email: str
+    phone: str = ""
+    website: str = ""
+    usage_description: str
+
+@app.post("/contact-api")
+def contact_api(req: ContactApiRequest):
+    # Store in database (reuse ContactMessage table with combined message)
+    with Session(_engine) as db:
+        combined = f"Phone: {req.phone}\nWebsite: {req.website}\n\n{req.usage_description}"
+        db.add(ContactMessage(name=req.name, email=req.email, message=combined))
+        db.commit()
+
+    if RESEND_API_KEY:
+        try:
+            resend.api_key = RESEND_API_KEY
+            resend.Emails.send({
+                "from":     "Starsignal <onboarding@resend.dev>",
+                "to":       ["contact@starsignal.io"],
+                "reply_to": req.email,
+                "subject":  f"PLATFORM INQUIRY: {req.name}",
+                "text":     (
+                    f"Name: {req.name}\n"
+                    f"Email: {req.email}\n"
+                    f"Phone: {req.phone}\n"
+                    f"Website: {req.website}\n\n"
+                    f"Usage Description:\n{req.usage_description}"
+                ),
+            })
+        except Exception as e:
+            _log_error("POST", "/contact-api", 0, e)
+    else:
+        _log_error("POST", "/contact-api", 0, Exception("RESEND_API_KEY not set — email not sent"))
+
+    return {"ok": True}
+
+
 @app.get("/admin/contact-messages")
 def list_contact_messages(
     x_admin_email: str = Header(default=""),

@@ -34,6 +34,7 @@ import AdminErrors from './pages/AdminErrors.jsx'
 import AdminContacts from './pages/AdminContacts.jsx'
 import AdminFeedback from './pages/AdminFeedback.jsx'
 import FeedbackPage from './pages/FeedbackPage.jsx'
+import ContactApiPage from './pages/ContactApiPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -44,6 +45,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/contact-api" element={<ContactApiPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/outreach" element={<AdminOutreach />} />
         <Route path="/admin/partners" element={<AdminPartners />} />
