@@ -1342,33 +1342,13 @@ def get_technicals(ticker: str):
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None)):
+def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypass_usage: bool = False):
     """
     Send all available data to Claude for a structured research report.
     Handles both crypto (whale data) and stock (insider + options) asset types.
     """
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not configured")
-
-    # ── Rate limiting ──────────────────────────────────────────────────────────
-    with Session(_engine) as db:
-        user = _get_user_from_cookie(ss_session, db)
-        if user:
-            tier = _get_user_tier(user)
-            limit = TIER_DAILY_LIMITS.get(tier)
-            if limit is not None:
-                row = _get_or_create_usage(db, user.id)
-                if row.request_count >= limit:
-                    upgrade = TIER_UPGRADE_COPY.get(tier, {})
-                    raise HTTPException(status_code=429, detail={
-                        "reason":  "daily_limit",
-                        "count":   row.request_count,
-                        "limit":   limit,
-                        "tier":    tier,
-                        "upgrade": upgrade,
-                    })
-                row.request_count += 1
-                db.commit()
 
     asset_type = req.asset_type
     upper      = req.ticker.upper()
@@ -1378,23 +1358,43 @@ def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None)):
     is_fresh = cached and age < ANALYZE_TTL
     is_stale = cached and not is_fresh
 
-    # Fresh hit — return instantly
+    # Fresh hit — return instantly (doesn't count against limit)
     if is_fresh:
         return AnalyzeResponse(**{**cached["result"], "from_cache": True})
 
     # Stale hit — return instantly and refresh in background.
-    # Evict the entry before the recursive call so it bypasses the stale check
-    # and actually reaches the Claude call instead of spawning infinite threads.
     if is_stale:
         stale_result = cached["result"]
         def _background_refresh():
             try:
                 _analyze_cache.pop(upper, None)
-                analyze(req)
+                analyze(req, ss_session=ss_session, bypass_usage=True)
             except Exception:
                 pass
         threading.Thread(target=_background_refresh, daemon=True).start()
         return AnalyzeResponse(**{**stale_result, "from_cache": True})
+
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    # Only count if it's NOT a background refresh and NOT a cache hit
+    if not bypass_usage:
+        with Session(_engine) as db:
+            user = _get_user_from_cookie(ss_session, db)
+            if user:
+                tier = _get_user_tier(user)
+                limit = TIER_DAILY_LIMITS.get(tier)
+                if limit is not None:
+                    row = _get_or_create_usage(db, user.id)
+                    if row.request_count >= limit:
+                        upgrade = TIER_UPGRADE_COPY.get(tier, {})
+                        raise HTTPException(status_code=429, detail={
+                            "reason":  "daily_limit",
+                            "count":   row.request_count,
+                            "limit":   limit,
+                            "tier":    tier,
+                            "upgrade": upgrade,
+                        })
+                    row.request_count += 1
+                    db.commit()
 
     # ── Shared formatters ──────────────────────────────────────────────────────
     def _fmt(v):
