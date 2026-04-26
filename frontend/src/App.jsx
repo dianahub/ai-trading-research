@@ -440,7 +440,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                         <a key={s.href} href={s.href}
                           onClick={() => setNavOpen(false)}
                           className="px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:brightness-125"
-                          style={{ color: '#94a3b8', background: '#111827', border: '1px solid #1e2d45' }}>
+                          style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
                           {s.label}
                         </a>
                       ))}
@@ -511,6 +511,18 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 </span>
               ))}
             </div>
+            {/* Inserted video element here */}
+            {AUTH_ACTIVE && !authedUser && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
+                <div style={{ borderRadius: 16, overflow: 'hidden', width: '100%', maxWidth: 315, aspectRatio: '9/16', background: '#0b1120' }}>
+                  <video
+                    src="/promo.mp4"
+                    autoPlay muted loop playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Quick tickers — hidden for logged-out users when auth is active */}
             <div className="text-center space-y-2">
@@ -536,17 +548,6 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                   {' '}or{' '}
                   <a href="/beta" style={{ color: '#06b6d4', textDecoration: 'none' }}>apply for a free Beta Account</a>
                 </p>
-              )}
-              {AUTH_ACTIVE && !authedUser && (
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
-                  <div style={{ borderRadius: 16, overflow: 'hidden', width: '100%', maxWidth: 315, aspectRatio: '9/16', background: '#0b1120' }}>
-                    <video
-                      src="/promo.mp4"
-                      autoPlay muted loop playsInline
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  </div>
-                </div>
               )}
             </div>
 
