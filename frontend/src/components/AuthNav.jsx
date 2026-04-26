@@ -21,14 +21,22 @@ function TierBadge({ tier }) {
 }
 
 export default function AuthNav() {
-  const [user, setUser] = useState(undefined) // undefined=loading, null=logged out, obj=logged in
+  const [user, setUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ss_user')
+      return raw ? JSON.parse(raw) : undefined
+    } catch { return undefined }
+  })
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const ref = useRef(null)
 
   useEffect(() => {
     if (!AUTH_ENABLED || isPublicDomain()) { setUser(null); return }
-    getMe().then(setUser).catch(() => setUser(null))
+    getMe().then(setUser).catch(() => {
+      setUser(null)
+      localStorage.removeItem('ss_user')
+    })
   }, [])
 
   useEffect(() => {

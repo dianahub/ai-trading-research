@@ -680,7 +680,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
       {/* Site-wide footer */}
       {/* Usage bar — only for logged-in users with a limit */}
-      {AUTH_ACTIVE && authedUser && usage && !usage.unlimited && (
+      {AUTH_ACTIVE && authedUser && usage && !usage.unlimited && usage.limit > 0 && (
         <div className="px-6 py-3" style={{ background: '#0a0e1a', borderTop: '1px solid #1e2d45' }}>
           <div className="max-w-7xl mx-auto flex items-center gap-3">
             <span className="text-xs whitespace-nowrap" style={{ color: '#64748b' }}>
