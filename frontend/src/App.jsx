@@ -211,7 +211,15 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
     try {
       // Detect asset type first so we call the right endpoints
-      const detected = await apiFetch(`/detect/${ticker}`)
+      let detected = null
+      try {
+        detected = await apiFetch(`/detect/${ticker}`)
+      } catch (detectErr) {
+        // Fallback for symbols that fail detection
+        detected = { asset_type: 'crypto', name: ticker.toUpperCase() }
+      }
+
+      if (!detected) detected = { asset_type: 'crypto', name: ticker.toUpperCase() }
       const isStock = detected.asset_type === 'stock'
 
       const [price, news, technicals, smartMoney] = await Promise.all([
@@ -239,9 +247,19 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         return
       }
 
-      const name = price?.name || detected.name || ticker.toUpperCase()
+      const name = price?.name || detected?.name || ticker.toUpperCase()
 
-      setData({ price, news, technicals, whales, insiders, options, analysis: null, assetType: detected.asset_type, name })
+      setData({
+        price,
+        news,
+        technicals,
+        whales,
+        insiders,
+        options,
+        analysis: null,
+        assetType: detected?.asset_type || (isStock ? 'stock' : 'crypto'),
+        name
+      })
       setLoading(false)
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
