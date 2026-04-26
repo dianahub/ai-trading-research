@@ -153,12 +153,15 @@ export default function App() {
       return raw ? JSON.parse(raw) : null
     } catch { return null }
   })
+  const [usage, setUsage]         = useState(null)
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false)
 
   const fetchUsage = () => {
     if (!AUTH_ACTIVE) return
     apiFetch('/usage/today').then(u => {
       setUsage(u)
-      if (!u.unlimited && u.count >= u.limit && !isDismissed()) setShowPaywall(true)
+      if (u && !u.unlimited && u.count >= u.limit && !isDismissed()) setShowPaywall(true)
     }).catch(() => {})
   }
 
