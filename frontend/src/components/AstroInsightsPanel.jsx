@@ -289,9 +289,12 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
   const { available, sentiment_score, overall_summary, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
 
+  const matchedTopics = useMemo(() => 
+    matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
+  , [matchedTopic])
+
   // All expensive filtering/dedup runs only when astroData or matchedTopic changes
   const { previewInsights, viewAllInsights } = useMemo(() => {
-    const matchedTopics = matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
     const insights = (rawInsights ?? []).filter(i => isFutureOrCurrent(i.timeframe))
     const hasDirectMatch = matchedTopics.length > 0 && available && insights.some(i => matchedTopics.includes(i.topic))
     const matchedInsights = hasDirectMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
@@ -307,7 +310,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
       ? deduplicateSimilar(expandedRaw)
       : deduplicateSimilar(insights.filter(i => !previewIds.has(i.id ?? i.summary)))
     return { previewInsights: preview, viewAllInsights: viewAll }
-  }, [rawInsights, matchedTopic, available])
+  }, [rawInsights, matchedTopics, available])
 
   if (!astroData) return null
 
