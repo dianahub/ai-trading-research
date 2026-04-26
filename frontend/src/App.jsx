@@ -147,10 +147,12 @@ export default function App() {
   const [astroData, setAstroData] = useState(null)
   const [navOpen, setNavOpen] = useState(false)
   const [showAstro, setShowAstro] = useState(true)
-  const [authedUser, setAuthedUser] = useState(null)
-  const [usage, setUsage]         = useState(null)   // { count, limit, tier, unlimited, upgrade }
-  const [showPaywall, setShowPaywall] = useState(false)
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false)
+  const [authedUser, setAuthedUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ss_user')
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  })
 
   const fetchUsage = () => {
     if (!AUTH_ACTIVE) return
@@ -162,7 +164,13 @@ export default function App() {
 
   useEffect(() => {
     if (AUTH_ACTIVE) {
-      getMe().then(u => { setAuthedUser(u); fetchUsage() }).catch(() => setAuthedUser(null))
+      getMe().then(u => {
+        setAuthedUser(u)
+        if (u) fetchUsage()
+      }).catch(() => {
+        setAuthedUser(null)
+        localStorage.removeItem('ss_user')
+      })
     }
   }, [])
   const headerRef = useRef(null)

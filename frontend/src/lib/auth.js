@@ -8,10 +8,30 @@ export function isPublicDomain() {
 }
 
 export async function getMe() {
-  const r = await fetch(`${API}/auth/me`, { credentials: 'include' })
-  if (!r.ok) return null
-  const d = await r.json()
-  return d.user
+  // Fast path: check localStorage first for immediate UI updates
+  let cachedUser = null
+  try {
+    const raw = localStorage.getItem('ss_user')
+    if (raw) cachedUser = JSON.parse(raw)
+  } catch {}
+
+  try {
+    const r = await fetch(`${API}/auth/me`, { credentials: 'include' })
+    if (!r.ok) {
+      localStorage.removeItem('ss_user')
+      return null
+    }
+    const d = await r.json()
+    if (d.user) {
+      localStorage.setItem('ss_user', JSON.stringify(d.user))
+    } else {
+      localStorage.removeItem('ss_user')
+    }
+    return d.user
+  } catch (err) {
+    // If network fails, return cached user as best-effort
+    return cachedUser
+  }
 }
 
 export async function login(email, password, rememberMe = false) {
@@ -24,6 +44,10 @@ export async function login(email, password, rememberMe = false) {
   let d = {}
   try { const t = await r.text(); if (t) d = JSON.parse(t) } catch {}
   if (!r.ok) throw new Error(d.detail || 'Login failed')
+
+  if (d.user) {
+    localStorage.setItem('ss_user', JSON.stringify(d.user))
+  }
   return d
 }
 
@@ -41,6 +65,7 @@ export async function signup(email, password, firstName, lastName, ref) {
 }
 
 export async function logout() {
+  localStorage.removeItem('ss_user')
   await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' })
 }
 
