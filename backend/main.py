@@ -68,6 +68,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_ADMIN_ALLOWED_IPS = {
+    ip.strip()
+    for ip in os.getenv("ADMIN_ALLOWED_IPS", "").split(",")
+    if ip.strip()
+}
+
+@app.middleware("http")
+async def _ip_restrict_admin(request: Request, call_next):
+    if request.url.path.startswith("/admin") and _ADMIN_ALLOWED_IPS:
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (
+            request.client.host if request.client else ""
+        )
+        if client_ip not in _ADMIN_ALLOWED_IPS:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Forbidden"}, status_code=403)
+    return await call_next(request)
+
 def _log_error(method: str, path: str, status: int, exc: Exception):
     try:
         with Session(_engine) as db:
