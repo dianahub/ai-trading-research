@@ -4449,12 +4449,16 @@ def approve_beta_application(
             "founding":  "$19/month as a founding member — locked in forever",
             "pro":       "$29/month",
         }.get(user_pricing_tier, "$19/month")
-        email_html = f"""<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0b1120;color:#e2e8f0'>
-            <h2 style='color:#f1f5f9'>Welcome to Star Signal, {first}!</h2>
-            <p style='color:#94a3b8'>Your beta access is ready. One click and you're in — no password, no form.</p>
-            <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin:16px 0;font-size:16px'>Enter Star Signal →</a>
-            <p style='color:#94a3b8'>Your {trial_note} free trial starts the moment you click. After that it's {after_trial_copy}.</p>
-            <p style='color:#475569;font-size:12px'>Link expires in 72 hours.</p>
+        email_html = f"""<div style='font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 32px;background:#0b1120;color:#e2e8f0'>
+            <p style='color:#e2e8f0;font-size:16px;margin:0 0 16px 0'>Hey {first},</p>
+            <p style='color:#e2e8f0;font-size:16px;margin:0 0 16px 0'>Great news — your Star Signal beta application has been approved.</p>
+            <p style='color:#94a3b8;font-size:15px;margin:0 0 24px 0'>Your account is ready right now. Click below to set your password and log in:</p>
+            <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin:0 0 24px 0;font-size:16px'>Set up my account →</a>
+            <p style='color:#475569;font-size:13px;margin:0 0 24px 0'>This link expires in 72 hours. If it expires, just go to starsignal.io and click <em>Forgot password</em> to get a new one.</p>
+            <p style='color:#94a3b8;font-size:15px;margin:0 0 16px 0'>You have {trial_note} of full free access starting the moment you log in for the first time. No credit card required.</p>
+            <p style='color:#94a3b8;font-size:15px;margin:0 0 32px 0'>At the bottom of the platform you'll find a Feedback tab — I read everything that comes through it personally.</p>
+            <p style='color:#e2e8f0;font-size:15px;margin:0 0 4px 0'>Welcome aboard.</p>
+            <p style='color:#94a3b8;font-size:14px;margin:0'>Diana Castillo<br>Founder, Star Signal</p>
             </div>"""
         threading.Thread(
             target=_send_email,
