@@ -41,24 +41,28 @@ load_dotenv()
 
 app = FastAPI(title="AI Trading Research API")
 
+_allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://starsignal-waitlist.vercel.app",
+    "https://starsignal.io",
+    "https://www.starsignal.io",
+    "https://prod.starsignal.io",
+    "https://staging.starsignal.io",
+]
+
+frontend_url = os.getenv("FRONTEND_URL", "")
+if frontend_url:
+    _allowed_origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        os.getenv("FRONTEND_URL", ""),
-        "https://starsignal-waitlist.vercel.app",
-        "https://starsignal.io",
-        "https://www.starsignal.io",
-        "https://prod.starsignal.io",
-        "https://staging.starsignal.io",
-    ],
+    allow_origins=_allowed_origins,
     allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 def _log_error(method: str, path: str, status: int, exc: Exception):
     try:
         with Session(_engine) as db:
