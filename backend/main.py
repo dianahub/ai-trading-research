@@ -4527,6 +4527,39 @@ def magic_login(body: dict, response: Response):
         return {"user": _user_dict(user)}
 
 
+# ── Migrate waitlist signups → beta applications ──────────────────────────────
+
+@app.post("/admin/waitlist/migrate-to-beta")
+def migrate_waitlist_to_beta(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        waitlist = db.query(WaitlistSignup).all()
+        existing_emails = {a.email.lower() for a in db.query(BetaApplication).all()}
+        added, skipped = 0, 0
+        for w in waitlist:
+            if w.email.lower() in existing_emails:
+                skipped += 1
+                continue
+            app = BetaApplication(
+                name=w.name or "",
+                email=w.email,
+                how_heard=w.referral_source or "",
+                trader_type=w.trading_type or "",
+                why_text="",
+                discount_code=w.promo_code or "",
+                status="pending",
+                created_at=w.created_at or datetime.now(timezone.utc),
+            )
+            db.add(app)
+            existing_emails.add(w.email.lower())
+            added += 1
+        db.commit()
+        return {"added": added, "skipped": skipped}
+
+
 # ── Waitlist CSV import → magic link batch ────────────────────────────────────
 
 @app.post("/admin/waitlist/import")
