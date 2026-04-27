@@ -66,7 +66,7 @@ export default function AuthNav() {
   async function handleLogout() {
     await logout()
     setUser(null)
-    navigate('/login')
+    navigate('/')
   }
 
   return (

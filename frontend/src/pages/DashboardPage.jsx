@@ -10,14 +10,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     getAccount().then(a => {
-      if (!a) { navigate('/login'); return }
+      if (!a) { navigate('/'); return }
       setAccount(a)
     })
   }, [])
 
   async function handleLogout() {
     await logout()
-    navigate('/login')
+    navigate('/')
   }
 
   if (!account) return (

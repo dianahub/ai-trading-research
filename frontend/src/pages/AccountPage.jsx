@@ -90,7 +90,7 @@ export default function AccountPage() {
 
   async function handleLogout() {
     await logout()
-    navigate('/login')
+    navigate('/')
   }
 
   function copyReferral() {
