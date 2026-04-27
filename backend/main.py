@@ -5270,6 +5270,138 @@ def set_user_tier(
         return _user_dict(user)
 
 
+class AdminCreateUserRequest(BaseModel):
+    email: str
+    first_name: str = ""
+    last_name: str = ""
+    tier: str = "free"
+    pricing_tier: Optional[str] = None
+    send_magic_link: bool = False
+
+@app.post("/admin/users")
+def admin_create_user(
+    body: AdminCreateUserRequest,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    valid_tiers = ("free", "beta", "founding", "pro", "premium", "partner_preview", "platform")
+    if body.tier not in valid_tiers:
+        raise HTTPException(400, "Invalid tier")
+    with Session(_engine) as db:
+        if db.query(User).filter(User.email == body.email).first():
+            raise HTTPException(409, "Email already exists")
+        now = datetime.now(timezone.utc)
+        magic_token = secrets.token_urlsafe(32) if body.send_magic_link else None
+        ref_code = _unique_referral_code(db)
+        user = User(
+            email=body.email,
+            first_name=body.first_name,
+            last_name=body.last_name,
+            tier=body.tier,
+            email_verified=True,
+            referral_code=ref_code,
+            pricing_tier=body.pricing_tier,
+            beta_started_at=now if body.tier == "beta" else None,
+            beta_expires_at=now + timedelta(days=30) if body.tier == "beta" else None,
+            email_verification_token=_hash_password(magic_token) if magic_token else None,
+            email_verification_expires=now + timedelta(hours=72) if magic_token else None,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        if magic_token and body.send_magic_link:
+            magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={body.email}"
+            first = body.first_name or body.email.split("@")[0]
+            email_html = f"""<div style='font-family:sans-serif;max-width:520px;margin:0 auto;padding:40px 32px;background:#0b1120;color:#e2e8f0'>
+                <p style='color:#e2e8f0;font-size:16px;margin:0 0 16px 0'>Hey {first},</p>
+                <p style='color:#94a3b8;font-size:15px;margin:0 0 24px 0'>Your Star Signal account is ready. Click below to log in:</p>
+                <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin:0 0 24px 0;font-size:16px'>Set up my account →</a>
+                <p style='color:#475569;font-size:13px;margin:0'>This link expires in 72 hours.</p>
+                </div>"""
+            threading.Thread(target=_send_email, args=(body.email, "Your Star Signal access is ready", email_html), daemon=True).start()
+        return _user_dict(user)
+
+
+class AdminEditUserRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    tier: Optional[str] = None
+    pricing_tier: Optional[str] = None
+    email_verified: Optional[bool] = None
+    beta_expires_at: Optional[str] = None  # ISO string or None to clear
+
+@app.patch("/admin/users/{user_id}")
+def admin_edit_user(
+    user_id: str,
+    body: AdminEditUserRequest,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    valid_tiers = ("free", "beta", "founding", "pro", "premium", "partner_preview", "platform")
+    if body.tier and body.tier not in valid_tiers:
+        raise HTTPException(400, "Invalid tier")
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        if body.first_name is not None:
+            user.first_name = body.first_name
+        if body.last_name is not None:
+            user.last_name = body.last_name
+        if body.email is not None:
+            if db.query(User).filter(User.email == body.email, User.id != user_id).first():
+                raise HTTPException(409, "Email already in use")
+            user.email = body.email
+        if body.tier is not None:
+            user.tier = body.tier
+            if body.tier == "beta" and not user.beta_started_at:
+                user.beta_started_at = datetime.now(timezone.utc)
+            if body.tier == "beta" and not user.beta_expires_at:
+                user.beta_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+        if body.pricing_tier is not None:
+            user.pricing_tier = body.pricing_tier or None
+        if body.email_verified is not None:
+            user.email_verified = body.email_verified
+        if body.beta_expires_at is not None:
+            user.beta_expires_at = datetime.fromisoformat(body.beta_expires_at.replace("Z", "+00:00"))
+        db.commit()
+        return _user_dict(user)
+
+
+@app.get("/admin/users/{user_id}/activity")
+def get_user_activity(
+    user_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        sessions = (db.query(UserSession)
+                    .filter(UserSession.user_id == user_id)
+                    .order_by(UserSession.created_at.desc())
+                    .limit(20).all())
+        usage = (db.query(DailyUsage)
+                 .filter(DailyUsage.user_id == user_id)
+                 .order_by(DailyUsage.date.desc())
+                 .limit(30).all())
+        feedback = (db.query(BetaTesterFeedback)
+                    .filter(BetaTesterFeedback.email == user.email)
+                    .order_by(BetaTesterFeedback.created_at.desc())
+                    .limit(10).all())
+        return {
+            "last_login": user.last_login.isoformat() if user.last_login else None,
+            "sessions": [{"id": s.id, "created_at": s.created_at.isoformat(), "expires_at": s.expires_at.isoformat()} for s in sessions],
+            "daily_usage": [{"date": u.date, "request_count": u.request_count} for u in usage],
+            "feedback": [{"id": f.id, "rating": f.rating, "message": f.message, "page": f.page, "created_at": f.created_at.isoformat()} for f in feedback],
+        }
+
+
 # ── Admin: site config (BETA_OPEN toggle) ─────────────────────────────────────
 
 @app.get("/admin/config")
