@@ -3899,6 +3899,40 @@ def _make_discount_code(name: str, db: Session) -> str:
     return code
 
 
+def _make_partner_slug(name: str, db: Session) -> str:
+    base = _make_slug(name)
+    slug = base
+    i = 2
+    while db.query(OutreachContact).filter(OutreachContact.slug == slug).first():
+        slug = f"{base}-{i}"
+        i += 1
+    return slug
+
+
+def _partner_welcome_email_html(first_name: str, magic_link: str, promo_code: str, slug: str) -> str:
+    return f"""<div style='font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 32px;background:#0b1120;color:#e2e8f0'>
+  <p style='font-size:16px;margin:0 0 20px 0;color:#e2e8f0'>Hi {first_name},</p>
+  <p style='font-size:15px;margin:0 0 28px 0;color:#94a3b8;line-height:1.6'>Your Star Signal partner account is set up and ready. Click below to log in for the first time:</p>
+  <div style='margin:0 0 32px 0'>
+    <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px'>Access my account &#8594;</a>
+  </div>
+  <p style='font-size:13px;color:#475569;margin:0 0 32px 0'>This link expires in 72 hours. After logging in you can set your password from your account settings.</p>
+  <div style='border:1px solid #1e2d45;border-radius:12px;padding:24px;margin:0 0 32px 0;background:#0f1a2e'>
+    <p style='font-size:15px;color:#e2e8f0;margin:0 0 20px 0;line-height:1.6'>Your account gives you full access to the platform permanently &#8212; no trial period, no credit card, no expiry.</p>
+    <p style='font-size:14px;color:#94a3b8;margin:0 0 12px 0'>A few things waiting for you inside:</p>
+    <p style='font-size:14px;color:#e2e8f0;margin:0 0 4px 0'>&#8212; Your personal promo code: <strong style='color:#06b6d4'>{promo_code}</strong></p>
+    <p style='font-size:13px;color:#94a3b8;margin:0 0 20px 0;padding-left:14px'>Share this with your audience for 45 days free and $19/month forever after</p>
+    <p style='font-size:14px;color:#e2e8f0;margin:0 0 4px 0'>&#8212; Your referral link: <span style='color:#06b6d4'>starsignal.io/join/{slug}</span></p>
+    <p style='font-size:13px;color:#94a3b8;margin:0 0 20px 0;padding-left:14px'>Every subscriber who comes through your link earns you 20% monthly commission automatically</p>
+    <p style='font-size:14px;color:#e2e8f0;margin:0 0 4px 0'>&#8212; Your partner dashboard: <span style='color:#06b6d4'>starsignal.io/partners/dashboard</span></p>
+    <p style='font-size:13px;color:#94a3b8;margin:0;padding-left:14px'>See your insight cards, referral stats, and commission earnings in real time</p>
+  </div>
+  <p style='font-size:14px;color:#94a3b8;margin:0 0 24px 0;line-height:1.6'>Your insights are already being featured on the platform. Log in and take a look &#8212; and please let me know what you think.</p>
+  <p style='font-size:14px;color:#e2e8f0;margin:0 0 4px 0'>[Your name]</p>
+  <p style='font-size:13px;color:#64748b;margin:0'>Founder, Star Signal<br>Futurotek LLC</p>
+</div>"""
+
+
 def _send_partner_signup_notification(partner_email: str, partner_name: str):
     _send_email(
         partner_email,
@@ -5655,3 +5689,162 @@ def get_account(ss_session: Optional[str] = Cookie(None)):
             "referrals_converted": sum(1 for r in refs if r.converted),
             "referring_partner_name": referring_partner_name,
         }
+
+
+# ── Partner account management ─────────────────────────────────────────────────
+
+class AdminCreatePartnerRequest(BaseModel):
+    first_name: str
+    last_name: str = ""
+    email: str
+    publication_name: str = ""
+
+
+@app.post("/admin/partner-accounts", status_code=201)
+def admin_create_partner_account(
+    body: AdminCreatePartnerRequest,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    email = body.email.lower().strip()
+    with Session(_engine) as db:
+        if db.query(User).filter(User.email == email).first():
+            raise HTTPException(409, "Email already exists")
+        full_name = f"{body.first_name} {body.last_name}".strip()
+        slug = _make_partner_slug(full_name, db)
+        discount_code = _make_discount_code(full_name, db)
+        now = datetime.now(timezone.utc)
+
+        contact = OutreachContact(
+            name=full_name,
+            platform=body.publication_name or "Partner",
+            contact_email=email,
+            status="partner",
+            slug=slug,
+            discount_code=discount_code,
+            discount_code_active=1,
+            referral_code=slug,
+        )
+        db.add(contact)
+        db.flush()
+
+        magic_token = secrets.token_urlsafe(32)
+        ref_code = _unique_referral_code(db)
+        user = User(
+            email=email,
+            first_name=body.first_name,
+            last_name=body.last_name,
+            tier="partner_preview",
+            email_verified=True,
+            referral_code=ref_code,
+            beta_expires_at=None,
+            role="influencer",
+            email_verification_token=_hash_password(magic_token),
+            email_verification_expires=now + timedelta(hours=72),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(contact)
+        db.refresh(user)
+
+        magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={email}"
+        first = body.first_name or email.split("@")[0]
+        email_html = _partner_welcome_email_html(first, magic_link, discount_code, slug)
+        threading.Thread(
+            target=_send_email,
+            args=(email, "Your Star Signal partner account is ready", email_html),
+            daemon=True,
+        ).start()
+
+        result = _contact_dict(contact)
+        result["publication_name"] = contact.platform
+        result["referral_link"] = f"starsignal.io/join/{slug}"
+        result["last_login"] = None
+        result["total_commission_earned"] = 0.0
+        result["user_id"] = user.id
+        result["user_tier"] = user.tier
+        return result
+
+
+@app.get("/admin/partner-accounts")
+def admin_list_partner_accounts(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        contacts = (
+            db.query(OutreachContact)
+            .filter(OutreachContact.status == "partner")
+            .order_by(OutreachContact.created_at.desc())
+            .all()
+        )
+        result = []
+        for c in contacts:
+            user = db.query(User).filter(User.email == c.contact_email).first()
+            total_commission = sum(
+                row.commission_amount or 0
+                for row in db.query(Commission).filter(
+                    Commission.astrologer_partner_id == c.id,
+                    Commission.status.in_(["approved", "paid"]),
+                ).all()
+            )
+            entry = _contact_dict(c)
+            entry["publication_name"] = c.platform
+            entry["referral_link"] = f"starsignal.io/join/{c.slug}" if c.slug else ""
+            entry["last_login"] = user.last_login.isoformat() if user and user.last_login else None
+            entry["total_commission_earned"] = total_commission
+            entry["user_id"] = user.id if user else None
+            entry["user_tier"] = user.tier if user else None
+            result.append(entry)
+        return result
+
+
+@app.post("/admin/partner-accounts/{contact_id}/resend-welcome")
+def admin_resend_partner_welcome(
+    contact_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        contact = db.query(OutreachContact).filter(OutreachContact.id == contact_id).first()
+        if not contact:
+            raise HTTPException(404, "Partner not found")
+        user = db.query(User).filter(User.email == contact.contact_email).first()
+        if not user:
+            raise HTTPException(404, "User account not found")
+        now = datetime.now(timezone.utc)
+        magic_token = secrets.token_urlsafe(32)
+        user.email_verification_token = _hash_password(magic_token)
+        user.email_verification_expires = now + timedelta(hours=72)
+        db.commit()
+        magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={user.email}"
+        first = user.first_name or user.email.split("@")[0]
+        email_html = _partner_welcome_email_html(first, magic_link, contact.discount_code, contact.slug)
+        threading.Thread(
+            target=_send_email,
+            args=(user.email, "Your Star Signal partner account is ready", email_html),
+            daemon=True,
+        ).start()
+        return {"ok": True}
+
+
+@app.patch("/admin/partner-accounts/{contact_id}/deactivate")
+def admin_deactivate_partner(
+    contact_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        contact = db.query(OutreachContact).filter(OutreachContact.id == contact_id).first()
+        if not contact:
+            raise HTTPException(404, "Partner not found")
+        contact.discount_code_active = 0
+        user = db.query(User).filter(User.email == contact.contact_email).first()
+        if user:
+            user.tier = "free"
+        db.commit()
+        return {"ok": True}

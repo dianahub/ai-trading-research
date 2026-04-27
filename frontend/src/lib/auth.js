@@ -82,12 +82,16 @@ export async function getAccount() {
 }
 
 export function tierLabel(tier) {
-  return { free: 'Free', beta: 'Beta', pro: 'Pro', premium: 'Premium', platform: 'Platform' }[tier] || tier
+  return {
+    free: 'Free', beta: 'Beta', pro: 'Pro', premium: 'Premium',
+    platform: 'Platform', partner_preview: 'Partner', founding: 'Founding',
+  }[tier] || tier
 }
 
 export function tierColor(tier) {
   return {
     free: '#94a3b8', beta: '#06b6d4', pro: '#3b82f6',
-    premium: '#8b5cf6', platform: '#d4a847',
+    premium: '#8b5cf6', platform: '#d4a847', partner_preview: '#22d3ee',
+    founding: '#4ade80',
   }[tier] || '#94a3b8'
 }
