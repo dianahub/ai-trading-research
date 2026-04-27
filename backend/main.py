@@ -6311,7 +6311,10 @@ def _schedule_ingestion_loop():
     t.start()
 
 
-_schedule_ingestion_loop()
+try:
+    _schedule_ingestion_loop()
+except Exception as _e:
+    print(f"[ingestion] Failed to start ingestion loop: {_e}", flush=True)
 
 
 # ── Admin: AstrologerContact CRUD ─────────────────────────────────────────────
