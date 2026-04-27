@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-const ASTRO_URL      = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
 const API            = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? ''
-
-function authHeader() {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${ADMIN_PASSWORD}` }
-}
 
 function adminHeaders() {
   return {
@@ -68,7 +63,7 @@ export default function AdminAstrologers() {
   async function load() {
     setLoading(true)
     try {
-      const r = await fetch(`${ASTRO_URL}/api/v1/admin/astrologers`, { headers: authHeader() })
+      const r = await fetch(`${API}/admin/astrologers`, { headers: adminHeaders() })
       const d = await r.json()
       setList(d.astrologers ?? [])
     } catch { setError('Failed to load') }
@@ -95,11 +90,11 @@ export default function AdminAstrologers() {
     try {
       const isNew = editing === 'new'
       const url   = isNew
-        ? `${ASTRO_URL}/api/v1/admin/astrologers`
-        : `${ASTRO_URL}/api/v1/admin/astrologers/${editing.id}`
+        ? `${API}/admin/astrologers`
+        : `${API}/admin/astrologers/${editing.id}`
       const r = await fetch(url, {
         method:  isNew ? 'POST' : 'PATCH',
-        headers: authHeader(),
+        headers: adminHeaders(),
         body:    JSON.stringify(form),
       })
       if (!r.ok) { const d = await r.json(); setError(d.error ?? 'Save failed'); setSaving(false); return }
@@ -112,7 +107,7 @@ export default function AdminAstrologers() {
   async function del(id) {
     if (!confirm('Delete this astrologer contact?')) return
     setDeleting(id)
-    await fetch(`${ASTRO_URL}/api/v1/admin/astrologers/${id}`, { method: 'DELETE', headers: authHeader() })
+    await fetch(`${API}/admin/astrologers/${id}`, { method: 'DELETE', headers: adminHeaders() })
     setList(l => l.filter(a => a.id !== id))
     setDeleting('')
   }

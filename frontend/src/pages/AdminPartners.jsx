@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-const ASTRO_URL    = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 function adminHeaders() {
   return {
     'Content-Type': 'application/json',
     'x-admin-email':    'contact@starsignal.io',
-    'x-admin-password': 'BISCUITLOVE',
+    'x-admin-password': import.meta.env.VITE_ADMIN_PASSWORD || 'BISCUITLOVE',
   }
 }
 
@@ -451,8 +451,8 @@ export default function AdminPartners() {
     setLoading(true)
     try {
       const [pRes, sRes] = await Promise.all([
-        fetch(`${ASTRO_URL}/api/v1/admin/partners?status=${statusFilter}`, { headers: adminHeaders() }),
-        fetch(`${ASTRO_URL}/api/v1/admin/partners/stats`,                  { headers: adminHeaders() }),
+        fetch(`${API}/admin/partners?status=${statusFilter}`, { headers: adminHeaders() }),
+        fetch(`${API}/admin/partners/stats`,                  { headers: adminHeaders() }),
       ])
       if (pRes.ok) setPartners(await pRes.json())
       if (sRes.ok) setStats(await sRes.json())
@@ -474,7 +474,7 @@ export default function AdminPartners() {
     setRejectReason('')
     setEditTier(partner.tier)
     setEditFeatured(partner.manuallyFeatured ?? false)
-    const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners/${partner.id}`, {
+    const res = await fetch(`${API}/admin/partners/${partner.id}`, {
       headers: adminHeaders(),
     })
     if (res.ok) setDetail(await res.json())
@@ -484,7 +484,7 @@ export default function AdminPartners() {
   async function approve() {
     setActionLoading(true)
     setActionMsg('')
-    const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners/${selected.id}/approve`, {
+    const res = await fetch(`${API}/admin/partners/${selected.id}/approve`, {
       method: 'POST',
       headers: adminHeaders(),
     })
@@ -498,7 +498,7 @@ export default function AdminPartners() {
     if (!rejectReason.trim()) { setActionMsg('Please enter a rejection reason.'); return }
     setActionLoading(true)
     setActionMsg('')
-    const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners/${selected.id}/reject`, {
+    const res = await fetch(`${API}/admin/partners/${selected.id}/reject`, {
       method: 'POST',
       headers: adminHeaders(),
       body: JSON.stringify({ reason: rejectReason }),
@@ -512,7 +512,7 @@ export default function AdminPartners() {
   async function updatePartner() {
     setActionLoading(true)
     setActionMsg('')
-    const res = await fetch(`${ASTRO_URL}/api/v1/admin/partners/${selected.id}`, {
+    const res = await fetch(`${API}/admin/partners/${selected.id}`, {
       method: 'PATCH',
       headers: adminHeaders(),
       body: JSON.stringify({ tier: editTier, manuallyFeatured: editFeatured }),
