@@ -50,6 +50,7 @@ app.add_middleware(
         "https://starsignal-waitlist.vercel.app",
         "https://starsignal.io",
         "https://www.starsignal.io",
+        "https://prod.starsignal.io",
         "https://staging.starsignal.io",
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",
