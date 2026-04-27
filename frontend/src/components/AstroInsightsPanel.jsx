@@ -108,7 +108,8 @@ function SentimentGauge({ score }) {
 }
 
 function InsightCard({ insight }) {
-  const cfg = outlookCfg(insight.outlook)
+  const cfg       = outlookCfg(insight.outlook)
+  const trendType = computeTrendType(insight.timeframe)
 
   return (
     <div
@@ -132,16 +133,16 @@ function InsightCard({ insight }) {
           <span className="text-xs font-medium" style={{ color: '#cbd5e1' }}>
             {insight.timeframe}
           </span>
-          {insight.trend_type && isDateRange(insight.timeframe) && (
+          {trendType && (
             <span
               className="px-2 py-0.5 rounded text-xs tracking-wider"
               style={{
-                background: insight.trend_type === 'Short Term Trend' ? '#0c1a2e' : '#1a0c2e',
-                color:      insight.trend_type === 'Short Term Trend' ? '#38bdf8' : '#a78bfa',
-                border:     `1px solid ${insight.trend_type === 'Short Term Trend' ? '#0369a1' : '#6d28d9'}`,
+                background: trendType === 'Short Term Trend' ? '#0c1a2e' : '#1a0c2e',
+                color:      trendType === 'Short Term Trend' ? '#38bdf8' : '#a78bfa',
+                border:     `1px solid ${trendType === 'Short Term Trend' ? '#0369a1' : '#6d28d9'}`,
               }}
             >
-              {insight.trend_type}
+              {trendType}
             </span>
           )}
         </div>
@@ -210,6 +211,34 @@ function DirectMatchHeader({ ticker, topic, insights, breakdown }) {
 
 function isDateRange(timeframe) {
   return /[-–]/.test(timeframe ?? '')
+}
+
+const MONTH_NUMS = {january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12}
+
+function computeTrendType(timeframe) {
+  if (!isDateRange(timeframe)) return null
+  const tf = (timeframe ?? '').toLowerCase()
+  const years  = [...tf.matchAll(/\b(20\d{2})\b/g)].map(m => parseInt(m[1]))
+  const months = Object.entries(MONTH_NUMS).filter(([name]) => tf.includes(name)).map(([,n]) => n)
+
+  let start, end
+  if (years.length >= 2) {
+    start = new Date(years[0], (months[0] || 1) - 1, 1)
+    end   = new Date(years[years.length - 1], (months[months.length - 1] || 12) - 1, 28)
+  } else if (years.length === 1 && months.length >= 2) {
+    start = new Date(years[0], months[0] - 1, 1)
+    end   = new Date(years[0], months[months.length - 1] - 1, 28)
+  } else if (years.length === 1 && months.length === 1) {
+    const dm = tf.match(/(\d{1,2})\s*[-–]\s*(\d{1,2})/)
+    if (!dm) return null
+    start = new Date(years[0], months[0] - 1, parseInt(dm[1]))
+    end   = new Date(years[0], months[0] - 1, parseInt(dm[2]))
+  } else {
+    return null
+  }
+  if (!start || !end || end <= start) return null
+  const days = (end - start) / 86_400_000
+  return days <= 180 ? 'Short Term Trend' : 'Long Term Trend'
 }
 
 function isFutureOrCurrent(timeframe) {
