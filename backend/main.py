@@ -3648,6 +3648,7 @@ class User(_Base):
     last_login                  = Column(DateTime, nullable=True)
     beta_day14_sent             = Column(Boolean, default=False)
     beta_day25_sent             = Column(Boolean, default=False)
+    role                        = Column(String, default="user")  # user|astrologer|influencer|admin
     created_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                                          onupdate=lambda: datetime.now(timezone.utc))
@@ -3776,6 +3777,7 @@ def _run_migrations():
         "ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS discount_code_uses INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_code_used TEXT DEFAULT ''",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS pricing_tier TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS discount_code TEXT DEFAULT ''",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS password_hash TEXT",
         "INSERT INTO site_config (key, value) VALUES ('beta_open', 'true') ON CONFLICT DO NOTHING",
@@ -4018,6 +4020,7 @@ def _user_dict(u: User) -> dict:
         "pricing_tier": u.pricing_tier,
         "last_login": u.last_login.isoformat() if u.last_login else None,
         "created_at": u.created_at.isoformat() if u.created_at else None,
+        "role": u.role or "user",
     }
 
 
@@ -5331,6 +5334,7 @@ class AdminEditUserRequest(BaseModel):
     pricing_tier: Optional[str] = None
     email_verified: Optional[bool] = None
     beta_expires_at: Optional[str] = None  # ISO string or None to clear
+    role: Optional[str] = None
 
 @app.patch("/admin/users/{user_id}")
 def admin_edit_user(
@@ -5367,6 +5371,11 @@ def admin_edit_user(
             user.email_verified = body.email_verified
         if body.beta_expires_at is not None:
             user.beta_expires_at = datetime.fromisoformat(body.beta_expires_at.replace("Z", "+00:00"))
+        if body.role is not None:
+            valid_roles = ("user", "astrologer", "influencer", "admin")
+            if body.role not in valid_roles:
+                raise HTTPException(400, "Invalid role")
+            user.role = body.role
         db.commit()
         return _user_dict(user)
 

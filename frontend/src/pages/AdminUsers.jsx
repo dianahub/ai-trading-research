@@ -4,6 +4,14 @@ import { Link } from 'react-router-dom'
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const TIERS = ['free', 'beta', 'founding', 'pro', 'premium', 'platform', 'partner_preview']
 const PRICING_TIERS = ['', 'founding', 'referred', 'pro']
+const ROLES = ['user', 'astrologer', 'influencer', 'admin']
+
+const ROLE_STYLE = {
+  admin:      { bg: '#2d1f00', color: '#f59e0b' },
+  astrologer: { bg: '#1a0c2e', color: '#a78bfa' },
+  influencer: { bg: '#0e3a4a', color: '#06b6d4' },
+  user:       { bg: '#1e2d45', color: '#64748b' },
+}
 
 function headers() {
   return { 'x-admin-email': 'contact@starsignal.io', 'x-admin-password': 'BISCUITLOVE', 'Content-Type': 'application/json' }
@@ -32,7 +40,7 @@ function TierBadge({ tier }) {
 
 // ── Add User Modal ────────────────────────────────────────────────────────────
 function AddUserModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ email: '', first_name: '', last_name: '', tier: 'free', pricing_tier: '', send_magic_link: false })
+  const [form, setForm] = useState({ email: '', first_name: '', last_name: '', tier: 'free', pricing_tier: '', role: 'user', send_magic_link: false })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -82,6 +90,14 @@ function AddUserModal({ onClose, onSaved }) {
               {PRICING_TIERS.map(t => <option key={t} value={t}>{t || '—'}</option>)}
             </select>
           </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Role</label>
+            <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+              style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}>
+              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.send_magic_link} onChange={e => setForm(f => ({ ...f, send_magic_link: e.target.checked }))} />
             <span className="text-xs" style={{ color: '#94a3b8' }}>Send magic login link via email</span>
@@ -111,6 +127,7 @@ function EditUserModal({ user, onClose, onSaved }) {
     email: user.email || '',
     tier: user.tier || 'free',
     pricing_tier: user.pricing_tier || '',
+    role: user.role || 'user',
     email_verified: user.email_verified ?? true,
   })
   const [saving, setSaving] = useState(false)
@@ -163,6 +180,14 @@ function EditUserModal({ user, onClose, onSaved }) {
               {PRICING_TIERS.map(t => <option key={t} value={t}>{t || '—'}</option>)}
             </select>
           </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: '#64748b' }}>Role</label>
+            <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+              style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0' }}>
+              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.email_verified} onChange={e => setForm(f => ({ ...f, email_verified: e.target.checked }))} />
             <span className="text-xs" style={{ color: '#94a3b8' }}>Email verified</span>
@@ -197,7 +222,7 @@ function ActivityPanel({ user, onClose }) {
 
   return (
     <tr>
-      <td colSpan={6} style={{ background: '#060d1a', borderTop: '1px solid #1e2d45' }}>
+      <td colSpan={7} style={{ background: '#060d1a', borderTop: '1px solid #1e2d45' }}>
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold" style={{ color: '#f1f5f9' }}>Activity — {user.first_name} {user.last_name}</h3>
@@ -324,6 +349,7 @@ export default function AdminUsers() {
                 <th className="text-left px-4 py-3">Joined</th>
                 <th className="text-left px-4 py-3">Last login</th>
                 <th className="text-left px-4 py-3">Tier</th>
+                <th className="text-left px-4 py-3">Role</th>
                 <th className="text-left px-4 py-3">Pricing</th>
                 <th className="text-left px-4 py-3">Actions</th>
               </tr>
@@ -338,6 +364,11 @@ export default function AdminUsers() {
                   <td className="px-4 py-3" style={{ color: '#64748b' }}>{fmt(u.created_at)}</td>
                   <td className="px-4 py-3" style={{ color: '#64748b' }}>{fmt(u.last_login)}</td>
                   <td className="px-4 py-3"><TierBadge tier={u.tier} /></td>
+                  <td className="px-4 py-3">
+                    {(() => { const s = ROLE_STYLE[u.role] || ROLE_STYLE.user; return (
+                      <span className="px-2 py-0.5 rounded text-xs font-semibold" style={{ background: s.bg, color: s.color }}>{u.role || 'user'}</span>
+                    )})()}
+                  </td>
                   <td className="px-4 py-3" style={{ color: u.pricing_tier === 'referred' ? '#22c55e' : u.pricing_tier === 'founding' ? '#f59e0b' : '#64748b' }}>
                     {u.pricing_tier || '—'}
                   </td>
