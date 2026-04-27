@@ -3973,26 +3973,26 @@ def _make_partner_slug(name: str, db: Session) -> str:
 
 
 def _partner_welcome_email_html(first_name: str, magic_link: str, promo_code: str, slug: str) -> str:
-    return f"""<div style='font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 32px;background:#0b1120;color:#e2e8f0'>
-  <p style='font-size:16px;margin:0 0 20px 0;color:#e2e8f0'>Hi {first_name},</p>
-  <p style='font-size:15px;margin:0 0 28px 0;color:#94a3b8;line-height:1.6'>Your Star Signal partner account is set up and ready. Click below to log in for the first time:</p>
+    return f"""<div style='font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 32px;background:#ffffff;color:#1e293b'>
+  <p style='font-size:16px;margin:0 0 20px 0;color:#1e293b'>Hi {first_name},</p>
+  <p style='font-size:15px;margin:0 0 28px 0;color:#64748b;line-height:1.6'>Your Star Signal partner account is set up and ready. Click below to log in for the first time:</p>
   <div style='margin:0 0 32px 0'>
     <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px'>Access my account &#8594;</a>
   </div>
-  <p style='font-size:13px;color:#475569;margin:0 0 32px 0'>This link expires in 72 hours. After logging in you can set your password from your account settings.</p>
-  <div style='border:1px solid #1e2d45;border-radius:12px;padding:24px;margin:0 0 32px 0;background:#0f1a2e'>
-    <p style='font-size:15px;color:#e2e8f0;margin:0 0 20px 0;line-height:1.6'>Your account gives you full access to the platform permanently &#8212; no trial period, no credit card, no expiry.</p>
-    <p style='font-size:14px;color:#94a3b8;margin:0 0 12px 0'>A few things waiting for you inside:</p>
-    <p style='font-size:14px;color:#e2e8f0;margin:0 0 4px 0'>&#8212; Your personal promo code: <strong style='color:#06b6d4'>{promo_code}</strong></p>
-    <p style='font-size:13px;color:#94a3b8;margin:0 0 20px 0;padding-left:14px'>Share this with your audience for 45 days free and $19/month forever after</p>
-    <p style='font-size:14px;color:#e2e8f0;margin:0 0 4px 0'>&#8212; Your referral link: <span style='color:#06b6d4'>starsignal.io/join/{slug}</span></p>
-    <p style='font-size:13px;color:#94a3b8;margin:0 0 20px 0;padding-left:14px'>Every subscriber who comes through your link earns you 20% monthly commission automatically</p>
-    <p style='font-size:14px;color:#e2e8f0;margin:0 0 4px 0'>&#8212; Your partner dashboard: <span style='color:#06b6d4'>starsignal.io/partners/dashboard</span></p>
-    <p style='font-size:13px;color:#94a3b8;margin:0;padding-left:14px'>See your insight cards, referral stats, and commission earnings in real time</p>
+  <p style='font-size:13px;color:#94a3b8;margin:0 0 32px 0'>This link expires in 72 hours. After logging in you can set your password from your account settings.</p>
+  <div style='border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin:0 0 32px 0;background:#f8fafc'>
+    <p style='font-size:15px;color:#1e293b;margin:0 0 20px 0;line-height:1.6'>Your account gives you full access to the platform permanently &#8212; no trial period, no credit card, no expiry.</p>
+    <p style='font-size:14px;color:#64748b;margin:0 0 12px 0'>A few things waiting for you inside:</p>
+    <p style='font-size:14px;color:#1e293b;margin:0 0 4px 0'>&#8212; Your personal promo code: <strong style='color:#06b6d4'>{promo_code}</strong></p>
+    <p style='font-size:13px;color:#64748b;margin:0 0 20px 0;padding-left:14px'>Share this with your audience for 45 days free and $19/month forever after</p>
+    <p style='font-size:14px;color:#1e293b;margin:0 0 4px 0'>&#8212; Your referral link: <span style='color:#06b6d4'>starsignal.io/join/{slug}</span></p>
+    <p style='font-size:13px;color:#64748b;margin:0 0 20px 0;padding-left:14px'>Every subscriber who comes through your link earns you 20% monthly commission automatically</p>
+    <p style='font-size:14px;color:#1e293b;margin:0 0 4px 0'>&#8212; Your partner dashboard: <span style='color:#06b6d4'>starsignal.io/partners/dashboard</span></p>
+    <p style='font-size:13px;color:#64748b;margin:0;padding-left:14px'>See your insight cards, referral stats, and commission earnings in real time</p>
   </div>
-  <p style='font-size:14px;color:#94a3b8;margin:0 0 24px 0;line-height:1.6'>Your insights are already being featured on the platform. Log in and take a look &#8212; and please let me know what you think.</p>
-  <p style='font-size:14px;color:#e2e8f0;margin:0 0 4px 0'>[Your name]</p>
-  <p style='font-size:13px;color:#64748b;margin:0'>Founder, Star Signal<br>Futurotek LLC</p>
+  <p style='font-size:14px;color:#64748b;margin:0 0 24px 0;line-height:1.6'>Your insights are already being featured on the platform. Log in and take a look &#8212; and please let me know what you think.</p>
+  <p style='font-size:14px;color:#1e293b;margin:0 0 4px 0'>Diana Castillo</p>
+  <p style='font-size:13px;color:#94a3b8;margin:0'>Founder, Star Signal<br>Futurotek LLC</p>
 </div>"""
 
 
