@@ -233,7 +233,7 @@ export default function AdminAstrologers() {
               </thead>
               <tbody>
                 {list.map((a, i) => {
-                  const alreadyPartner = !!madeIds[a.id]
+                  const alreadyPartner = !!madeIds[a.id] || partners.some(p => p.contact_email === a.email)
                   return (
                     <tr key={a.id} style={{ background: i % 2 === 0 ? '#070c18' : '#0b1120', borderBottom: '1px solid #1e2d45' }}>
                       <td className="px-4 py-3">
