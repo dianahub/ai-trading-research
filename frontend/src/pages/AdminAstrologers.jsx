@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-const API            = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? ''
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function adminHeaders() {
   return {
     'Content-Type': 'application/json',
     'x-admin-email':    'contact@starsignal.io',
-    'x-admin-password': ADMIN_PASSWORD || 'BISCUITLOVE',
+    'x-admin-password': 'BISCUITLOVE',
   }
 }
 
