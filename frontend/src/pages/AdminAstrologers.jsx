@@ -387,14 +387,6 @@ export default function AdminAstrologers() {
                           >
                             {emailingMe === p.id ? 'Sent ✓' : 'Email me'}
                           </button>
-                          <button
-                            onClick={() => resendWelcome(p.id)}
-                            disabled={resending === p.id}
-                            className="px-2 py-1 rounded text-xs font-semibold whitespace-nowrap"
-                            style={{ background: '#0f1a2e', color: '#94a3b8', border: '1px solid #1e2d45' }}
-                          >
-                            {resending === p.id ? '…' : 'Resend to them'}
-                          </button>
                           {p.user_tier !== 'free' && (
                             <button
                               onClick={() => deactivatePartner(p.id, p.name)}
