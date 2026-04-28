@@ -334,10 +334,18 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
   // All expensive filtering/dedup runs only when astroData, matchedTopic, or ticker changes
   const { previewInsights, viewAllInsights, hasSymbolMatch, filteredScore } = useMemo(() => {
-    // Drop cards about a different specific asset — e.g. hide XRP cards when searching AAPL
+    // Drop cards about a different specific asset — e.g. hide XRP cards when searching AAPL.
+    // Also catch insights where the summary names a specific ticker in parentheses e.g. "(ORA)"
+    // but symbol wasn't extracted by Claude.
+    const mentionedSymbol = (summary) => (summary?.match(/\b([A-Z]{1,5})\b(?=\s*[-–]|\s+is\b|\s+stock\b|\s+shares\b)|\(([A-Z]{1,5})\)/) ?? [])[1] ?? (summary?.match(/\(([A-Z]{1,5})\)/) ?? [])[1] ?? null
     const insights = (rawInsights ?? [])
       .filter(i => isFutureOrCurrent(i.timeframe))
-      .filter(i => !i.symbol || i.symbol === ticker)
+      .filter(i => {
+        if (i.symbol) return i.symbol === ticker
+        const mentioned = mentionedSymbol(i.summary)
+        if (mentioned && mentioned !== ticker) return false
+        return true
+      })
 
     // Symbol-exact matches (e.g. insight.symbol === "XRP" when searching XRP)
     const symbolMatchInsights = ticker ? insights.filter(i => i.symbol === ticker) : []
