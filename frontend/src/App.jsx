@@ -17,6 +17,29 @@ import NewsSection from './components/NewsSection'
 import ResearchSummary from './components/ResearchSummary'
 import WhaleSection from './components/WhaleSection'
 import AstroInsightsPanel from './components/AstroInsightsPanel'
+import ChatWidget from './components/ChatWidget'
+
+const FREE_LIMIT = 10
+const USAGE_KEY  = 'ss_daily_usage'
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
+}
+function getUsesLeft() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(USAGE_KEY) || '{}')
+    if (raw.date !== getTodayKey()) return FREE_LIMIT // new day — reset
+    return Math.max(0, FREE_LIMIT - (raw.count || 0))
+  } catch { return FREE_LIMIT }
+}
+function decrementUses() {
+  try {
+    const raw  = JSON.parse(localStorage.getItem(USAGE_KEY) || '{}')
+    const today = getTodayKey()
+    const count = raw.date === today ? (raw.count || 0) + 1 : 1
+    localStorage.setItem(USAGE_KEY, JSON.stringify({ date: today, count }))
+    return Math.max(0, FREE_LIMIT - count)
+  } catch { return FREE_LIMIT }
+}
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -156,6 +179,7 @@ export default function App() {
   const [usage, setUsage]         = useState(null)
   const [showPaywall, setShowPaywall] = useState(false)
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
+  const [usesLeft, setUsesLeft] = useState(getUsesLeft)
 
   const fetchUsage = () => {
     if (!AUTH_ACTIVE) return
@@ -206,6 +230,11 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       setShowAuthPrompt(true)
       return
     }
+    if (!AUTH_ACTIVE && usesLeft <= 0) {
+      setError('You\'ve used all 10 free analyses for today. Come back tomorrow or upgrade for unlimited access.')
+      return
+    }
+    if (!AUTH_ACTIVE) setUsesLeft(decrementUses())
     setLoading(true)
     setAnalyzing(false)
     setError(null)
@@ -798,6 +827,14 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           </p>
         </div>
       </footer>
+
+      <ChatWidget
+        usesLeft={usesLeft}
+        onUse={() => setUsesLeft(decrementUses())}
+        ticker={ticker}
+        authedUser={authedUser}
+        authActive={AUTH_ACTIVE}
+      />
     </div>
   )
 }
