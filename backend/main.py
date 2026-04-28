@@ -5930,7 +5930,7 @@ def admin_create_partner_account(
             email_verified=True,
             referral_code=ref_code,
             beta_expires_at=None,
-            role="influencer",
+            role="astrologer",
             email_verification_token=_hash_password(magic_token),
             email_verification_expires=now + timedelta(hours=72),
         )
