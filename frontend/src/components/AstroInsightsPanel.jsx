@@ -334,14 +334,24 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
   // All expensive filtering/dedup runs only when astroData, matchedTopic, or ticker changes
   const { previewInsights, viewAllInsights, hasSymbolMatch, filteredScore } = useMemo(() => {
-    // Drop cards about a different specific asset — e.g. hide XRP cards when searching AAPL
+    // Drop cards about a different specific asset — e.g. hide XRP cards when searching AAPL.
+    // Also catch insights where the summary names a specific ticker in parentheses e.g. "(ORA)"
+    // but symbol wasn't extracted by Claude.
+    const mentionedSymbol = (summary) => (summary?.match(/\b([A-Z]{1,5})\b(?=\s*[-–]|\s+is\b|\s+stock\b|\s+shares\b)|\(([A-Z]{1,5})\)/) ?? [])[1] ?? (summary?.match(/\(([A-Z]{1,5})\)/) ?? [])[1] ?? null
     const insights = (rawInsights ?? [])
       .filter(i => isFutureOrCurrent(i.timeframe))
-      .filter(i => !i.symbol || i.symbol === ticker)
+      .filter(i => {
+        if (i.symbol) return i.symbol === ticker
+        const mentioned = mentionedSymbol(i.summary)
+        if (mentioned && mentioned !== ticker) return false
+        return true
+      })
 
-    // Symbol-exact matches (e.g. insight.symbol === "XRP" when searching XRP)
-    const symbolMatchInsights = ticker ? insights.filter(i => i.symbol === ticker) : []
-    const hasSymbolMatch      = symbolMatchInsights.length > 0
+    // Symbol-exact matches: explicit symbol field OR parenthetical mention e.g. "(ORA)"
+    const symbolMatchInsights = ticker
+      ? insights.filter(i => i.symbol === ticker || mentionedSymbol(i.summary) === ticker)
+      : []
+    const hasSymbolMatch = symbolMatchInsights.length > 0
 
     // Symbol matches take priority; fall back to topic matching (e.g. "crypto", "gold")
     const hasTopicMatch   = matchedTopics.length > 0 && available && insights.some(i => matchedTopics.includes(i.topic))
@@ -350,7 +360,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     let matchedInsights, otherInsights
     if (hasSymbolMatch) {
       matchedInsights = symbolMatchInsights
-      otherInsights   = insights.filter(i => !i.symbol) // general market cards
+      otherInsights   = insights.filter(i => !i.symbol && !mentionedSymbol(i.summary))
     } else {
       matchedInsights = hasTopicMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
       otherInsights   = hasTopicMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
@@ -368,9 +378,9 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
       : deduplicateSimilar(insights.filter(i => !previewIds.has(i.id ?? i.summary)))
 
     // Sentiment score derived from the relevant pool for this search
-    const scorePool = hasDirectMatch ? matchedInsights : insights
-    const bullish   = scorePool.filter(i => i.outlook === 'bullish').length
-    const bearish   = scorePool.filter(i => i.outlook === 'bearish').length
+    const scorePool     = hasDirectMatch ? matchedInsights : insights
+    const bullish       = scorePool.filter(i => i.outlook === 'bullish').length
+    const bearish       = scorePool.filter(i => i.outlook === 'bearish').length
     const filteredScore = scorePool.length > 0
       ? Math.round(((bullish - bearish) / scorePool.length) * 100) / 100
       : null
