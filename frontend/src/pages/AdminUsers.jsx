@@ -301,6 +301,7 @@ export default function AdminUsers() {
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
   const [activityFor, setActivityFor] = useState(null)
+  const [resending, setResending] = useState({})
 
   useEffect(() => { refresh() }, [])
 
@@ -309,6 +310,12 @@ export default function AdminUsers() {
     const r = await fetch(`${API}/admin/users`, { headers: headers() })
     if (r.ok) setUsers(await r.json())
     setLoading(false)
+  }
+
+  async function resendWelcome(userId) {
+    setResending(s => ({ ...s, [userId]: true }))
+    await fetch(`${API}/admin/users/${userId}/resend-welcome`, { method: 'POST', headers: headers() })
+    setTimeout(() => setResending(s => ({ ...s, [userId]: false })), 1500)
   }
 
   const filtered = users.filter(u =>
@@ -373,7 +380,7 @@ export default function AdminUsers() {
                     {u.pricing_tier || '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <button onClick={() => setEditing(u)}
                         className="px-2.5 py-1 rounded text-xs font-medium"
                         style={{ background: '#1e2d45', color: '#94a3b8', cursor: 'pointer', border: 'none' }}>
@@ -383,6 +390,11 @@ export default function AdminUsers() {
                         className="px-2.5 py-1 rounded text-xs font-medium"
                         style={{ background: activityFor?.id === u.id ? '#0e3a4a' : '#1e2d45', color: activityFor?.id === u.id ? '#06b6d4' : '#94a3b8', cursor: 'pointer', border: 'none' }}>
                         Activity
+                      </button>
+                      <button onClick={() => resendWelcome(u.id)} disabled={resending[u.id]}
+                        className="px-2.5 py-1 rounded text-xs font-medium"
+                        style={{ background: resending[u.id] ? '#14532d' : '#1e2d45', color: resending[u.id] ? '#86efac' : '#94a3b8', cursor: 'pointer', border: 'none' }}>
+                        {resending[u.id] ? 'Sent ✓' : 'Resend email'}
                       </button>
                     </div>
                   </td>

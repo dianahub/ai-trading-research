@@ -3930,17 +3930,21 @@ def _get_user_from_cookie(session_token: Optional[str], db: Session) -> Optional
     return None
 
 
-def _send_email(to: str, subject: str, html: str):
+def _send_email(to: str, subject: str, body: str, text_only: bool = False):
     if not RESEND_API_KEY:
         return
     try:
         resend.api_key = RESEND_API_KEY
-        resend.Emails.send({
+        payload: dict = {
             "from": "Star Signal <contact@starsignal.io>",
             "to": [to],
             "subject": subject,
-            "html": html,
-        })
+        }
+        if text_only:
+            payload["text"] = body
+        else:
+            payload["html"] = body
+        resend.Emails.send(payload)
     except Exception as e:
         print(f"[email] failed: {e}")
 
@@ -4385,6 +4389,23 @@ def reset_password(req: ResetPasswordRequest):
 
 # ── Beta application ───────────────────────────────────────────────────────────
 
+def _verify_turnstile(token: str) -> bool:
+    secret = os.getenv("TURNSTILE_SECRET_KEY", "")
+    if not secret:
+        return True  # skip verification in dev/staging without key configured
+    try:
+        import urllib.request, urllib.parse, json as _json
+        data = urllib.parse.urlencode({"secret": secret, "response": token}).encode()
+        req_obj = urllib.request.Request(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify", data=data
+        )
+        with urllib.request.urlopen(req_obj, timeout=5) as resp:
+            result = _json.loads(resp.read())
+            return bool(result.get("success"))
+    except Exception:
+        return False
+
+
 class BetaApplyRequest(BaseModel):
     name: str
     email: str
@@ -4394,14 +4415,18 @@ class BetaApplyRequest(BaseModel):
     why_text: str = ""
     ref: Optional[str] = None
     discount_code: Optional[str] = None
+    captcha_token: Optional[str] = None
 
 
 @app.post("/beta/apply", status_code=201)
-def beta_apply(req: BetaApplyRequest):
+def beta_apply(req: BetaApplyRequest, response: Response):
+    if not _verify_turnstile(req.captcha_token or ""):
+        raise HTTPException(400, "Captcha verification failed. Please try again.")
+
     with Session(_engine) as db:
-        existing = db.query(BetaApplication).filter(BetaApplication.email == req.email.lower()).first()
-        if existing:
-            return {"ok": True, "message": "Application already received"}
+        existing_app = db.query(BetaApplication).filter(BetaApplication.email == req.email.lower()).first()
+        if existing_app:
+            return {"ok": True, "already_exists": True, "message": "An account with this email already exists. Please log in."}
 
         # Validate discount code (silently ignore invalid ones)
         partner_from_code = None
@@ -4415,26 +4440,107 @@ def beta_apply(req: BetaApplyRequest):
                 trial_days = 45
                 partner_from_code.discount_code_uses = (partner_from_code.discount_code_uses or 0) + 1
 
+        now = datetime.now(timezone.utc)
+        beta_open = _get_beta_open(db)
+        user_pricing_tier = _pricing_tier_for_signup(
+            has_promo_code=partner_from_code is not None,
+            beta_open=beta_open,
+        )
+        beta_expires = now + timedelta(days=trial_days)
+
+        # Create user account immediately — no approval step
+        user = db.query(User).filter(User.email == req.email.lower()).first()
+        if not user:
+            ref_code = _unique_referral_code(db)
+            user = User(
+                email=req.email.lower(),
+                first_name=req.name.split()[0] if req.name else "",
+                last_name=" ".join(req.name.split()[1:]) if len(req.name.split()) > 1 else "",
+                tier="beta",
+                email_verified=True,
+                beta_started_at=now,
+                beta_expires_at=beta_expires,
+                referral_code=ref_code,
+                discount_code_used=req.discount_code.upper().strip() if req.discount_code and partner_from_code else None,
+                pricing_tier=user_pricing_tier,
+                password_hash=_hash_password(req.password) if req.password else None,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            user.tier = "beta"
+            user.beta_started_at = now
+            user.beta_expires_at = beta_expires
+            user.email_verified = True
+            if not user.pricing_tier:
+                user.pricing_tier = user_pricing_tier
+            if req.password and not user.password_hash:
+                user.password_hash = _hash_password(req.password)
+            db.commit()
+
+        # Referral attribution
+        if partner_from_code:
+            existing_attr = db.query(ReferralAttribution).filter(
+                ReferralAttribution.referred_user_id == user.id,
+                ReferralAttribution.referring_partner_id == partner_from_code.id,
+            ).first()
+            if not existing_attr:
+                db.add(ReferralAttribution(
+                    referred_user_id=user.id,
+                    referring_partner_id=partner_from_code.id,
+                    referral_type="subscriber",
+                ))
+                db.commit()
+
+        # Record application for tracking
         app_row = BetaApplication(
             name=req.name, email=req.email.lower(),
             how_heard=req.how_heard, trader_type=req.trader_type,
-            why_text=req.why_text, status="pending",
+            why_text=req.why_text, status="approved",
             discount_code=req.discount_code.upper().strip() if req.discount_code and partner_from_code else "",
             password_hash=_hash_password(req.password) if req.password else None,
         )
         db.add(app_row)
         db.commit()
 
+        # Create session for immediate login
+        raw_token = _create_session(db, user.id, remember=True)
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+                            secure=True, max_age=60 * 60 * 24 * 30)
+
+        # Notify admin
         admin_email = os.getenv("ADMIN_EMAIL", "")
-        code_note = f"<br>Discount code: {req.discount_code} ({'valid — 45 days' if partner_from_code else 'invalid'})" if req.discount_code else ""
         if admin_email:
-            _send_email(admin_email, f"New beta application: {req.name}",
-                f"<p><b>{req.name}</b> ({req.email}) applied for beta access.<br>"
-                f"Trader type: {req.trader_type}<br>How heard: {req.how_heard}<br>"
-                f"Why: {req.why_text}{code_note}</p>")
+            code_note = f"\nDiscount code: {req.discount_code} ({'valid - {trial_days} days' if partner_from_code else 'invalid'})" if req.discount_code else ""
+            threading.Thread(
+                target=_send_email,
+                args=(admin_email, f"New beta signup: {req.name}",
+                      f"{req.name} ({req.email}) signed up for beta.\nTrader type: {req.trader_type}\nHow heard: {req.how_heard}{code_note}"),
+                kwargs={"text_only": True},
+                daemon=True,
+            ).start()
+
+        # Plain-text welcome email
+        first = user.first_name or req.name.split()[0]
+        trial_note = "45 days" if trial_days == 45 else "30 days"
+        welcome_text = (
+            f"Hey {first},\n\n"
+            f"Welcome to Star Signal. Your account is active.\n\n"
+            f"You have {trial_note} of full access, no credit card required.\n\n"
+            f"Head to starsignal.io and start exploring. The Feedback tab at the bottom goes straight to me.\n\n"
+            f"Diana\nFounder, Star Signal"
+        )
+        threading.Thread(
+            target=_send_email,
+            args=(req.email, "Welcome to Star Signal", welcome_text),
+            kwargs={"text_only": True},
+            daemon=True,
+        ).start()
+
         return {
             "ok": True,
-            "message": "Application received! We'll review it within 48 hours.",
+            "user": _user_dict(user),
             "trial_days": trial_days,
             "discount_valid": partner_from_code is not None,
         }
@@ -5539,6 +5645,28 @@ def get_user_activity(
             "daily_usage": [{"date": u.date, "request_count": u.request_count} for u in usage],
             "feedback": [{"id": f.id, "rating": f.rating, "message": f.message, "page": f.page, "created_at": f.created_at.isoformat()} for f in feedback],
         }
+
+
+@app.post("/admin/users/{user_id}/resend-welcome")
+def admin_resend_welcome(
+    user_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        first = user.first_name or user.email.split("@")[0]
+        welcome_text = (
+            f"Hey {first},\n\n"
+            f"Your Star Signal account is active. Go to starsignal.io and log in with this email address.\n\n"
+            f"If you forgot your password, click 'Forgot password' on the login page to reset it.\n\n"
+            f"Diana\nFounder, Star Signal"
+        )
+        _send_email(user.email, "Your Star Signal account", welcome_text, text_only=True)
+        return {"ok": True}
 
 
 # ── Admin: site config (BETA_OPEN toggle) ─────────────────────────────────────
