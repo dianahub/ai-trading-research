@@ -868,7 +868,7 @@ def _fetch_astro_data() -> dict | None:
     score = round((bullish - bearish) / max(total, 1), 4)
     return {
         "sentiment_score":  score,
-        "overall_summary":  "",
+        "overall_summary":  _insights_state.get("summary", ""),
         "total_insights":   total,
         "breakdown":        dict(counts),
         "insights":         insights[:50],
@@ -6163,7 +6163,7 @@ _LEGACY_FEEDS = [
     {"name": "The Weekly Stars",               "url": "https://theweeklystars.substack.com/feed"},
 ]
 
-_insights_state: dict = {"insights": [], "last_fetch": None}
+_insights_state: dict = {"insights": [], "last_fetch": None, "summary": ""}
 _insights_lock = threading.Lock()
 
 _MONTH_NUM = {
@@ -6441,6 +6441,50 @@ def _deduplicate_insights(incoming: list[dict], existing: list[dict]) -> list[di
     return merged
 
 
+def _generate_astro_summary(insights: list[dict]) -> str:
+    """Generate a 3-4 bullet point market outlook summary from current insights using Claude."""
+    if not insights or not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
+        return ""
+    try:
+        from collections import Counter
+        # Sample up to 20 insights, preferring diversity across topics and outlooks
+        seen_keys: set = set()
+        sample: list[dict] = []
+        for i in insights:
+            key = f"{i.get('topic')}|{i.get('outlook')}"
+            if key not in seen_keys:
+                seen_keys.add(key)
+                sample.append(i)
+            if len(sample) >= 20:
+                break
+        if not sample:
+            return ""
+        counts = Counter(i.get("outlook", "neutral") for i in insights)
+        bullets_input = "\n".join(
+            f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+            for i in sample
+        )
+        client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        resp = client_a.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=400,
+            system=(
+                "You are a financial market summarizer. Given a list of astrological market signals, "
+                "write exactly 3 concise bullet points (one sentence each) summarizing the overall market outlook. "
+                "Focus on the dominant trends across sectors. Use plain English, no astrology jargon. "
+                "Return only the 3 bullet points, one per line, starting each line with '• '."
+            ),
+            messages=[{"role": "user", "content": (
+                f"Current signal breakdown: {dict(counts)}\n\nSignals:\n{bullets_input}\n\n"
+                "Write 3 bullet points summarizing the overall astrological market outlook."
+            )}],
+        )
+        return resp.content[0].text.strip()
+    except Exception as e:
+        print(f"[ingestion] Summary generation failed: {e}", flush=True)
+        return ""
+
+
 def _run_ingestion():
     print(f"[{datetime.now().isoformat()}] Starting RSS ingestion...", flush=True)
     with Session(_engine) as db:
@@ -6489,6 +6533,10 @@ def _run_ingestion():
         merged = _deduplicate_insights(new_insights, _insights_state["insights"])
         _insights_state["insights"]   = merged
         _insights_state["last_fetch"] = datetime.now().isoformat()
+
+    summary = _generate_astro_summary(merged)
+    with _insights_lock:
+        _insights_state["summary"] = summary
 
     # Persist to DB
     with Session(_engine) as db:
@@ -6546,6 +6594,9 @@ def _load_insights_from_db():
             _insights_state["insights"]   = fresh
             _insights_state["last_fetch"] = datetime.now().isoformat()
         print(f"[ingestion] Loaded {len(fresh)} insights from DB.", flush=True)
+        summary = _generate_astro_summary(fresh)
+        with _insights_lock:
+            _insights_state["summary"] = summary
     except Exception as e:
         print(f"[ingestion] Failed to load from DB: {e}", flush=True)
 
