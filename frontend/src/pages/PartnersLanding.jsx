@@ -112,8 +112,11 @@ export default function PartnersLanding() {
             in Front of Traders Worldwide
           </span>
         </h1>
-        <p className="text-lg md:text-xl max-w-2xl mx-auto mb-10" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
+        <p className="text-lg md:text-xl max-w-2xl mx-auto mb-6" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
           Join our network of astrologers whose insights are distributed to stock and crypto trading platforms as structured market intelligence — automatically, every 6 hours.
+        </p>
+        <p className="text-base max-w-2xl mx-auto mb-10" style={{ color: '#cbd5e1', lineHeight: 1.7 }}>
+          If you are a mundane or financial astrologer we would love you to join our network, either as a partner that gets referral commissions or by adding your astrology feed to our data.
         </p>
         <Link to="/partners/apply"
           className="inline-block px-8 py-4 rounded-xl text-base font-bold transition-all hover:scale-105"

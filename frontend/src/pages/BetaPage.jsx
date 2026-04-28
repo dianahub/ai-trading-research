@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'
 
 const HOW_HEARD = ['TikTok', 'Friend', 'Astrologer referral', 'Other']
 
@@ -12,6 +13,7 @@ function getRefFromCookie() {
 
 export default function BetaPage() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const refFromUrl = params.get('ref') || ''
   const ref = refFromUrl || getRefFromCookie()
 
@@ -25,6 +27,22 @@ export default function BetaPage() {
   const [trialDays, setTrialDays] = useState(30)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+
+  useEffect(() => {
+    window._turnstileCallback = (token) => setCaptchaToken(token)
+    window._turnstileExpired = () => setCaptchaToken('')
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+    return () => {
+      document.head.removeChild(script)
+      delete window._turnstileCallback
+      delete window._turnstileExpired
+    }
+  }, [])
 
   // Discount code validation state
   const [codeStatus, setCodeStatus] = useState(null) // null | 'valid' | 'invalid' | 'checking'
@@ -71,11 +89,13 @@ export default function BetaPage() {
     if (!form.password) { setError('Please choose a password'); return }
     if (form.password.length < 8) { setError('Password must be at least 8 characters'); return }
     if (!form.agreed) { setError('Please agree to the beta terms to continue'); return }
+    if (!captchaToken) { setError('Please complete the security check'); return }
     setLoading(true)
     try {
       const r = await fetch(`${API}/beta/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name: `${form.first_name} ${form.last_name}`.trim(),
           email: form.email,
@@ -83,12 +103,22 @@ export default function BetaPage() {
           how_heard: form.how_heard,
           ref: ref || undefined,
           discount_code: form.discount_code.trim() || undefined,
+          captcha_token: captchaToken,
         }),
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.detail || 'Failed to submit')
-      setTrialDays(d.trial_days || 30)
-      setSubmitted(true)
+      if (d.already_exists) {
+        setError('An account with this email already exists. Please log in instead.')
+        return
+      }
+      if (d.user) {
+        localStorage.setItem('ss_user', JSON.stringify(d.user))
+        setSubmitted(true)
+        setTimeout(() => navigate('/dashboard'), 1800)
+      } else {
+        setSubmitted(true)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -119,19 +149,15 @@ export default function BetaPage() {
         {submitted ? (
           <div className="text-center py-20">
             <div className="text-6xl mb-6">🌟</div>
-            <h1 className="text-2xl font-bold mb-4" style={{ color: '#f1f5f9' }}>Application received!</h1>
+            <h1 className="text-2xl font-bold mb-4" style={{ color: '#f1f5f9' }}>You're in!</h1>
             <p className="text-base mb-2" style={{ color: '#94a3b8', lineHeight: 1.7 }}>
-              We'll review your application and be in touch within 24 hours.
+              Taking you to your dashboard…
             </p>
             {trialDays === 45 && (
               <p className="text-sm font-semibold mb-8" style={{ color: '#06b6d4' }}>
                 ✓ Code applied — 45 days free and $19/month forever after.
               </p>
             )}
-            <Link to="/" className="inline-block px-6 py-3 rounded-xl font-semibold text-sm"
-              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
-              Back to Star Signal
-            </Link>
           </div>
         ) : (
           <>
@@ -276,11 +302,19 @@ export default function BetaPage() {
                   </span>
                 </label>
 
-                <button type="submit" disabled={loading}
+                <div
+                  className="cf-turnstile"
+                  data-sitekey={TURNSTILE_SITE_KEY}
+                  data-callback="_turnstileCallback"
+                  data-expired-callback="_turnstileExpired"
+                  data-theme="dark"
+                />
+
+                <button type="submit" disabled={loading || !captchaToken}
                   className="w-full py-3.5 rounded-xl font-bold text-base transition-all"
                   style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff',
-                    opacity: loading ? 0.7 : 1 }}>
-                  {loading ? 'Submitting…' : 'Apply for Beta Access'}
+                    opacity: (loading || !captchaToken) ? 0.7 : 1 }}>
+                  {loading ? 'Creating your account…' : 'Get Beta Access'}
                 </button>
 
                 <p className="text-center text-xs" style={{ color: '#94a3b8' }}>

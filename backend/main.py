@@ -1,12 +1,17 @@
 import os
+import re
+import uuid
 import json
 import time
 import secrets
+import calendar
 import threading
 import traceback
+import html as _html_module
 import resend
 import requests
 import anthropic
+import feedparser
 import pandas as pd
 import pandas_ta as ta
 from datetime import datetime, timezone, timedelta
@@ -63,6 +68,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_ADMIN_ALLOWED_IPS = {
+    ip.strip()
+    for ip in os.getenv("ADMIN_ALLOWED_IPS", "").split(",")
+    if ip.strip()
+}
+
+@app.middleware("http")
+async def _ip_restrict_admin(request: Request, call_next):
+    if request.url.path.startswith("/admin") and _ADMIN_ALLOWED_IPS:
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (
+            request.client.host if request.client else ""
+        )
+        if client_ip not in _ADMIN_ALLOWED_IPS:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Forbidden"}, status_code=403)
+    return await call_next(request)
+
 def _log_error(method: str, path: str, status: int, exc: Exception):
     try:
         with Session(_engine) as db:
@@ -827,52 +851,26 @@ def test_error_log(
 # ---------------------------------------------------------------------------
 
 def _fetch_astro_data() -> dict | None:
-    """
-    Fetch summary + insights from the Astro API.
-    Returns None on any failure — caller must handle gracefully.
-    Caches for 30 minutes to avoid blocking the main platform.
-    """
-    now = time.time()
-    if _astro_cache["data"] is not None and (now - _astro_cache["fetched_at"]) < 1800:
-        return _astro_cache["data"]
-
-    if not ASTRO_API_KEY_INTERNAL:
+    """Read insights from the local in-memory cache (populated by RSS ingestion)."""
+    from collections import Counter
+    insights = _insights_state["insights"]
+    if not insights:
         return None
-
-    headers = {"x-api-key": ASTRO_API_KEY_INTERNAL}
-    try:
-        summary_resp = requests.get(
-            f"{ASTRO_API_URL}/api/v1/insights/summary",
-            headers=headers,
-            timeout=8,
-        )
-        summary_resp.raise_for_status()
-        summary = summary_resp.json()
-
-        insights_resp = requests.get(
-            f"{ASTRO_API_URL}/api/v1/insights",
-            headers=headers,
-            timeout=8,
-        )
-        insights_resp.raise_for_status()
-        insights = insights_resp.json()
-
-        data = {
-            "sentiment_score":  summary.get("sentimentScore", 0),
-            "overall_summary":  "" if summary.get("overallSummary", "").lower().startswith("summary unavailable") else summary.get("overallSummary", ""),
-            "total_insights":   summary.get("totalInsights", 0),
-            "breakdown":        summary.get("breakdown", {}),
-            "insights":         insights.get("insights", []),
-            "astro_signal":     round(summary.get("sentimentScore", 0) * ASTRO_SIGNAL_WEIGHT, 4),
-        }
-
-        _astro_cache["data"]       = data
-        _astro_cache["fetched_at"] = now
-        return data
-
-    except Exception:
-        # Silent failure — never let astro service errors surface to users
-        return None
+    counts = Counter(i.get("outlook", "neutral") for i in insights)
+    total  = len(insights)
+    bullish  = counts.get("bullish", 0)
+    bearish  = counts.get("bearish", 0)
+    volatile = counts.get("volatile", 0)
+    cautious = counts.get("cautious", 0)
+    score = round((bullish - bearish) / max(total, 1), 4)
+    return {
+        "sentiment_score":  score,
+        "overall_summary":  "",
+        "total_insights":   total,
+        "breakdown":        dict(counts),
+        "insights":         insights[:50],
+        "astro_signal":     round(score * ASTRO_SIGNAL_WEIGHT, 4),
+    }
 
 
 @app.get("/astro")
@@ -3648,6 +3646,7 @@ class User(_Base):
     last_login                  = Column(DateTime, nullable=True)
     beta_day14_sent             = Column(Boolean, default=False)
     beta_day25_sent             = Column(Boolean, default=False)
+    role                        = Column(String, default="user")  # user|astrologer|influencer|admin
     created_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                                          onupdate=lambda: datetime.now(timezone.utc))
@@ -3744,6 +3743,71 @@ class SiteConfig(_Base):
                         onupdate=lambda: datetime.now(timezone.utc))
 
 
+class AstrologerContact(_Base):
+    __tablename__ = "astrologer_contacts"
+    id         = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name       = Column(String, nullable=False)
+    email      = Column(String, nullable=False, default="")
+    website    = Column(String, nullable=False, default="")
+    twitter    = Column(String, nullable=False, default="")
+    feed_url   = Column(String, nullable=False, default="")
+    topics     = Column(String, nullable=False, default="")
+    notes      = Column(String, nullable=False, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class AstrologerPartner(_Base):
+    __tablename__ = "astrologer_partners"
+    id                     = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name                   = Column(String, nullable=False)
+    email                  = Column(String, nullable=False, unique=True)
+    website                = Column(String, default="")
+    bio                    = Column(String, default="")
+    photo_url              = Column(String, default="")
+    twitter_url            = Column(String, default="")
+    substack_url           = Column(String, default="")
+    youtube_url            = Column(String, default="")
+    rss_url                = Column(String, default="")
+    content_types          = Column(String, default="[]")
+    publishing_years       = Column(String, default="")
+    publish_frequency      = Column(String, default="")
+    tier                   = Column(String, default="free")
+    status                 = Column(String, default="pending")
+    rejection_reason       = Column(String, default="")
+    stripe_customer_id     = Column(String, default="")
+    stripe_subscription_id = Column(String, default="")
+    impressions_this_month = Column(Integer, default=0)
+    total_impressions      = Column(Integer, default=0)
+    insights_extracted     = Column(Integer, default=0)
+    last_fetched_at        = Column(DateTime, nullable=True)
+    last_fetch_error       = Column(String, default="")
+    manually_featured      = Column(Boolean, default=False)
+    created_at             = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at             = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class PersistedInsight(_Base):
+    __tablename__ = "persisted_insights"
+    id             = Column(String, primary_key=True)
+    topic          = Column(String, nullable=False)
+    outlook        = Column(String, nullable=False)
+    timeframe      = Column(String, nullable=False)
+    summary        = Column(String, nullable=False)
+    confidence     = Column(String, nullable=False)
+    source_name    = Column(String, nullable=False)
+    source_url     = Column(String, nullable=False)
+    published_date = Column(String, nullable=False)
+    period_start   = Column(String, nullable=True)
+    period_end     = Column(String, nullable=True)
+    trend_type     = Column(String, nullable=True)
+    featured       = Column(Boolean, default=False)
+    verified       = Column(Boolean, default=False)
+    source_avatar  = Column(String, nullable=True)
+    partner_id     = Column(String, nullable=True)
+    updated_at     = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 _Base.metadata.create_all(_engine)
 
 TIER_DAILY_LIMITS: dict[str, int | None] = {
@@ -3776,6 +3840,7 @@ def _run_migrations():
         "ALTER TABLE outreach_contacts ADD COLUMN IF NOT EXISTS discount_code_uses INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_code_used TEXT DEFAULT ''",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS pricing_tier TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS discount_code TEXT DEFAULT ''",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS password_hash TEXT",
         "INSERT INTO site_config (key, value) VALUES ('beta_open', 'true') ON CONFLICT DO NOTHING",
@@ -3865,17 +3930,21 @@ def _get_user_from_cookie(session_token: Optional[str], db: Session) -> Optional
     return None
 
 
-def _send_email(to: str, subject: str, html: str):
+def _send_email(to: str, subject: str, body: str, text_only: bool = False):
     if not RESEND_API_KEY:
         return
     try:
         resend.api_key = RESEND_API_KEY
-        resend.Emails.send({
+        payload: dict = {
             "from": "Star Signal <contact@starsignal.io>",
             "to": [to],
             "subject": subject,
-            "html": html,
-        })
+        }
+        if text_only:
+            payload["text"] = body
+        else:
+            payload["html"] = body
+        resend.Emails.send(payload)
     except Exception as e:
         print(f"[email] failed: {e}")
 
@@ -3895,6 +3964,40 @@ def _make_discount_code(name: str, db: Session) -> str:
         code = f"{base}{i}"
         i += 1
     return code
+
+
+def _make_partner_slug(name: str, db: Session) -> str:
+    base = _make_slug(name)
+    slug = base
+    i = 2
+    while db.query(OutreachContact).filter(OutreachContact.slug == slug).first():
+        slug = f"{base}-{i}"
+        i += 1
+    return slug
+
+
+def _partner_welcome_email_html(first_name: str, magic_link: str, promo_code: str, slug: str) -> str:
+    return f"""<div style='font-family:sans-serif;max-width:560px;margin:0 auto;padding:40px 32px;background:#ffffff;color:#1e293b'>
+  <p style='font-size:16px;margin:0 0 20px 0;color:#1e293b'>Hi {first_name},</p>
+  <p style='font-size:15px;margin:0 0 28px 0;color:#64748b;line-height:1.6'>Your Star Signal partner account is set up and ready. Click below to log in for the first time:</p>
+  <div style='margin:0 0 32px 0'>
+    <a href='{magic_link}' style='display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#3b82f6);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px'>Access my account &#8594;</a>
+  </div>
+  <p style='font-size:13px;color:#94a3b8;margin:0 0 32px 0'>This link expires in 72 hours. After logging in you can set your password from your account settings.</p>
+  <div style='border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin:0 0 32px 0;background:#f8fafc'>
+    <p style='font-size:15px;color:#1e293b;margin:0 0 20px 0;line-height:1.6'>Your account gives you full access to the platform permanently &#8212; no trial period, no credit card, no expiry.</p>
+    <p style='font-size:14px;color:#64748b;margin:0 0 12px 0'>A few things waiting for you inside:</p>
+    <p style='font-size:14px;color:#1e293b;margin:0 0 4px 0'>&#8212; Your personal promo code: <strong style='color:#06b6d4'>{promo_code}</strong></p>
+    <p style='font-size:13px;color:#64748b;margin:0 0 20px 0;padding-left:14px'>Share this with your audience for 45 days free and $19/month forever after</p>
+    <p style='font-size:14px;color:#1e293b;margin:0 0 4px 0'>&#8212; Your referral link: <span style='color:#06b6d4'>starsignal.io/join/{slug}</span></p>
+    <p style='font-size:13px;color:#64748b;margin:0 0 20px 0;padding-left:14px'>Every subscriber who comes through your link earns you 20% monthly commission automatically</p>
+    <p style='font-size:14px;color:#1e293b;margin:0 0 4px 0'>&#8212; Your partner dashboard: <span style='color:#06b6d4'>starsignal.io/partners/dashboard</span></p>
+    <p style='font-size:13px;color:#64748b;margin:0;padding-left:14px'>See your insight cards, referral stats, and commission earnings in real time</p>
+  </div>
+  <p style='font-size:14px;color:#64748b;margin:0 0 24px 0;line-height:1.6'>Your insights are already being featured on the platform. Log in and take a look &#8212; and please let me know what you think.</p>
+  <p style='font-size:14px;color:#1e293b;margin:0 0 4px 0'>Diana Castillo</p>
+  <p style='font-size:13px;color:#94a3b8;margin:0'>Founder, Star Signal<br>Futurotek LLC</p>
+</div>"""
 
 
 def _send_partner_signup_notification(partner_email: str, partner_name: str):
@@ -4018,6 +4121,7 @@ def _user_dict(u: User) -> dict:
         "pricing_tier": u.pricing_tier,
         "last_login": u.last_login.isoformat() if u.last_login else None,
         "created_at": u.created_at.isoformat() if u.created_at else None,
+        "role": u.role or "user",
     }
 
 
@@ -4285,6 +4389,23 @@ def reset_password(req: ResetPasswordRequest):
 
 # ── Beta application ───────────────────────────────────────────────────────────
 
+def _verify_turnstile(token: str) -> bool:
+    secret = os.getenv("TURNSTILE_SECRET_KEY", "")
+    if not secret:
+        return True  # skip verification in dev/staging without key configured
+    try:
+        import urllib.request, urllib.parse, json as _json
+        data = urllib.parse.urlencode({"secret": secret, "response": token}).encode()
+        req_obj = urllib.request.Request(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify", data=data
+        )
+        with urllib.request.urlopen(req_obj, timeout=5) as resp:
+            result = _json.loads(resp.read())
+            return bool(result.get("success"))
+    except Exception:
+        return False
+
+
 class BetaApplyRequest(BaseModel):
     name: str
     email: str
@@ -4294,14 +4415,18 @@ class BetaApplyRequest(BaseModel):
     why_text: str = ""
     ref: Optional[str] = None
     discount_code: Optional[str] = None
+    captcha_token: Optional[str] = None
 
 
 @app.post("/beta/apply", status_code=201)
-def beta_apply(req: BetaApplyRequest):
+def beta_apply(req: BetaApplyRequest, response: Response):
+    if not _verify_turnstile(req.captcha_token or ""):
+        raise HTTPException(400, "Captcha verification failed. Please try again.")
+
     with Session(_engine) as db:
-        existing = db.query(BetaApplication).filter(BetaApplication.email == req.email.lower()).first()
-        if existing:
-            return {"ok": True, "message": "Application already received"}
+        existing_app = db.query(BetaApplication).filter(BetaApplication.email == req.email.lower()).first()
+        if existing_app:
+            return {"ok": True, "already_exists": True, "message": "An account with this email already exists. Please log in."}
 
         # Validate discount code (silently ignore invalid ones)
         partner_from_code = None
@@ -4315,26 +4440,107 @@ def beta_apply(req: BetaApplyRequest):
                 trial_days = 45
                 partner_from_code.discount_code_uses = (partner_from_code.discount_code_uses or 0) + 1
 
+        now = datetime.now(timezone.utc)
+        beta_open = _get_beta_open(db)
+        user_pricing_tier = _pricing_tier_for_signup(
+            has_promo_code=partner_from_code is not None,
+            beta_open=beta_open,
+        )
+        beta_expires = now + timedelta(days=trial_days)
+
+        # Create user account immediately — no approval step
+        user = db.query(User).filter(User.email == req.email.lower()).first()
+        if not user:
+            ref_code = _unique_referral_code(db)
+            user = User(
+                email=req.email.lower(),
+                first_name=req.name.split()[0] if req.name else "",
+                last_name=" ".join(req.name.split()[1:]) if len(req.name.split()) > 1 else "",
+                tier="beta",
+                email_verified=True,
+                beta_started_at=now,
+                beta_expires_at=beta_expires,
+                referral_code=ref_code,
+                discount_code_used=req.discount_code.upper().strip() if req.discount_code and partner_from_code else None,
+                pricing_tier=user_pricing_tier,
+                password_hash=_hash_password(req.password) if req.password else None,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            user.tier = "beta"
+            user.beta_started_at = now
+            user.beta_expires_at = beta_expires
+            user.email_verified = True
+            if not user.pricing_tier:
+                user.pricing_tier = user_pricing_tier
+            if req.password and not user.password_hash:
+                user.password_hash = _hash_password(req.password)
+            db.commit()
+
+        # Referral attribution
+        if partner_from_code:
+            existing_attr = db.query(ReferralAttribution).filter(
+                ReferralAttribution.referred_user_id == user.id,
+                ReferralAttribution.referring_partner_id == partner_from_code.id,
+            ).first()
+            if not existing_attr:
+                db.add(ReferralAttribution(
+                    referred_user_id=user.id,
+                    referring_partner_id=partner_from_code.id,
+                    referral_type="subscriber",
+                ))
+                db.commit()
+
+        # Record application for tracking
         app_row = BetaApplication(
             name=req.name, email=req.email.lower(),
             how_heard=req.how_heard, trader_type=req.trader_type,
-            why_text=req.why_text, status="pending",
+            why_text=req.why_text, status="approved",
             discount_code=req.discount_code.upper().strip() if req.discount_code and partner_from_code else "",
             password_hash=_hash_password(req.password) if req.password else None,
         )
         db.add(app_row)
         db.commit()
 
+        # Create session for immediate login
+        raw_token = _create_session(db, user.id, remember=True)
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+                            secure=True, max_age=60 * 60 * 24 * 30)
+
+        # Notify admin
         admin_email = os.getenv("ADMIN_EMAIL", "")
-        code_note = f"<br>Discount code: {req.discount_code} ({'valid — 45 days' if partner_from_code else 'invalid'})" if req.discount_code else ""
         if admin_email:
-            _send_email(admin_email, f"New beta application: {req.name}",
-                f"<p><b>{req.name}</b> ({req.email}) applied for beta access.<br>"
-                f"Trader type: {req.trader_type}<br>How heard: {req.how_heard}<br>"
-                f"Why: {req.why_text}{code_note}</p>")
+            code_note = f"\nDiscount code: {req.discount_code} ({'valid - {trial_days} days' if partner_from_code else 'invalid'})" if req.discount_code else ""
+            threading.Thread(
+                target=_send_email,
+                args=(admin_email, f"New beta signup: {req.name}",
+                      f"{req.name} ({req.email}) signed up for beta.\nTrader type: {req.trader_type}\nHow heard: {req.how_heard}{code_note}"),
+                kwargs={"text_only": True},
+                daemon=True,
+            ).start()
+
+        # Plain-text welcome email
+        first = user.first_name or req.name.split()[0]
+        trial_note = "45 days" if trial_days == 45 else "30 days"
+        welcome_text = (
+            f"Hey {first},\n\n"
+            f"Welcome to Star Signal. Your account is active.\n\n"
+            f"You have {trial_note} of full access, no credit card required.\n\n"
+            f"Head to starsignal.io and start exploring. The Feedback tab at the bottom goes straight to me.\n\n"
+            f"Diana\nFounder, Star Signal"
+        )
+        threading.Thread(
+            target=_send_email,
+            args=(req.email, "Welcome to Star Signal", welcome_text),
+            kwargs={"text_only": True},
+            daemon=True,
+        ).start()
+
         return {
             "ok": True,
-            "message": "Application received! We'll review it within 48 hours.",
+            "user": _user_dict(user),
             "trial_days": trial_days,
             "discount_valid": partner_from_code is not None,
         }
@@ -5364,6 +5570,7 @@ class AdminEditUserRequest(BaseModel):
     pricing_tier: Optional[str] = None
     email_verified: Optional[bool] = None
     beta_expires_at: Optional[str] = None  # ISO string or None to clear
+    role: Optional[str] = None
 
 @app.patch("/admin/users/{user_id}")
 def admin_edit_user(
@@ -5400,6 +5607,11 @@ def admin_edit_user(
             user.email_verified = body.email_verified
         if body.beta_expires_at is not None:
             user.beta_expires_at = datetime.fromisoformat(body.beta_expires_at.replace("Z", "+00:00"))
+        if body.role is not None:
+            valid_roles = ("user", "astrologer", "influencer", "admin")
+            if body.role not in valid_roles:
+                raise HTTPException(400, "Invalid role")
+            user.role = body.role
         db.commit()
         return _user_dict(user)
 
@@ -5433,6 +5645,28 @@ def get_user_activity(
             "daily_usage": [{"date": u.date, "request_count": u.request_count} for u in usage],
             "feedback": [{"id": f.id, "rating": f.rating, "message": f.message, "page": f.page, "created_at": f.created_at.isoformat()} for f in feedback],
         }
+
+
+@app.post("/admin/users/{user_id}/resend-welcome")
+def admin_resend_welcome(
+    user_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        first = user.first_name or user.email.split("@")[0]
+        welcome_text = (
+            f"Hey {first},\n\n"
+            f"Your Star Signal account is active. Go to starsignal.io and log in with this email address.\n\n"
+            f"If you forgot your password, click 'Forgot password' on the login page to reset it.\n\n"
+            f"Diana\nFounder, Star Signal"
+        )
+        _send_email(user.email, "Your Star Signal account", welcome_text, text_only=True)
+        return {"ok": True}
 
 
 # ── Admin: site config (BETA_OPEN toggle) ─────────────────────────────────────
@@ -5646,3 +5880,1012 @@ def get_account(ss_session: Optional[str] = Cookie(None)):
             "referrals_converted": sum(1 for r in refs if r.converted),
             "referring_partner_name": referring_partner_name,
         }
+
+
+# ── Partner account management ─────────────────────────────────────────────────
+
+class AdminCreatePartnerRequest(BaseModel):
+    first_name: str
+    last_name: str = ""
+    email: str
+    publication_name: str = ""
+
+
+@app.post("/admin/partner-accounts", status_code=201)
+def admin_create_partner_account(
+    body: AdminCreatePartnerRequest,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    email = body.email.lower().strip()
+    with Session(_engine) as db:
+        if db.query(User).filter(User.email == email).first():
+            raise HTTPException(409, "Email already exists")
+        full_name = f"{body.first_name} {body.last_name}".strip()
+        slug = _make_partner_slug(full_name, db)
+        discount_code = _make_discount_code(full_name, db)
+        now = datetime.now(timezone.utc)
+
+        contact = OutreachContact(
+            name=full_name,
+            platform=body.publication_name or "Partner",
+            contact_email=email,
+            status="partner",
+            slug=slug,
+            discount_code=discount_code,
+            discount_code_active=1,
+            referral_code=slug,
+        )
+        db.add(contact)
+        db.flush()
+
+        magic_token = secrets.token_urlsafe(32)
+        ref_code = _unique_referral_code(db)
+        user = User(
+            email=email,
+            first_name=body.first_name,
+            last_name=body.last_name,
+            tier="partner_preview",
+            email_verified=True,
+            referral_code=ref_code,
+            beta_expires_at=None,
+            role="influencer",
+            email_verification_token=_hash_password(magic_token),
+            email_verification_expires=now + timedelta(hours=72),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(contact)
+        db.refresh(user)
+
+        magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={email}"
+
+        result = _contact_dict(contact)
+        result["publication_name"] = contact.platform
+        result["referral_link"] = f"starsignal.io/join/{slug}"
+        result["last_login"] = None
+        result["total_commission_earned"] = 0.0
+        result["user_id"] = user.id
+        result["user_tier"] = user.tier
+        result["magic_link"] = magic_link
+        return result
+
+
+@app.get("/admin/partner-accounts")
+def admin_list_partner_accounts(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        contacts = (
+            db.query(OutreachContact)
+            .filter(OutreachContact.status == "partner")
+            .order_by(OutreachContact.created_at.desc())
+            .all()
+        )
+        result = []
+        for c in contacts:
+            user = db.query(User).filter(User.email == c.contact_email).first()
+            total_commission = sum(
+                row.commission_amount or 0
+                for row in db.query(Commission).filter(
+                    Commission.astrologer_partner_id == c.id,
+                    Commission.status.in_(["approved", "paid"]),
+                ).all()
+            )
+            entry = _contact_dict(c)
+            entry["publication_name"] = c.platform
+            entry["referral_link"] = f"starsignal.io/join/{c.slug}" if c.slug else ""
+            entry["last_login"] = user.last_login.isoformat() if user and user.last_login else None
+            entry["total_commission_earned"] = total_commission
+            entry["user_id"] = user.id if user else None
+            entry["user_tier"] = user.tier if user else None
+            result.append(entry)
+        return result
+
+
+@app.post("/admin/partner-accounts/{contact_id}/resend-welcome")
+def admin_resend_partner_welcome(
+    contact_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        contact = db.query(OutreachContact).filter(OutreachContact.id == contact_id).first()
+        if not contact:
+            raise HTTPException(404, "Partner not found")
+        user = db.query(User).filter(User.email == contact.contact_email).first()
+        if not user:
+            raise HTTPException(404, "User account not found")
+        now = datetime.now(timezone.utc)
+        magic_token = secrets.token_urlsafe(32)
+        user.email_verification_token = _hash_password(magic_token)
+        user.email_verification_expires = now + timedelta(hours=72)
+        db.commit()
+        magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={user.email}"
+        first = user.first_name or user.email.split("@")[0]
+        email_html = _partner_welcome_email_html(first, magic_link, contact.discount_code, contact.slug)
+        threading.Thread(
+            target=_send_email,
+            args=(user.email, "Your Star Signal partner account is ready", email_html),
+            daemon=True,
+        ).start()
+        return {"ok": True}
+
+
+@app.patch("/admin/partner-accounts/{contact_id}/deactivate")
+def admin_deactivate_partner(
+    contact_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        contact = db.query(OutreachContact).filter(OutreachContact.id == contact_id).first()
+        if not contact:
+            raise HTTPException(404, "Partner not found")
+        contact.discount_code_active = 0
+        user = db.query(User).filter(User.email == contact.contact_email).first()
+        if user:
+            user.tier = "free"
+        db.commit()
+        return {"ok": True}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RSS INGESTION ENGINE  (ported from astro-api Node.js service)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_LEGACY_FEEDS = [
+    {"name": "AKxyz Astrology",                "url": "https://akxyz.blogspot.com/feeds/posts/default"},
+    {"name": "Astrodoc Anil",                  "url": "https://astrodocanil.com/feed"},
+    {"name": "Cosmologer",                     "url": "https://cosmologer.blogspot.com/feeds/posts/default"},
+    {"name": "Rowans Financial Astrology",     "url": "https://rowansfinancialastrology.com/feed"},
+    {"name": "StockAstrologer",                "url": "https://stockastrologer.com/feed/"},
+    {"name": "Invest By Cycles Newsletter",    "url": "https://investbycyclesnewsletter.substack.com/feed"},
+    {"name": "AuraWright Media",               "url": "https://aurawrightmedia.substack.com/feed"},
+    {"name": "LunaticTrader",                  "url": "https://blog.lunatictrader.com/feed/"},
+    {"name": "Financial Astrology by Rajeev",  "url": "https://rajeevprakash.com/feed/"},
+    {"name": "The Weekly Stars",               "url": "https://theweeklystars.substack.com/feed"},
+]
+
+_insights_state: dict = {"insights": [], "last_fetch": None}
+_insights_lock = threading.Lock()
+
+_MONTH_NUM = {
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6, "jul": 7, "aug": 8,
+    "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+_CONFIDENCE_SCORE = {"high": 3, "medium": 2, "low": 1}
+
+def _iso_date(y: int, m: int, d: int) -> str:
+    return datetime(y, m, min(d, calendar.monthrange(y, m)[1])).strftime("%Y-%m-%d")
+
+def _days_in_month(y: int, m: int) -> int:
+    return calendar.monthrange(y, m)[1]
+
+def _parse_timeframe(timeframe: str):
+    now  = datetime.now()
+    year = now.year
+
+    def mn(s):
+        return _MONTH_NUM.get(s.lower())
+
+    # Quarter: "Q2 2026"
+    m = re.search(r"Q([1-4])\s*(\d{4})", timeframe, re.I)
+    if m:
+        q, y = int(m.group(1)), int(m.group(2))
+        sm, em = (q - 1) * 3 + 1, q * 3
+        return _iso_date(y, sm, 1), _iso_date(y, em, _days_in_month(y, em))
+
+    # "Month Day through Month Day, Year"
+    m = re.search(r"(?:\w+,\s+)?([a-z]+)\s+(\d{1,2})\s+through\s+(?:\w+,\s+)?([a-z]+)\s+(\d{1,2})[,\s]+(\d{4})", timeframe, re.I)
+    if m:
+        m1, d1, m2, d2, y = mn(m.group(1)), int(m.group(2)), mn(m.group(3)), int(m.group(4)), int(m.group(5))
+        if m1 and m2:
+            return _iso_date(y, m1, d1), _iso_date(y, m2, d2)
+
+    # Cross-month: "March 31 – April 5, 2026"
+    m = re.search(r"([a-z]+)\s+(\d{1,2})\s*[-–]\s*([a-z]+)\s+(\d{1,2})[,\s]*(\d{4})", timeframe, re.I)
+    if m:
+        m1, d1, m2, d2, y = mn(m.group(1)), int(m.group(2)), mn(m.group(3)), int(m.group(4)), int(m.group(5))
+        if m1 and m2:
+            return _iso_date(y, m1, d1), _iso_date(y, m2, d2)
+
+    # Month day range with year: "April 9–13, 2026"
+    m = re.search(r"([a-z]+)\s+(\d{1,2})\s*[-–]\s*(\d{1,2})[,\s]+(\d{4})", timeframe, re.I)
+    if m:
+        mo, d1, d2, y = mn(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+        if mo:
+            return _iso_date(y, mo, d1), _iso_date(y, mo, d2)
+
+    # European: "16–26 April 2026"
+    m = re.search(r"(\d{1,2})\s*[-–]\s*(\d{1,2})\s+([a-z]+)\s+(\d{4})", timeframe, re.I)
+    if m:
+        d1, d2, mo, y = int(m.group(1)), int(m.group(2)), mn(m.group(3)), int(m.group(4))
+        if mo:
+            return _iso_date(y, mo, d1), _iso_date(y, mo, d2)
+
+    # Month range: "August–September 2026"
+    m = re.search(r"([a-z]+)\s*[-–]\s*([a-z]+)\s+(\d{4})", timeframe, re.I)
+    if m:
+        m1, m2, y = mn(m.group(1)), mn(m.group(2)), int(m.group(3))
+        if m1 and m2:
+            return _iso_date(y, m1, 1), _iso_date(y, m2, _days_in_month(y, m2))
+
+    # Month Year–Month Year: "April 2026–April 2033"
+    m = re.search(r"([a-z]+)\s+(\d{4})\s*[-–]\s*([a-z]+)\s+(\d{4})", timeframe, re.I)
+    if m:
+        m1, y1, m2, y2 = mn(m.group(1)), int(m.group(2)), mn(m.group(3)), int(m.group(4))
+        if m1 and m2:
+            return _iso_date(y1, m1, 1), _iso_date(y2, m2, _days_in_month(y2, m2))
+
+    # Month Year–Year: "April 2026–2033"
+    m = re.search(r"([a-z]+)\s+(\d{4})\s*[-–]\s*(20\d{2})\b", timeframe, re.I)
+    if m:
+        mo, y1, y2 = mn(m.group(1)), int(m.group(2)), int(m.group(3))
+        if mo:
+            return _iso_date(y1, mo, 1), _iso_date(y2, 12, 31)
+
+    # Single month + year: "June 2026"
+    m = re.search(r"([a-z]+)\s+(\d{4})", timeframe, re.I)
+    if m:
+        mo, y = mn(m.group(1)), int(m.group(2))
+        if mo:
+            return _iso_date(y, mo, 1), _iso_date(y, mo, _days_in_month(y, mo))
+
+    # Bare year: "2026"
+    m = re.search(r"\b(20\d{2})\b", timeframe)
+    if m:
+        y = int(m.group(1))
+        return _iso_date(y, 1, 1), _iso_date(y, 12, 31)
+
+    # Month day range, no year: "April 9–13"
+    m = re.search(r"([a-z]+)\s+(\d{1,2})\s*[-–]\s*(\d{1,2})", timeframe, re.I)
+    if m:
+        mo, d1, d2 = mn(m.group(1)), int(m.group(2)), int(m.group(3))
+        if mo:
+            return _iso_date(year, mo, d1), _iso_date(year, mo, d2)
+
+    # Single month + day: "April 23"
+    m = re.match(r"^([a-z]+)\s+(\d{1,2})$", timeframe.strip(), re.I)
+    if m:
+        mo, d = mn(m.group(1)), int(m.group(2))
+        if mo:
+            return _iso_date(year, mo, d), _iso_date(year, mo, d)
+
+    return None, None
+
+
+def _is_timeframe_past(timeframe: str) -> bool:
+    _, end = _parse_timeframe(timeframe)
+    if not end:
+        return False
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    end_dt = datetime.strptime(end, "%Y-%m-%d").replace(hour=12)
+    return end_dt < today
+
+
+def _get_trend_type(start, end):
+    if not start or not end or start == end:
+        return None
+    days = (datetime.strptime(end, "%Y-%m-%d") - datetime.strptime(start, "%Y-%m-%d")).days
+    return "Short Term Trend" if days <= 180 else "Long Term Trend"
+
+
+def _strip_html(s: str) -> str:
+    s = re.sub(r"<script[^>]*>.*?</script>", " ", s, flags=re.DOTALL | re.I)
+    s = re.sub(r"<style[^>]*>.*?</style>",  " ", s, flags=re.DOTALL | re.I)
+    s = re.sub(r"<[^>]+>", " ", s)
+    s = _html_module.unescape(s)
+    s = re.sub(r"\s+", " ", s)
+    return s.strip()
+
+
+def _fetch_rss_feed(url: str, source_name: str) -> list[dict]:
+    try:
+        feed = feedparser.parse(url, request_headers={"User-Agent": "StarSignalBot/1.0"})
+        articles = []
+        for entry in feed.entries:
+            if not entry.get("title") and not entry.get("link"):
+                continue
+            raw = (
+                entry.get("content", [{}])[0].get("value", "")
+                or entry.get("summary", "")
+                or ""
+            )
+            content = _strip_html(raw)
+            pub = entry.get("published", entry.get("updated", datetime.now().isoformat()))
+            articles.append({
+                "title":       entry.get("title", "(untitled)"),
+                "link":        entry.get("link", url),
+                "content":     content,
+                "pub_date":    pub,
+                "source_name": source_name,
+                "source_url":  url,
+            })
+        return articles
+    except Exception as e:
+        print(f"[ingestion] ERROR fetching {url}: {e}", flush=True)
+        return []
+
+
+_INSIGHT_SYSTEM_PROMPT = (
+    "You are a financial intelligence extractor. Given an astrology article, extract only forward-looking "
+    "conclusions relevant to financial markets or geopolitics. Return ONLY a valid JSON array — no preamble, "
+    "no markdown — where each item has these fields: topic (string, e.g. 'crypto', 'banking', 'war', 'gold', "
+    "'tech stocks', 'oil', 'currency', 'stock market' — use 'stock market' for broad equities, indices, or "
+    "general stock market outlooks not specific to one sector), outlook (one of: 'bullish', 'bearish', "
+    "'volatile', 'cautious', 'stable'), timeframe (string, e.g. 'June–August 2026', 'Q3 2026'), "
+    "summary (1–2 sentences in plain English with zero astrological jargon), confidence (one of: 'low', "
+    "'medium', 'high'), source_name, source_url, published_date (ISO date string). "
+    "IMPORTANT: Only extract predictions about what WILL happen. Skip retrospective analysis. "
+    "If there are no qualifying conclusions, return an empty array."
+)
+
+_RETROSPECTIVE = re.compile(
+    r"\b(incorrect forecast|wrong forecast|review of my|my forecast was|i was wrong|looking back|"
+    r"in hindsight|past forecast|previous forecast|forecast review|revisit|i got wrong|i missed|"
+    r"i underestimated|i overestimated)\b",
+    re.I,
+)
+
+
+def _extract_insights_from_article(title, content, source_url, source_name, pub_date) -> list[dict]:
+    truncated = content[:8000]
+    try:
+        client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        resp = client_a.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2048,
+            system=_INSIGHT_SYSTEM_PROMPT,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Title: {title}\n\nContent: {truncated}\n\n"
+                    f"Source URL: {source_url}\nSource Name: {source_name}\nPublished: {pub_date}"
+                ),
+            }],
+        )
+        text = resp.content[0].text.strip()
+        cleaned = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+        parsed = json.loads(cleaned)
+        if not isinstance(parsed, list):
+            return []
+        result = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            if not all(k in item for k in ("topic", "outlook", "summary")):
+                continue
+            result.append({
+                "id":             str(uuid.uuid4()),
+                "topic":          str(item["topic"]).lower(),
+                "outlook":        item["outlook"],
+                "timeframe":      item.get("timeframe", "unspecified"),
+                "summary":        item["summary"],
+                "confidence":     item.get("confidence", "medium"),
+                "source_name":    item.get("source_name", source_name),
+                "source_url":     item.get("source_url", source_url),
+                "published_date": item.get("published_date", pub_date),
+            })
+        return result
+    except Exception as e:
+        print(f"[ingestion] ERROR extracting from \"{title[:60]}\": {e}", flush=True)
+        return []
+
+
+def _load_astro_feeds(db: Session) -> list[dict]:
+    try:
+        partners = (
+            db.query(AstrologerPartner)
+            .filter(AstrologerPartner.status == "approved", AstrologerPartner.rss_url != "")
+            .all()
+        )
+        if partners:
+            return [
+                {
+                    "name":      p.name,
+                    "url":       p.rss_url,
+                    "partner_id": p.id,
+                    "tier":      p.tier,
+                    "photo_url": p.photo_url or None,
+                    "featured":  p.manually_featured or p.tier == "featured",
+                }
+                for p in partners
+            ]
+    except Exception:
+        pass
+    return [{"name": f["name"], "url": f["url"], "tier": "free", "featured": False} for f in _LEGACY_FEEDS]
+
+
+def _deduplicate_insights(incoming: list[dict], existing: list[dict]) -> list[dict]:
+    by_key: dict[str, dict] = {}
+    for i in existing:
+        key = f"{i['topic']}|{i['timeframe']}|{i['outlook']}"
+        by_key[key] = i
+    for i in incoming:
+        key = f"{i['topic']}|{i['timeframe']}|{i['outlook']}"
+        cur = by_key.get(key)
+        if not cur or _CONFIDENCE_SCORE.get(i["confidence"], 0) > _CONFIDENCE_SCORE.get(cur["confidence"], 0):
+            by_key[key] = i
+    cutoff = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+    merged = [
+        i for i in by_key.values()
+        if i.get("published_date", "0000-00-00") >= cutoff and not _is_timeframe_past(i.get("timeframe", ""))
+    ]
+    merged.sort(key=lambda i: (
+        not i.get("featured", False),
+        not i.get("verified", False),
+        i.get("published_date", ""),
+    ), reverse=False)
+    merged.sort(key=lambda i: i.get("published_date", ""), reverse=True)
+    return merged
+
+
+def _run_ingestion():
+    print(f"[{datetime.now().isoformat()}] Starting RSS ingestion...", flush=True)
+    with Session(_engine) as db:
+        feeds = _load_astro_feeds(db)
+
+    new_insights: list[dict] = []
+    partner_counts: dict[str, int] = {}
+
+    for feed in feeds:
+        articles = _fetch_rss_feed(feed["url"], feed["name"])
+        print(f"[ingestion] {feed['name']}: {len(articles)} articles", flush=True)
+        if feed.get("partner_id"):
+            with Session(_engine) as db:
+                p = db.query(AstrologerPartner).filter(AstrologerPartner.id == feed["partner_id"]).first()
+                if p:
+                    p.last_fetched_at = datetime.now(timezone.utc)
+                    p.last_fetch_error = ""
+                    db.commit()
+
+        for article in articles:
+            if not article["content"] or len(article["content"]) < 100:
+                continue
+            raw = _extract_insights_from_article(
+                article["title"], article["content"],
+                article["link"], article["source_name"], article["pub_date"],
+            )
+            forward = [
+                i for i in raw
+                if not _RETROSPECTIVE.search(i["summary"]) and not _is_timeframe_past(i["timeframe"])
+            ]
+            for i in forward:
+                start, end = _parse_timeframe(i["timeframe"])
+                i["period_start"]  = start
+                i["period_end"]    = end
+                i["trend_type"]    = _get_trend_type(start, end)
+                i["featured"]      = feed.get("featured", False)
+                i["verified"]      = feed.get("tier") in ("verified", "featured")
+                i["source_avatar"] = feed.get("photo_url") if feed.get("tier") != "free" else None
+                i["partner_id"]    = feed.get("partner_id")
+            if forward:
+                new_insights.extend(forward)
+                if feed.get("partner_id"):
+                    partner_counts[feed["partner_id"]] = partner_counts.get(feed["partner_id"], 0) + len(forward)
+
+    with _insights_lock:
+        merged = _deduplicate_insights(new_insights, _insights_state["insights"])
+        _insights_state["insights"]   = merged
+        _insights_state["last_fetch"] = datetime.now().isoformat()
+
+    # Persist to DB
+    with Session(_engine) as db:
+        for i in merged:
+            try:
+                existing = db.query(PersistedInsight).filter(PersistedInsight.id == i["id"]).first()
+                if existing:
+                    for k, v in i.items():
+                        if hasattr(existing, k):
+                            setattr(existing, k, v)
+                else:
+                    db.add(PersistedInsight(**{k: v for k, v in i.items() if hasattr(PersistedInsight, k)}))
+            except Exception:
+                db.rollback()
+        db.commit()
+        # Update partner insight counts
+        for pid, cnt in partner_counts.items():
+            p = db.query(AstrologerPartner).filter(AstrologerPartner.id == pid).first()
+            if p:
+                p.insights_extracted = (p.insights_extracted or 0) + cnt
+                db.commit()
+
+    print(f"[ingestion] Done — {len(merged)} insights cached.", flush=True)
+
+
+def _load_insights_from_db():
+    try:
+        with Session(_engine) as db:
+            rows = db.query(PersistedInsight).all()
+        if not rows:
+            return
+        fresh = []
+        for r in rows:
+            if _is_timeframe_past(r.timeframe):
+                continue
+            fresh.append({
+                "id":             r.id,
+                "topic":          r.topic,
+                "outlook":        r.outlook,
+                "timeframe":      r.timeframe,
+                "summary":        r.summary,
+                "confidence":     r.confidence,
+                "source_name":    r.source_name,
+                "source_url":     r.source_url,
+                "published_date": r.published_date,
+                "period_start":   r.period_start,
+                "period_end":     r.period_end,
+                "trend_type":     r.trend_type,
+                "featured":       r.featured or False,
+                "verified":       r.verified or False,
+                "source_avatar":  r.source_avatar,
+                "partner_id":     r.partner_id,
+            })
+        with _insights_lock:
+            _insights_state["insights"]   = fresh
+            _insights_state["last_fetch"] = datetime.now().isoformat()
+        print(f"[ingestion] Loaded {len(fresh)} insights from DB.", flush=True)
+    except Exception as e:
+        print(f"[ingestion] Failed to load from DB: {e}", flush=True)
+
+
+def _schedule_ingestion_loop():
+    def loop():
+        _load_insights_from_db()
+        while True:
+            try:
+                _run_ingestion()
+            except Exception as e:
+                print(f"[ingestion] ERROR: {e}", flush=True)
+            time.sleep(6 * 3600)
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+
+
+try:
+    _schedule_ingestion_loop()
+except Exception as _e:
+    print(f"[ingestion] Failed to start ingestion loop: {_e}", flush=True)
+
+
+# ── Admin: AstrologerContact CRUD ─────────────────────────────────────────────
+
+class _AstrologerContactIn(BaseModel):
+    name:    str
+    email:   str = ""
+    website: str = ""
+    twitter: str = ""
+    feedUrl: str = ""
+    topics:  str = ""
+    notes:   str = ""
+
+
+def _contact_out(c: AstrologerContact) -> dict:
+    return {
+        "id":        c.id,
+        "name":      c.name,
+        "email":     c.email,
+        "website":   c.website,
+        "twitter":   c.twitter,
+        "feedUrl":   c.feed_url,
+        "topics":    c.topics,
+        "notes":     c.notes,
+        "createdAt": c.created_at.isoformat() if c.created_at else None,
+        "updatedAt": c.updated_at.isoformat() if c.updated_at else None,
+    }
+
+
+@app.get("/admin/astrologers")
+def admin_list_astrologers(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        rows = db.query(AstrologerContact).order_by(AstrologerContact.name).all()
+    return {"astrologers": [_contact_out(r) for r in rows]}
+
+
+@app.post("/admin/astrologers", status_code=201)
+def admin_create_astrologer(
+    body: _AstrologerContactIn,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        row = AstrologerContact(
+            name=body.name, email=body.email, website=body.website,
+            twitter=body.twitter, feed_url=body.feedUrl,
+            topics=body.topics, notes=body.notes,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return {"astrologer": _contact_out(row)}
+
+
+@app.patch("/admin/astrologers/{contact_id}")
+def admin_update_astrologer(
+    contact_id: str,
+    body: dict,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    allowed = {"name", "email", "website", "twitter", "feedUrl", "topics", "notes"}
+    field_map = {"feedUrl": "feed_url"}
+    with Session(_engine) as db:
+        row = db.query(AstrologerContact).filter(AstrologerContact.id == contact_id).first()
+        if not row:
+            raise HTTPException(404, "Not found")
+        for k, v in body.items():
+            if k not in allowed:
+                continue
+            setattr(row, field_map.get(k, k), v)
+        row.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(row)
+    return {"astrologer": _contact_out(row)}
+
+
+@app.delete("/admin/astrologers/{contact_id}")
+def admin_delete_astrologer(
+    contact_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        row = db.query(AstrologerContact).filter(AstrologerContact.id == contact_id).first()
+        if not row:
+            raise HTTPException(404, "Not found")
+        db.delete(row)
+        db.commit()
+    return {"ok": True}
+
+
+# ── Admin: AstrologerPartner management ───────────────────────────────────────
+
+def _partner_out(p: AstrologerPartner) -> dict:
+    try:
+        ct = json.loads(p.content_types)
+    except Exception:
+        ct = []
+    return {
+        "id":                   p.id,
+        "name":                 p.name,
+        "email":                p.email,
+        "website":              p.website,
+        "bio":                  p.bio,
+        "photoUrl":             p.photo_url,
+        "twitterUrl":           p.twitter_url,
+        "substackUrl":          p.substack_url,
+        "youtubeUrl":           p.youtube_url,
+        "rssUrl":               p.rss_url,
+        "contentTypes":         ct,
+        "publishingYears":      p.publishing_years,
+        "publishFrequency":     p.publish_frequency,
+        "tier":                 p.tier,
+        "status":               p.status,
+        "rejectionReason":      p.rejection_reason,
+        "impressionsThisMonth": p.impressions_this_month,
+        "totalImpressions":     p.total_impressions,
+        "insightsExtracted":    p.insights_extracted,
+        "lastFetchedAt":        p.last_fetched_at.isoformat() if p.last_fetched_at else None,
+        "lastFetchError":       p.last_fetch_error,
+        "manuallyFeatured":     p.manually_featured,
+        "createdAt":            p.created_at.isoformat() if p.created_at else None,
+        "updatedAt":            p.updated_at.isoformat() if p.updated_at else None,
+    }
+
+
+@app.get("/admin/partners")
+def admin_list_partners(
+    status: str = "",
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        q = db.query(AstrologerPartner).order_by(AstrologerPartner.created_at.desc())
+        if status:
+            q = q.filter(AstrologerPartner.status == status)
+        rows = q.all()
+    return {"partners": [_partner_out(r) for r in rows]}
+
+
+@app.get("/admin/partners/stats")
+def admin_partner_stats(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        rows = db.query(AstrologerPartner).all()
+    by_status: dict[str, int] = {}
+    by_tier:   dict[str, int] = {}
+    total_impressions = 0
+    total_insights    = 0
+    for p in rows:
+        by_status[p.status] = by_status.get(p.status, 0) + 1
+        if p.status == "approved":
+            by_tier[p.tier] = by_tier.get(p.tier, 0) + 1
+        total_impressions += p.total_impressions or 0
+        total_insights    += p.insights_extracted or 0
+    mrr = by_tier.get("verified", 0) * 49 + by_tier.get("featured", 0) * 149
+    return {
+        "total": len(rows), "byStatus": by_status, "byTier": by_tier,
+        "totalImpressions": total_impressions, "totalInsights": total_insights, "mrr": mrr,
+    }
+
+
+@app.get("/admin/partners/{partner_id}")
+def admin_get_partner(
+    partner_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        p = db.query(AstrologerPartner).filter(AstrologerPartner.id == partner_id).first()
+        if not p:
+            raise HTTPException(404, "Partner not found")
+        feed_preview: list[dict] = []
+        if p.rss_url:
+            articles = _fetch_rss_feed(p.rss_url, p.name)
+            feed_preview = [
+                {"title": a["title"], "link": a["link"], "pubDate": a["pub_date"], "excerpt": a["content"][:200]}
+                for a in articles[:5]
+            ]
+        return {"partner": _partner_out(p), "feedPreview": feed_preview}
+
+
+@app.post("/admin/partners/{partner_id}/approve")
+def admin_approve_partner(
+    partner_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        p = db.query(AstrologerPartner).filter(AstrologerPartner.id == partner_id).first()
+        if not p:
+            raise HTTPException(404, "Partner not found")
+        p.status = "approved"
+        p.rejection_reason = ""
+        db.commit()
+    return {"ok": True}
+
+
+@app.post("/admin/partners/{partner_id}/reject")
+def admin_reject_partner(
+    partner_id: str,
+    body: dict,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    reason = body.get("reason", "")
+    if not reason:
+        raise HTTPException(400, "reason is required")
+    with Session(_engine) as db:
+        p = db.query(AstrologerPartner).filter(AstrologerPartner.id == partner_id).first()
+        if not p:
+            raise HTTPException(404, "Partner not found")
+        p.status = "rejected"
+        p.rejection_reason = reason
+        db.commit()
+    return {"ok": True}
+
+
+@app.patch("/admin/partners/{partner_id}")
+def admin_update_partner(
+    partner_id: str,
+    body: dict,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    allowed = {"tier", "status", "manuallyFeatured", "notes", "rssUrl"}
+    field_map = {"manuallyFeatured": "manually_featured", "rssUrl": "rss_url"}
+    with Session(_engine) as db:
+        p = db.query(AstrologerPartner).filter(AstrologerPartner.id == partner_id).first()
+        if not p:
+            raise HTTPException(404, "Partner not found")
+        for k, v in body.items():
+            if k not in allowed:
+                continue
+            setattr(p, field_map.get(k, k), v)
+        p.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(p)
+    return {"partner": _partner_out(p)}
+
+
+# ── Public: Insights endpoints ────────────────────────────────────────────────
+
+@app.get("/api/v1/insights")
+def public_insights(
+    topic:   str = "",
+    outlook: str = "",
+    limit:   int = 0,
+    sort:    str = "",
+    lang:    str = "",
+):
+    with _insights_lock:
+        items = list(_insights_state["insights"])
+
+    if topic:
+        items = [i for i in items if i.get("topic") == topic.lower()]
+    if outlook:
+        items = [i for i in items if i.get("outlook") == outlook]
+    if sort == "date_asc":
+        items.sort(key=lambda i: i.get("published_date", ""))
+    elif sort == "date_desc":
+        items.sort(key=lambda i: i.get("published_date", ""), reverse=True)
+    if limit and limit > 0:
+        items = items[:limit]
+    return {"count": len(items), "insights": items}
+
+
+@app.get("/api/v1/insights/summary")
+def public_insights_summary():
+    with _insights_lock:
+        items = list(_insights_state["insights"])
+    total = len(items)
+    if total == 0:
+        return {"sentimentScore": 0, "overallSummary": "No insights available.", "totalInsights": 0, "breakdown": {}}
+    from collections import Counter
+    counts = dict(Counter(i.get("outlook", "neutral") for i in items))
+    bullish  = counts.get("bullish", 0)
+    bearish  = counts.get("bearish", 0)
+    score    = round((bullish - bearish) / max(total, 1), 4)
+    return {"sentimentScore": score, "overallSummary": "", "totalInsights": total, "breakdown": counts}
+
+
+@app.get("/api/v1/health")
+def astro_health():
+    with _insights_lock:
+        insight_count = len(_insights_state["insights"])
+        last_fetch    = _insights_state["last_fetch"]
+    return {"status": "ok", "insightCount": insight_count, "lastFetch": last_fetch}
+
+
+@app.get("/api/v1/sources")
+def public_sources():
+    """Return astrologer sources with website URLs (not feed URLs) for the About page."""
+    with Session(_engine) as db:
+        contacts = (
+            db.query(AstrologerContact)
+            .filter(AstrologerContact.name != "")
+            .order_by(AstrologerContact.name)
+            .all()
+        )
+    if contacts:
+        return {"sources": [{"name": c.name, "url": c.website or ""} for c in contacts if c.website]}
+    # Fallback: hardcoded list with website URLs
+    return {"sources": [
+        {"name": "AKxyz Astrology",                    "url": "https://akxyz.blogspot.com"},
+        {"name": "Astrodoc Anil",                      "url": "https://astrodocanil.com"},
+        {"name": "Cosmologer",                         "url": "https://cosmologer.blogspot.com"},
+        {"name": "Rowans Financial Astrology",         "url": "https://rowansfinancialastrology.com"},
+        {"name": "StockAstrologer",                    "url": "https://stockastrologer.com"},
+        {"name": "Invest By Cycles Newsletter",        "url": "https://investbycyclesnewsletter.substack.com"},
+        {"name": "AuraWright Media",                   "url": "https://aurawrightmedia.substack.com"},
+        {"name": "LunaticTrader",                      "url": "https://blog.lunatictrader.com"},
+        {"name": "Financial Astrology by Rajeev Prakash", "url": "https://rajeevprakash.com"},
+        {"name": "The Weekly Stars",                   "url": "https://theweeklystars.substack.com"},
+    ]}
+
+
+# ── One-time migration: pull contacts + partners from astro-api ───────────────
+
+class _MigrateRequest(BaseModel):
+    astro_api_url:      str = "https://api.starsignal.io"
+    astro_admin_password: str
+
+
+@app.post("/admin/migrate-from-astro-api")
+def admin_migrate_from_astro(
+    body: _MigrateRequest,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    headers = {"Authorization": f"Bearer {body.astro_admin_password}", "Content-Type": "application/json"}
+    base    = body.astro_api_url.rstrip("/")
+    imported = {"astrologer_contacts": 0, "astrologer_partners": 0, "insights": 0, "errors": []}
+
+    # Migrate AstrologerContact
+    try:
+        r = requests.get(f"{base}/api/v1/admin/astrologers", headers=headers, timeout=15)
+        r.raise_for_status()
+        contacts = r.json().get("astrologers", [])
+        with Session(_engine) as db:
+            for c in contacts:
+                if db.query(AstrologerContact).filter(AstrologerContact.id == c["id"]).first():
+                    continue
+                db.add(AstrologerContact(
+                    id=c["id"], name=c["name"], email=c.get("email", ""),
+                    website=c.get("website", ""), twitter=c.get("twitter", ""),
+                    feed_url=c.get("feedUrl", ""), topics=c.get("topics", ""),
+                    notes=c.get("notes", ""),
+                ))
+                imported["astrologer_contacts"] += 1
+            db.commit()
+    except Exception as e:
+        imported["errors"].append(f"contacts: {e}")
+
+    # Migrate AstrologerPartner
+    try:
+        r = requests.get(f"{base}/api/v1/admin/partners", headers=headers, timeout=15)
+        r.raise_for_status()
+        partners = r.json().get("partners", [])
+        with Session(_engine) as db:
+            for p in partners:
+                existing = db.query(AstrologerPartner).filter(AstrologerPartner.id == p["id"]).first()
+                if existing:
+                    continue
+                try:
+                    db.add(AstrologerPartner(
+                        id=p["id"], name=p["name"], email=p["email"],
+                        website=p.get("website", ""), bio=p.get("bio", ""),
+                        photo_url=p.get("photoUrl", ""), twitter_url=p.get("twitterUrl", ""),
+                        substack_url=p.get("substackUrl", ""), youtube_url=p.get("youtubeUrl", ""),
+                        rss_url=p.get("rssUrl", ""),
+                        content_types=json.dumps(p.get("contentTypes", [])),
+                        publishing_years=p.get("publishingYears", ""),
+                        publish_frequency=p.get("publishFrequency", ""),
+                        tier=p.get("tier", "free"), status=p.get("status", "pending"),
+                        rejection_reason=p.get("rejectionReason", ""),
+                        impressions_this_month=p.get("impressionsThisMonth", 0),
+                        total_impressions=p.get("totalImpressions", 0),
+                        insights_extracted=p.get("insightsExtracted", 0),
+                        manually_featured=p.get("manuallyFeatured", False),
+                    ))
+                    imported["astrologer_partners"] += 1
+                except Exception as e2:
+                    db.rollback()
+                    imported["errors"].append(f"partner {p.get('id')}: {e2}")
+            db.commit()
+    except Exception as e:
+        imported["errors"].append(f"partners: {e}")
+
+    # Migrate PersistedInsights
+    try:
+        r = requests.get(f"{base}/api/v1/insights", headers={"x-api-key": body.astro_admin_password}, timeout=15)
+        r.raise_for_status()
+        insights = r.json().get("insights", [])
+        with Session(_engine) as db:
+            for i in insights:
+                if db.query(PersistedInsight).filter(PersistedInsight.id == i["id"]).first():
+                    continue
+                db.add(PersistedInsight(
+                    id=i["id"], topic=i["topic"], outlook=i["outlook"],
+                    timeframe=i["timeframe"], summary=i["summary"],
+                    confidence=i.get("confidence", "medium"),
+                    source_name=i["source_name"], source_url=i["source_url"],
+                    published_date=i["published_date"],
+                    period_start=i.get("period_start"), period_end=i.get("period_end"),
+                    trend_type=i.get("trend_type"),
+                    featured=i.get("featured", False), verified=i.get("verified", False),
+                    source_avatar=i.get("source_avatar"), partner_id=i.get("partner_id"),
+                ))
+                imported["insights"] += 1
+            db.commit()
+        _load_insights_from_db()
+    except Exception as e:
+        imported["errors"].append(f"insights: {e}")
+
+    return imported
