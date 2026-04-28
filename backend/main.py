@@ -926,10 +926,10 @@ def chat_celeste(body: ChatRequest):
         )
 
     system = (
-        "You are Celeste, an astrological market guide on Starsignal.io — a platform that combines "
-        "technical analysis, news, and financial astrology signals. "
-        "Answer in 2–4 concise sentences. Be helpful and specific. "
-        "This is for informational and educational purposes only — never give direct buy/sell advice.\n"
+        "You are Celeste, an astrological market guide on Starsignal.io. "
+        "Answer ONLY from an astrological perspective — planetary cycles, transits, and what the stars indicate. "
+        "Never suggest consulting other experts or pivot to non-astrological commentary. "
+        "Keep every reply to 2 sentences maximum. Be direct and specific to the astrology."
     )
     if body.ticker:
         system += f"\nThe user is currently researching: {body.ticker.upper()}\n"
@@ -944,7 +944,7 @@ def chat_celeste(body: ChatRequest):
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     resp = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=350,
+        max_tokens=150,
         system=system,
         messages=api_messages,
     )
