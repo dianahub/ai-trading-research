@@ -333,7 +333,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
   }, [matchedTopics, topic_summaries, overall_summary])
 
   // All expensive filtering/dedup runs only when astroData, matchedTopic, or ticker changes
-  const { previewInsights, viewAllInsights, hasSymbolMatch } = useMemo(() => {
+  const { previewInsights, viewAllInsights, hasSymbolMatch, filteredScore } = useMemo(() => {
     // Drop cards about a different specific asset — e.g. hide XRP cards when searching AAPL
     const insights = (rawInsights ?? [])
       .filter(i => isFutureOrCurrent(i.timeframe))
@@ -366,7 +366,16 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     const viewAll = hasDirectMatch
       ? deduplicateSimilar(expandedRaw)
       : deduplicateSimilar(insights.filter(i => !previewIds.has(i.id ?? i.summary)))
-    return { previewInsights: preview, viewAllInsights: viewAll, hasSymbolMatch }
+
+    // Sentiment score derived from the relevant pool for this search
+    const scorePool     = hasDirectMatch ? matchedInsights : insights
+    const bullish       = scorePool.filter(i => i.outlook === 'bullish').length
+    const bearish       = scorePool.filter(i => i.outlook === 'bearish').length
+    const filteredScore = scorePool.length > 0
+      ? Math.round(((bullish - bearish) / scorePool.length) * 100) / 100
+      : null
+
+    return { previewInsights: preview, viewAllInsights: viewAll, hasSymbolMatch, filteredScore }
   }, [rawInsights, matchedTopics, available, ticker])
 
   if (!astroData) return null
@@ -466,7 +475,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
               )}
 
               {/* Sentiment gauge — only when ticker has no mapped category */}
-              {matchedTopics.length === 0 && <SentimentGauge score={sentiment_score} />}
+              {matchedTopics.length === 0 && <SentimentGauge score={filteredScore ?? sentiment_score} />}
 
               {/* Overall summary */}
               {displaySummary && (() => {
@@ -480,7 +489,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                     style={{ background: 'linear-gradient(135deg, #1e1b4b, #0f1a2e)', border: '1px solid #4338ca', boxShadow: '0 0 18px #3730a322' }}
                   >
                     <div className="flex items-center gap-4 mb-3">
-                      <MoodIllustration score={sentiment_score} />
+                      <MoodIllustration score={filteredScore ?? sentiment_score} />
                       <p className="text-sm font-bold tracking-wide" style={{ color: '#a5b4fc' }}>
                         ♅ Astrological Market Outlook Summary
                       </p>
