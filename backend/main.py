@@ -6007,12 +6007,25 @@ def admin_resend_partner_welcome(
         db.commit()
         magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={user.email}"
         first = user.first_name or user.email.split("@")[0]
-        email_html = _partner_welcome_email_html(first, magic_link, contact.discount_code, contact.slug)
-        threading.Thread(
-            target=_send_email,
-            args=(user.email, "Your Star Signal partner account is ready", email_html),
-            daemon=True,
-        ).start()
+        referral_link = f"https://starsignal.io/join/{contact.slug}"
+        body = (
+            f"Forward this to {first} ({user.email}):\n\n"
+            f"---\n\n"
+            f"Hi {first},\n\n"
+            f"Thank you for partnering with Star Signal. Your account is set up and ready.\n\n"
+            f"Login link (click to access your account):\n{magic_link}\n\n"
+            f"Your promo code: {contact.discount_code}\n"
+            f"Share this with your audience — they get 45 days free and lock in $19/month forever after.\n\n"
+            f"Your referral link: {referral_link}\n"
+            f"Every subscriber who signs up through your link earns you 20% monthly commission automatically.\n\n"
+            f"Your partner dashboard: https://starsignal.io/partners/dashboard\n"
+            f"Track your referrals and commissions in real time.\n\n"
+            f"Let me know if you have any questions.\n\n"
+            f"Diana Castillo\n"
+            f"starsignal.io"
+        )
+        admin_email = os.getenv("ADMIN_EMAIL", "dianahelene@gmail.com")
+        _send_email(admin_email, f"Star Signal partner info for {first}", body, text_only=True)
         return {"ok": True}
 
 
