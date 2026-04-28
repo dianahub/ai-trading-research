@@ -507,6 +507,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               visible={showAstro}
               onToggle={handleToggleAstro}
               ticker={ticker}
+              assetType={data.assetType}
               matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : data.assetType === 'stock' ? ['stock market', 'financial markets'] : null)) : null}
             />
           </div>
