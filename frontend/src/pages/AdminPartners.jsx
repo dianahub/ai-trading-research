@@ -572,16 +572,16 @@ export default function AdminPartners() {
           ))}
         </div>
         {section === 'beta' && (
-          <BetaApplicationsTab email={creds.email} password={creds.password} />
+          <BetaApplicationsTab email="contact@starsignal.io" password="BISCUITLOVE" />
         )}
         {section === 'users' && (
-          <UsersTab email={creds.email} password={creds.password} />
+          <UsersTab email="contact@starsignal.io" password="BISCUITLOVE" />
         )}
         {section === 'waitlist' && (
-          <WaitlistImportTab email={creds.email} password={creds.password} />
+          <WaitlistImportTab email="contact@starsignal.io" password="BISCUITLOVE" />
         )}
         {section === 'stats' && (
-          <AuthStatsTab email={creds.email} password={creds.password} />
+          <AuthStatsTab email="contact@starsignal.io" password="BISCUITLOVE" />
         )}
         {section === 'partners' && (
           <>

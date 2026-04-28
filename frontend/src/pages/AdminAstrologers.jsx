@@ -56,6 +56,7 @@ export default function AdminAstrologers() {
   const [partnersLoading, setPartnersLoading] = useState(true)
   const [resending, setResending]             = useState('')
   const [deactivating, setDeactivating]       = useState('')
+  const [emailingMe, setEmailingMe]           = useState('')
 
   useEffect(() => { load(); loadPartners() }, [])
 
@@ -156,6 +157,17 @@ export default function AdminAstrologers() {
       if (!r.ok) alert('Failed to resend email')
     } catch { alert('Network error') }
     setResending('')
+  }
+
+  async function emailMe(id) {
+    setEmailingMe(id)
+    try {
+      const r = await fetch(`${API}/admin/partner-accounts/${id}/email-me`, {
+        method: 'POST', headers: adminHeaders(),
+      })
+      if (!r.ok) alert('Failed to send email')
+    } catch { alert('Network error') }
+    setTimeout(() => setEmailingMe(''), 2000)
   }
 
   async function deactivatePartner(id, name) {
@@ -283,7 +295,7 @@ export default function AdminAstrologers() {
                           )}
                           {madeIds[a.id] && (
                             <div className="mt-3 rounded-lg p-3 text-xs space-y-2" style={{ background: '#0a2e1a', border: '1px solid #166534' }}>
-                              <p className="font-semibold" style={{ color: '#4ade80' }}>Account created — no email sent. Copy these for your personal email:</p>
+                              <p className="font-semibold" style={{ color: '#4ade80' }}>Account created!</p>
                               <div>
                                 <span style={{ color: '#94a3b8' }}>Promo code: </span>
                                 <strong style={{ color: '#06b6d4' }}>{madeIds[a.id].discount_code}</strong>
@@ -294,10 +306,13 @@ export default function AdminAstrologers() {
                                 <span style={{ color: '#e2e8f0' }}>starsignal.io/join/{madeIds[a.id].slug}</span>
                                 <CopyButton text={`https://starsignal.io/join/${madeIds[a.id].slug}`} />
                               </div>
-                              <div>
-                                <span style={{ color: '#94a3b8' }}>Login link (72h): </span>
-                                <CopyButton text={madeIds[a.id].magic_link} />
-                              </div>
+                              <button
+                                onClick={() => emailMe(madeIds[a.id].id)}
+                                disabled={!!emailingMe}
+                                className="mt-1 px-3 py-1.5 rounded text-xs font-semibold w-full"
+                                style={{ background: emailingMe === madeIds[a.id].id ? '#1e3a5f' : '#06b6d4', color: '#fff', cursor: 'pointer', border: 'none' }}>
+                                {emailingMe === madeIds[a.id].id ? 'Sent to your Gmail ✓' : 'Email me the template'}
+                              </button>
                             </div>
                           )}
                         </div>
@@ -365,12 +380,20 @@ export default function AdminAstrologers() {
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button
+                            onClick={() => emailMe(p.id)}
+                            disabled={emailingMe === p.id}
+                            className="px-2 py-1 rounded text-xs font-semibold whitespace-nowrap"
+                            style={{ background: emailingMe === p.id ? '#14532d' : '#06b6d4', color: '#fff', border: 'none' }}
+                          >
+                            {emailingMe === p.id ? 'Sent ✓' : 'Email me'}
+                          </button>
+                          <button
                             onClick={() => resendWelcome(p.id)}
                             disabled={resending === p.id}
                             className="px-2 py-1 rounded text-xs font-semibold whitespace-nowrap"
                             style={{ background: '#0f1a2e', color: '#94a3b8', border: '1px solid #1e2d45' }}
                           >
-                            {resending === p.id ? '…' : 'Resend'}
+                            {resending === p.id ? '…' : 'Resend to them'}
                           </button>
                           {p.user_tier !== 'free' && (
                             <button
