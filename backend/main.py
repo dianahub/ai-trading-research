@@ -5138,6 +5138,33 @@ def admin_update_discount_code(
         return {"ok": True, "discount_code": partner.discount_code, "active": partner.discount_code_active}
 
 
+@app.patch("/admin/partner-accounts/{partner_id}/slug")
+def admin_update_partner_slug(
+    partner_id: str,
+    body: dict,
+    x_admin_email: str = Header(""),
+    x_admin_password: str = Header(""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        partner = db.query(OutreachContact).filter(OutreachContact.id == partner_id).first()
+        if not partner:
+            raise HTTPException(404, "Partner not found")
+        new_slug = re.sub(r'[^a-z0-9-]', '', body.get("slug", "").lower().strip().replace(" ", "-"))
+        if not new_slug:
+            raise HTTPException(400, "Invalid slug")
+        existing = db.query(OutreachContact).filter(
+            OutreachContact.slug == new_slug,
+            OutreachContact.id != partner_id,
+        ).first()
+        if existing:
+            raise HTTPException(400, "Referral link already in use")
+        partner.slug = new_slug
+        partner.referral_code = new_slug
+        db.commit()
+        return {"ok": True, "slug": partner.slug}
+
+
 @app.post("/admin/commissions/calculate-monthly")
 def admin_calculate_monthly(
     x_admin_email: str = Header(""),

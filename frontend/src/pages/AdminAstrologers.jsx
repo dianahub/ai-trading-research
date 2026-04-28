@@ -57,9 +57,12 @@ export default function AdminAstrologers() {
   const [resending, setResending]             = useState('')
   const [deactivating, setDeactivating]       = useState('')
   const [emailingMe, setEmailingMe]           = useState('')
-  const [editingCode, setEditingCode]         = useState({}) // id → new code string
+  const [editingCode, setEditingCode]         = useState({})
   const [savingCode, setSavingCode]           = useState('')
   const [codeErr, setCodeErr]                 = useState({})
+  const [editingSlug, setEditingSlug]         = useState({})
+  const [savingSlug, setSavingSlug]           = useState('')
+  const [slugErr, setSlugErr]                 = useState({})
 
   useEffect(() => { load(); loadPartners() }, [])
 
@@ -178,6 +181,24 @@ export default function AdminAstrologers() {
       setEditingCode(e => ({ ...e, [p.id]: '' }))
     } catch { setCodeErr(e => ({ ...e, [p.id]: 'Network error' })) }
     setSavingCode('')
+  }
+
+  async function saveSlug(p) {
+    const newSlug = (editingSlug[p.id] || '').toLowerCase().trim().replace(/\s+/g, '-')
+    if (!newSlug) return
+    setSavingSlug(p.id)
+    setSlugErr(e => ({ ...e, [p.id]: '' }))
+    try {
+      const r = await fetch(`${API}/admin/partner-accounts/${p.id}/slug`, {
+        method: 'PATCH', headers: adminHeaders(),
+        body: JSON.stringify({ slug: newSlug }),
+      })
+      const d = await r.json()
+      if (!r.ok) { setSlugErr(e => ({ ...e, [p.id]: d.detail || 'Failed' })); setSavingSlug(''); return }
+      setPartners(ps => ps.map(x => x.id === p.id ? { ...x, slug: d.slug, referral_link: `starsignal.io/join/${d.slug}` } : x))
+      setEditingSlug(e => ({ ...e, [p.id]: '' }))
+    } catch { setSlugErr(e => ({ ...e, [p.id]: 'Network error' })) }
+    setSavingSlug('')
   }
 
   async function emailMe(id) {
@@ -402,9 +423,26 @@ export default function AdminAstrologers() {
                         </div>
                         {codeErr[p.id] && <p className="text-xs mt-0.5" style={{ color: '#f87171' }}>{codeErr[p.id]}</p>}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ whiteSpace: 'nowrap' }}>
-                        <span style={{ color: '#64748b' }}>{p.referral_link || '—'}</span>
-                        {p.referral_link && <CopyButton text={`https://${p.referral_link}`} />}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs" style={{ color: '#475569' }}>starsignal.io/join/</span>
+                          <input
+                            value={editingSlug[p.id] ?? (p.slug || '')}
+                            onChange={e => setEditingSlug(es => ({ ...es, [p.id]: e.target.value.toLowerCase() }))}
+                            onKeyDown={e => e.key === 'Enter' && saveSlug(p)}
+                            className="text-xs font-mono px-2 py-0.5 rounded w-24 outline-none"
+                            style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#06b6d4' }}
+                          />
+                          {editingSlug[p.id] && editingSlug[p.id] !== p.slug && (
+                            <button onClick={() => saveSlug(p)} disabled={savingSlug === p.id}
+                              className="text-xs px-1.5 py-0.5 rounded"
+                              style={{ background: '#14532d', color: '#4ade80', border: 'none', cursor: 'pointer' }}>
+                              {savingSlug === p.id ? '…' : '✓'}
+                            </button>
+                          )}
+                          {p.referral_link && <CopyButton text={`https://${p.referral_link}`} />}
+                        </div>
+                        {slugErr[p.id] && <p className="text-xs mt-0.5" style={{ color: '#f87171' }}>{slugErr[p.id]}</p>}
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>{fmt(p.created_at)}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>{fmt(p.last_login)}</td>
