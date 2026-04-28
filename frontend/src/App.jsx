@@ -250,7 +250,9 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         return
       }
 
-      const name = price?.name || detected?.name || ticker.toUpperCase()
+      const upper = ticker.toUpperCase()
+      const priceName = price?.name && price.name !== upper ? price.name : null
+      const name = priceName || detected?.name || upper
 
       setData({
         price,

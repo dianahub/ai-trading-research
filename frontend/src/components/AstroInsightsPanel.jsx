@@ -297,6 +297,8 @@ function deduplicateSimilar(pool) {
   }
   function isSimilar(a, b) {
     if (a.topic === b.topic && a.outlook === b.outlook && a.timeframe === b.timeframe) return true
+    // Same astrologer making the same call on the same topic = duplicate regardless of wording
+    if (a.source_name && a.source_name === b.source_name && a.topic === b.topic && a.outlook === b.outlook) return true
     return jaccard(a.summary, b.summary) >= JACCARD_THRESHOLD
   }
   const sorted = [...pool].sort(
@@ -329,7 +331,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     const matchedInsights = hasDirectMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
     const otherInsights   = hasDirectMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
     const previewPool     = hasDirectMatch ? matchedInsights : insights
-    const preview         = pickOnePerAstrologer(previewPool, 3)
+    const preview         = pickOnePerAstrologer(deduplicateSimilar(previewPool), 3)
     const previewIds      = new Set(preview.map(i => i.id ?? i.summary))
     const expandedRaw     = [
       ...matchedInsights.filter(i => !previewIds.has(i.id ?? i.summary)),
