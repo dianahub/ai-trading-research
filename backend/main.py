@@ -6016,6 +6016,49 @@ def admin_resend_partner_welcome(
         return {"ok": True}
 
 
+@app.post("/admin/partner-accounts/{contact_id}/email-me")
+def admin_email_me_partner_info(
+    contact_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        contact = db.query(OutreachContact).filter(OutreachContact.id == contact_id).first()
+        if not contact:
+            raise HTTPException(404, "Partner not found")
+        user = db.query(User).filter(User.email == contact.contact_email).first()
+        if not user:
+            raise HTTPException(404, "User account not found")
+        now = datetime.now(timezone.utc)
+        magic_token = secrets.token_urlsafe(32)
+        user.email_verification_token = _hash_password(magic_token)
+        user.email_verification_expires = now + timedelta(hours=72)
+        db.commit()
+        magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={user.email}"
+        first = user.first_name or user.email.split("@")[0]
+        referral_link = f"https://starsignal.io/join/{contact.slug}"
+        body = (
+            f"Forward this to {first} ({user.email}):\n\n"
+            f"---\n\n"
+            f"Hi {first},\n\n"
+            f"Thank you for partnering with Star Signal. Your account is set up and ready.\n\n"
+            f"Login link (click to access your account):\n{magic_link}\n\n"
+            f"Your promo code: {contact.discount_code}\n"
+            f"Share this with your audience — they get 45 days free and lock in $19/month forever after.\n\n"
+            f"Your referral link: {referral_link}\n"
+            f"Every subscriber who signs up through your link earns you 20% monthly commission automatically.\n\n"
+            f"Your partner dashboard: https://starsignal.io/partners/dashboard\n"
+            f"Track your referrals and commissions in real time.\n\n"
+            f"Let me know if you have any questions.\n\n"
+            f"Diana Castillo\n"
+            f"starsignal.io"
+        )
+        admin_email = os.getenv("ADMIN_EMAIL", "dianahelene@gmail.com")
+        _send_email(admin_email, f"Star Signal partner info for {first}", body, text_only=True)
+        return {"ok": True}
+
+
 @app.patch("/admin/partner-accounts/{contact_id}/deactivate")
 def admin_deactivate_partner(
     contact_id: str,
