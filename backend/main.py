@@ -3937,6 +3937,7 @@ def _get_user_from_cookie(session_token: Optional[str], db: Session) -> Optional
 
 def _send_email(to: str, subject: str, body: str, text_only: bool = False):
     if not RESEND_API_KEY:
+        _log_error("EMAIL", f"to={to}", 0, Exception("RESEND_API_KEY not set"))
         return
     try:
         resend.api_key = RESEND_API_KEY
@@ -3952,7 +3953,7 @@ def _send_email(to: str, subject: str, body: str, text_only: bool = False):
             payload["html"] = body
         resend.Emails.send(payload)
     except Exception as e:
-        print(f"[email] failed: {e}")
+        _log_error("EMAIL", f"to={to} subject={subject}", 0, e)
 
 
 def _make_slug(name: str) -> str:
