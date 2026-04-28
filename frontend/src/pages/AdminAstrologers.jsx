@@ -57,6 +57,9 @@ export default function AdminAstrologers() {
   const [resending, setResending]             = useState('')
   const [deactivating, setDeactivating]       = useState('')
   const [emailingMe, setEmailingMe]           = useState('')
+  const [editingCode, setEditingCode]         = useState({}) // id → new code string
+  const [savingCode, setSavingCode]           = useState('')
+  const [codeErr, setCodeErr]                 = useState({})
 
   useEffect(() => { load(); loadPartners() }, [])
 
@@ -157,6 +160,24 @@ export default function AdminAstrologers() {
       if (!r.ok) alert('Failed to resend email')
     } catch { alert('Network error') }
     setResending('')
+  }
+
+  async function savePromoCode(p) {
+    const newCode = (editingCode[p.id] || '').toUpperCase().trim()
+    if (!newCode) return
+    setSavingCode(p.id)
+    setCodeErr(e => ({ ...e, [p.id]: '' }))
+    try {
+      const r = await fetch(`${API}/admin/commissions/partner/${p.id}/discount-code`, {
+        method: 'PATCH', headers: adminHeaders(),
+        body: JSON.stringify({ discount_code: newCode }),
+      })
+      const d = await r.json()
+      if (!r.ok) { setCodeErr(e => ({ ...e, [p.id]: d.detail || 'Failed' })); setSavingCode(''); return }
+      setPartners(ps => ps.map(x => x.id === p.id ? { ...x, discount_code: d.discount_code } : x))
+      setEditingCode(e => ({ ...e, [p.id]: '' }))
+    } catch { setCodeErr(e => ({ ...e, [p.id]: 'Network error' })) }
+    setSavingCode('')
   }
 
   async function emailMe(id) {
@@ -363,8 +384,23 @@ export default function AdminAstrologers() {
                       <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{p.contact_email}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{p.publication_name || '—'}</td>
                       <td className="px-4 py-3">
-                        <code className="text-xs font-mono px-2 py-0.5 rounded"
-                          style={{ background: '#0f1a2e', color: '#06b6d4' }}>{p.discount_code || '—'}</code>
+                        <div className="flex items-center gap-1">
+                          <input
+                            value={editingCode[p.id] ?? p.discount_code ?? ''}
+                            onChange={e => setEditingCode(ec => ({ ...ec, [p.id]: e.target.value.toUpperCase() }))}
+                            onKeyDown={e => e.key === 'Enter' && savePromoCode(p)}
+                            className="text-xs font-mono px-2 py-0.5 rounded w-24 outline-none"
+                            style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#06b6d4' }}
+                          />
+                          {editingCode[p.id] && editingCode[p.id] !== p.discount_code && (
+                            <button onClick={() => savePromoCode(p)} disabled={savingCode === p.id}
+                              className="text-xs px-1.5 py-0.5 rounded"
+                              style={{ background: '#14532d', color: '#4ade80', border: 'none', cursor: 'pointer' }}>
+                              {savingCode === p.id ? '…' : '✓'}
+                            </button>
+                          )}
+                        </div>
+                        {codeErr[p.id] && <p className="text-xs mt-0.5" style={{ color: '#f87171' }}>{codeErr[p.id]}</p>}
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ whiteSpace: 'nowrap' }}>
                         <span style={{ color: '#64748b' }}>{p.referral_link || '—'}</span>
