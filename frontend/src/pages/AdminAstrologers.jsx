@@ -281,6 +281,25 @@ export default function AdminAstrologers() {
                           {makeErr[a.id] && (
                             <p className="text-xs" style={{ color: '#f87171' }}>{makeErr[a.id]}</p>
                           )}
+                          {madeIds[a.id] && (
+                            <div className="mt-3 rounded-lg p-3 text-xs space-y-2" style={{ background: '#0a2e1a', border: '1px solid #166534' }}>
+                              <p className="font-semibold" style={{ color: '#4ade80' }}>Account created — no email sent. Copy these for your personal email:</p>
+                              <div>
+                                <span style={{ color: '#94a3b8' }}>Promo code: </span>
+                                <strong style={{ color: '#06b6d4' }}>{madeIds[a.id].discount_code}</strong>
+                                <CopyButton text={madeIds[a.id].discount_code} />
+                              </div>
+                              <div>
+                                <span style={{ color: '#94a3b8' }}>Referral link: </span>
+                                <span style={{ color: '#e2e8f0' }}>starsignal.io/join/{madeIds[a.id].slug}</span>
+                                <CopyButton text={`https://starsignal.io/join/${madeIds[a.id].slug}`} />
+                              </div>
+                              <div>
+                                <span style={{ color: '#94a3b8' }}>Login link (72h): </span>
+                                <CopyButton text={madeIds[a.id].magic_link} />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -5940,13 +5940,6 @@ def admin_create_partner_account(
         db.refresh(user)
 
         magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={email}"
-        first = body.first_name or email.split("@")[0]
-        email_html = _partner_welcome_email_html(first, magic_link, discount_code, slug)
-        threading.Thread(
-            target=_send_email,
-            args=(email, "Your Star Signal partner account is ready", email_html),
-            daemon=True,
-        ).start()
 
         result = _contact_dict(contact)
         result["publication_name"] = contact.platform
@@ -5955,6 +5948,7 @@ def admin_create_partner_account(
         result["total_commission_earned"] = 0.0
         result["user_id"] = user.id
         result["user_tier"] = user.tier
+        result["magic_link"] = magic_link
         return result
 
 
