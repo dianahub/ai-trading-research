@@ -491,7 +491,12 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   <p className="text-sm" style={{ color: '#94a3b8' }}>
                     No particular information found about{' '}
                     <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span>.
-                    {' '}The following relates to the entire {assetType === 'crypto' ? 'crypto market' : 'stock market'}.
+                    {' '}The following relates to the entire{' '}
+                    {(() => {
+                      const specific = matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
+                      if (specific) return specific.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
+                      return assetType === 'crypto' ? 'crypto market' : 'stock market'
+                    })()}.
                   </p>
                 </div>
               )}
