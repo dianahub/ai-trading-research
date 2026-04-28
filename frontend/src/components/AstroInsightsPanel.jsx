@@ -318,11 +318,19 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     setVisibleCount(c => c + 10)
   }
 
-  const { available, sentiment_score, overall_summary, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
+  const { available, sentiment_score, overall_summary, topic_summaries = {}, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
 
-  const matchedTopics = useMemo(() => 
+  const matchedTopics = useMemo(() =>
     matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
   , [matchedTopic])
+
+  // Use topic-specific summary when available, else fall back to overall
+  const displaySummary = useMemo(() => {
+    for (const t of matchedTopics) {
+      if (topic_summaries[t]) return topic_summaries[t]
+    }
+    return overall_summary || ''
+  }, [matchedTopics, topic_summaries, overall_summary])
 
   // All expensive filtering/dedup runs only when astroData or matchedTopic changes
   const { previewInsights, viewAllInsights } = useMemo(() => {
@@ -423,8 +431,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
               {matchedTopics.length === 0 && <SentimentGauge score={sentiment_score} />}
 
               {/* Overall summary */}
-              {overall_summary && (() => {
-                const bullets = overall_summary
+              {displaySummary && (() => {
+                const bullets = displaySummary
                   .split('\n')
                   .map(l => l.replace(/^[\s•\-\*\d\.]+/, '').trim())
                   .filter(l => l.length > 10)
@@ -449,7 +457,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{overall_summary}</p>
+                      <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{displaySummary}</p>
                     )}
                   </div>
                 )

@@ -869,6 +869,7 @@ def _fetch_astro_data() -> dict | None:
     return {
         "sentiment_score":  score,
         "overall_summary":  _insights_state.get("summary", ""),
+        "topic_summaries":  _insights_state.get("topic_summaries", {}),
         "total_insights":   total,
         "breakdown":        dict(counts),
         "insights":         insights,
@@ -6243,7 +6244,7 @@ _LEGACY_FEEDS = [
     {"name": "The Weekly Stars",               "url": "https://theweeklystars.substack.com/feed"},
 ]
 
-_insights_state: dict = {"insights": [], "last_fetch": None, "summary": ""}
+_insights_state: dict = {"insights": [], "last_fetch": None, "summary": "", "topic_summaries": {}}
 _insights_lock = threading.Lock()
 
 _MONTH_NUM = {
@@ -6565,6 +6566,48 @@ def _generate_astro_summary(insights: list[dict]) -> str:
         return ""
 
 
+def _generate_topic_summaries(insights: list[dict]) -> dict:
+    """Generate a 2-bullet summary per topic that has enough signals."""
+    if not insights or not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
+        return {}
+    from collections import defaultdict
+    by_topic: dict = defaultdict(list)
+    for i in insights:
+        t = i.get("topic", "").strip().lower()
+        if t:
+            by_topic[t].append(i)
+
+    results = {}
+    client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    for topic, topic_insights in by_topic.items():
+        if len(topic_insights) < 3:
+            continue
+        sample = topic_insights[:10]
+        bullets_input = "\n".join(
+            f"- {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+            for i in sample
+        )
+        try:
+            resp = client_a.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=200,
+                system=(
+                    "You are a financial astrology summarizer. Given signals for a specific market sector, "
+                    "write exactly 2 concise bullet points (one sentence each) summarizing the astrological outlook for that sector. "
+                    "Use plain English. Return only the 2 bullet points, each starting with '• '."
+                ),
+                messages=[{"role": "user", "content": (
+                    f"Sector: {topic.upper()}\n\nSignals:\n{bullets_input}\n\n"
+                    f"Write 2 bullet points summarizing the astrological outlook for {topic}."
+                )}],
+            )
+            results[topic] = resp.content[0].text.strip()
+        except Exception as e:
+            print(f"[ingestion] Topic summary failed for '{topic}': {e}", flush=True)
+    print(f"[ingestion] Generated summaries for {len(results)} topics.", flush=True)
+    return results
+
+
 def _run_ingestion():
     print(f"[{datetime.now().isoformat()}] Starting RSS ingestion...", flush=True)
     with Session(_engine) as db:
@@ -6614,9 +6657,11 @@ def _run_ingestion():
         _insights_state["insights"]   = merged
         _insights_state["last_fetch"] = datetime.now().isoformat()
 
-    summary = _generate_astro_summary(merged)
+    summary       = _generate_astro_summary(merged)
+    topic_summaries = _generate_topic_summaries(merged)
     with _insights_lock:
-        _insights_state["summary"] = summary
+        _insights_state["summary"]         = summary
+        _insights_state["topic_summaries"] = topic_summaries
 
     # Persist to DB
     with Session(_engine) as db:
@@ -6674,9 +6719,11 @@ def _load_insights_from_db():
             _insights_state["insights"]   = fresh
             _insights_state["last_fetch"] = datetime.now().isoformat()
         print(f"[ingestion] Loaded {len(fresh)} insights from DB.", flush=True)
-        summary = _generate_astro_summary(fresh)
+        summary         = _generate_astro_summary(fresh)
+        topic_summaries = _generate_topic_summaries(fresh)
         with _insights_lock:
-            _insights_state["summary"] = summary
+            _insights_state["summary"]         = summary
+            _insights_state["topic_summaries"] = topic_summaries
     except Exception as e:
         print(f"[ingestion] Failed to load from DB: {e}", flush=True)
 
