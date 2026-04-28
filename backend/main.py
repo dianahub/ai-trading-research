@@ -909,16 +909,37 @@ def chat_celeste(body: ChatRequest):
     context_lines = []
     if body.ticker:
         topic_map = {
-            "BTC": "crypto", "ETH": "crypto", "SOL": "crypto",
-            "GLD": "gold", "IAU": "gold", "SLV": "gold",
-            "SPY": "stock market", "QQQ": "tech stocks",
+            "BTC": "crypto", "ETH": "crypto", "SOL": "crypto", "XRP": "crypto",
+            "DOGE": "crypto", "ADA": "crypto", "AVAX": "crypto",
+            "GLD": "gold", "IAU": "gold", "SLV": "gold", "GDX": "gold",
+            "SPY": "stock market", "IWM": "stock market", "DIA": "stock market",
+            "QQQ": "tech stocks", "NVDA": "tech stocks", "AAPL": "tech stocks",
+            "TSLA": "tech stocks", "AMZN": "tech stocks", "META": "tech stocks",
+            "MSFT": "tech stocks", "GOOGL": "tech stocks",
+            "XOM": "oil", "CVX": "oil", "USO": "oil",
+            "JPM": "banking", "GS": "banking", "BAC": "banking",
         }
         matched_topic = topic_map.get(body.ticker.upper())
         relevant = [i for i in insights if matched_topic and i.get("topic") == matched_topic][:6]
         if not relevant:
-            relevant = insights[:6]
+            # No specific match — send a diverse sample across topics
+            seen, relevant = set(), []
+            for i in insights:
+                t = i.get("topic")
+                if t not in seen:
+                    seen.add(t)
+                    relevant.append(i)
+                if len(relevant) >= 6:
+                    break
     else:
-        relevant = insights[:6]
+        seen, relevant = set(), []
+        for i in insights:
+            t = i.get("topic")
+            if t not in seen:
+                seen.add(t)
+                relevant.append(i)
+            if len(relevant) >= 6:
+                break
 
     for i in relevant:
         context_lines.append(
@@ -927,9 +948,10 @@ def chat_celeste(body: ChatRequest):
 
     system = (
         "You are StarSignal, an astrological market guide on Starsignal.io. "
-        "Answer ONLY from an astrological perspective — planetary cycles, transits, and what the stars indicate. "
-        "Never suggest consulting other experts or pivot to non-astrological commentary. "
-        "Keep every reply to 2 sentences maximum. Be direct and specific to the astrology."
+        "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
+        "Answer ONLY from an astrological perspective. Never refuse a question because a ticker is outside your scope. "
+        "Never suggest consulting other experts. "
+        "Keep every reply to 2 sentences maximum. Be direct and specific."
     )
     if body.ticker:
         system += f"\nThe user is currently researching: {body.ticker.upper()}\n"
