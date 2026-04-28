@@ -445,6 +445,26 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           ) : (
             <>
 
+              {/* No symbol-specific match notice */}
+              {ticker && !hasSymbolMatch && (
+                <div
+                  className="rounded-lg px-4 py-3 flex items-start gap-2"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}
+                >
+                  <span style={{ color: '#94a3b8', flexShrink: 0 }}>ℹ</span>
+                  <p className="text-sm" style={{ color: '#94a3b8' }}>
+                    No particular information found about{' '}
+                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span>.
+                    {' '}The following relates to the entire{' '}
+                    {(() => {
+                      const specific = matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
+                      if (specific) return specific.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
+                      return assetType === 'crypto' ? 'crypto market' : 'stock market'
+                    })()}.
+                  </p>
+                </div>
+              )}
+
               {/* Sentiment gauge — only when ticker has no mapped category */}
               {matchedTopics.length === 0 && <SentimentGauge score={sentiment_score} />}
 
@@ -480,26 +500,6 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   </div>
                 )
               })()}
-
-              {/* No symbol-specific match notice */}
-              {ticker && !hasSymbolMatch && (
-                <div
-                  className="rounded-lg px-4 py-3 flex items-start gap-2"
-                  style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}
-                >
-                  <span style={{ color: '#94a3b8', flexShrink: 0 }}>ℹ</span>
-                  <p className="text-sm" style={{ color: '#94a3b8' }}>
-                    No particular information found about{' '}
-                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span>.
-                    {' '}The following relates to the entire{' '}
-                    {(() => {
-                      const specific = matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
-                      if (specific) return specific.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
-                      return assetType === 'crypto' ? 'crypto market' : 'stock market'
-                    })()}.
-                  </p>
-                </div>
-              )}
 
               {/* 3 most recent related insight cards — shown below summary */}
               {previewInsights.length > 0 && (
