@@ -5963,7 +5963,7 @@ def admin_create_partner_account(
             f"Diana Castillo\n"
             f"starsignal.io"
         )
-        admin_email = os.getenv("ADMIN_EMAIL") or "dianahelene@gmail.com"
+        admin_email = "dianahelene@gmail.com"
         threading.Thread(
             target=_send_email,
             args=(admin_email, f"Star Signal partner info for {first}", welcome_body),
@@ -6052,7 +6052,7 @@ def admin_resend_partner_welcome(
             f"Diana Castillo\n"
             f"starsignal.io"
         )
-        admin_email = os.getenv("ADMIN_EMAIL") or "dianahelene@gmail.com"
+        admin_email = "dianahelene@gmail.com"
         _send_email(admin_email, f"Star Signal partner info for {first}", body, text_only=True)
         return {"ok": True}
 
@@ -6095,7 +6095,7 @@ def admin_email_me_partner_info(
             f"Diana Castillo\n"
             f"starsignal.io"
         )
-        admin_email = os.getenv("ADMIN_EMAIL") or "dianahelene@gmail.com"
+        admin_email = "dianahelene@gmail.com"
         _send_email(admin_email, f"Star Signal partner info for {first}", body, text_only=True)
         return {"ok": True}
 
