@@ -6,17 +6,17 @@ An AI-powered cryptocurrency research tool that combines real-time price data, t
 
 ---
 
-## Email sender — switch back to contact@starsignal.io around June 2026
+## Email sender — switch to contact@starsignal.io around June 2026
 
-All outgoing emails currently send from `dianahelene@gmail.com` because `starsignal.io` is a newly
-registered domain and Gmail shows a "newly registered domain" warning on emails from it.
+All outgoing emails currently send from `onboarding@resend.dev` (Resend's shared domain) because
+`starsignal.io` is newly registered and Gmail shows a spam warning on emails from it.
 
 Once the domain is ~60 days old (around late June 2026) and SPF/DKIM/DMARC are verified green in
-the Resend dashboard, switch every `from` address back to `Star Signal <contact@starsignal.io>`.
+the Resend dashboard, switch every `from` address to `Star Signal <contact@starsignal.io>`.
 
 **How to switch:** In `backend/main.py`, find and replace all occurrences of
-`"Diana Castillo <dianahelene@gmail.com>"` with `"Star Signal <contact@starsignal.io>"`.
-There are 5 occurrences (the `_send_email` helper + 4 inline Resend calls in contact/feedback/waitlist endpoints).
+`"Star Signal <onboarding@resend.dev>"` with `"Star Signal <contact@starsignal.io>"`.
+There are 6 occurrences (the `_send_email` helper + 5 inline Resend calls).
 
 ---
 
