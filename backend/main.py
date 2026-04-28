@@ -201,8 +201,8 @@ ASTRO_SIGNAL_WEIGHT    = float(os.getenv("ASTRO_SIGNAL_WEIGHT", "0.1"))
 # Astro cache — 30-minute TTL, shared across requests
 _astro_cache: dict = {"data": None, "fetched_at": 0.0}
 
-# Analysis cache — 15-minute TTL, keyed by ticker, persisted to disk so restarts don't wipe it
-ANALYZE_TTL       = 15 * 60  # 15 minutes
+# Analysis cache — 1-hour TTL, keyed by ticker, persisted to disk so restarts don't wipe it
+ANALYZE_TTL       = 60 * 60  # 1 hour
 _CACHE_FILE       = os.path.join(os.path.dirname(__file__), ".analysis_cache.json")
 _analyze_cache: dict[str, dict] = {}
 
