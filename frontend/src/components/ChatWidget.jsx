@@ -5,7 +5,8 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const GREETING = "Hi! I'm StarSignal ♅ — your astrological market guide. Ask me anything about the current signals, or about the ticker you're researching."
 
-export default function ChatWidget({ usesLeft, onUse, ticker }) {
+export default function ChatWidget({ usesLeft, onUse, ticker, authedUser, authActive }) {
+  const loggedIn = !authActive || !!authedUser
   const [open, setOpen]       = useState(false)
   const [input, setInput]     = useState('')
   const [loading, setLoading] = useState(false)
@@ -141,8 +142,20 @@ export default function ChatWidget({ usesLeft, onUse, ticker }) {
             </span>
           </div>
 
+          {/* Login gate */}
+          {!loggedIn && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px', textAlign: 'center', gap: 12 }}>
+              <span style={{ fontSize: 32 }}>♅</span>
+              <p style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14, margin: 0 }}>Login to ask StarSignal</p>
+              <p style={{ color: '#94a3b8', fontSize: 12, margin: 0 }}>Login in order to get answers from the astrological market guide.</p>
+              <a href="/login" style={{ marginTop: 8, padding: '8px 20px', borderRadius: 8, background: 'linear-gradient(135deg, #1e1b4b, #312e81)', border: '1px solid #3730a3', color: '#a5b4fc', fontSize: 13, fontWeight: 600, textDecoration: 'none', display: 'inline-block' }}>
+                Login
+              </a>
+            </div>
+          )}
+
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {loggedIn && <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {messages.map((m, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                 <div style={{
@@ -187,10 +200,10 @@ export default function ChatWidget({ usesLeft, onUse, ticker }) {
               </div>
             )}
             <div ref={bottomRef} />
-          </div>
+          </div>}
 
-          {/* Input */}
-          <div style={{
+          {/* Input — only when logged in */}
+          {loggedIn && <div style={{
             padding:    '10px 12px',
             borderTop:  '1px solid #1e2d45',
             display:    'flex',
@@ -239,7 +252,7 @@ export default function ChatWidget({ usesLeft, onUse, ticker }) {
             >
               ↑
             </button>
-          </div>
+          </div>}
         </div>
       )}
 

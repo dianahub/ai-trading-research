@@ -832,6 +832,8 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         usesLeft={usesLeft}
         onUse={() => setUsesLeft(decrementUses())}
         ticker={ticker}
+        authedUser={authedUser}
+        authActive={AUTH_ACTIVE}
       />
     </div>
   )
