@@ -5962,9 +5962,10 @@ def admin_create_partner_account(
             f"Diana Castillo\n"
             f"starsignal.io"
         )
+        admin_email = os.getenv("ADMIN_EMAIL", "dianahelene@gmail.com")
         threading.Thread(
             target=_send_email,
-            args=(email, "Your Star Signal partner account is ready", welcome_body),
+            args=(admin_email, f"Star Signal partner info for {first}", welcome_body),
             kwargs={"text_only": True},
             daemon=True,
         ).start()
@@ -6050,7 +6051,8 @@ def admin_resend_partner_welcome(
             f"Diana Castillo\n"
             f"starsignal.io"
         )
-        _send_email(user.email, "Your Star Signal partner account is ready", body, text_only=True)
+        admin_email = os.getenv("ADMIN_EMAIL", "dianahelene@gmail.com")
+        _send_email(admin_email, f"Star Signal partner info for {first}", body, text_only=True)
         return {"ok": True}
 
 
