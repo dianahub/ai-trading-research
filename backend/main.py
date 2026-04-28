@@ -900,7 +900,7 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 def chat_celeste(body: ChatRequest):
-    """Celeste — astrological market chat assistant."""
+    """StarSignal — astrological market chat assistant."""
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         raise HTTPException(status_code=503, detail="AI service unavailable")
 
@@ -926,7 +926,7 @@ def chat_celeste(body: ChatRequest):
         )
 
     system = (
-        "You are Celeste, an astrological market guide on Starsignal.io. "
+        "You are StarSignal, an astrological market guide on Starsignal.io. "
         "Answer ONLY from an astrological perspective — planetary cycles, transits, and what the stars indicate. "
         "Never suggest consulting other experts or pivot to non-astrological commentary. "
         "Keep every reply to 2 sentences maximum. Be direct and specific to the astrology."

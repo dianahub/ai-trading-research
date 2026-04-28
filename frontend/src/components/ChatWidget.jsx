@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-const GREETING = "Hi! I'm Celeste ♅ — your astrological market guide. Ask me anything about the current signals, or about the ticker you're researching."
+const GREETING = "Hi! I'm StarSignal ♅ — your astrological market guide. Ask me anything about the current signals, or about the ticker you're researching."
 
 export default function ChatWidget({ usesLeft, onUse, ticker }) {
   const [open, setOpen]       = useState(false)
@@ -69,7 +69,7 @@ export default function ChatWidget({ usesLeft, onUse, ticker }) {
       {/* Floating bubble button */}
       <button
         onClick={() => setOpen(o => !o)}
-        aria-label="Open Celeste chat"
+        aria-label="Open StarSignal chat"
         style={{
           position:     'fixed',
           bottom:       24,
@@ -132,7 +132,7 @@ export default function ChatWidget({ usesLeft, onUse, ticker }) {
                 fontSize: 14,
               }}>♅</div>
               <div>
-                <p style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 13, margin: 0 }}>Celeste</p>
+                <p style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 13, margin: 0 }}>StarSignal</p>
                 <p style={{ color: '#94a3b8', fontSize: 11, margin: 0 }}>Astro Market Guide</p>
               </div>
             </div>
@@ -204,7 +204,7 @@ export default function ChatWidget({ usesLeft, onUse, ticker }) {
               onChange={e => setInput(e.target.value)}
               onKeyDown={onKey}
               disabled={exhausted || loading}
-              placeholder={exhausted ? 'No uses remaining' : 'Ask Celeste…'}
+              placeholder={exhausted ? 'No uses remaining' : 'Ask StarSignal…'}
               rows={1}
               style={{
                 flex:        1,
