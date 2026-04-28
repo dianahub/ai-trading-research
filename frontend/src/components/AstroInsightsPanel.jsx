@@ -311,37 +311,63 @@ function deduplicateSimilar(pool) {
   return kept
 }
 
-export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic }) {
+export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic, assetType }) {
   const [visibleCount, setVisibleCount] = useState(0)
 
   function loadMore() {
     setVisibleCount(c => c + 10)
   }
 
-  const { available, sentiment_score, overall_summary, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
+  const { available, sentiment_score, overall_summary, topic_summaries = {}, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
 
-  const matchedTopics = useMemo(() => 
+  const matchedTopics = useMemo(() =>
     matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
   , [matchedTopic])
 
-  // All expensive filtering/dedup runs only when astroData or matchedTopic changes
-  const { previewInsights, viewAllInsights } = useMemo(() => {
-    const insights = (rawInsights ?? []).filter(i => isFutureOrCurrent(i.timeframe))
-    const hasDirectMatch = matchedTopics.length > 0 && available && insights.some(i => matchedTopics.includes(i.topic))
-    const matchedInsights = hasDirectMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
-    const otherInsights   = hasDirectMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
-    const previewPool     = hasDirectMatch ? matchedInsights : insights
-    const preview         = pickOnePerAstrologer(deduplicateSimilar(previewPool), 3)
-    const previewIds      = new Set(preview.map(i => i.id ?? i.summary))
-    const expandedRaw     = [
+  // Use topic-specific summary when available, else fall back to overall
+  const displaySummary = useMemo(() => {
+    for (const t of matchedTopics) {
+      if (topic_summaries[t]) return topic_summaries[t]
+    }
+    return overall_summary || ''
+  }, [matchedTopics, topic_summaries, overall_summary])
+
+  // All expensive filtering/dedup runs only when astroData, matchedTopic, or ticker changes
+  const { previewInsights, viewAllInsights, hasSymbolMatch } = useMemo(() => {
+    // Drop cards about a different specific asset — e.g. hide XRP cards when searching AAPL
+    const insights = (rawInsights ?? [])
+      .filter(i => isFutureOrCurrent(i.timeframe))
+      .filter(i => !i.symbol || i.symbol === ticker)
+
+    // Symbol-exact matches (e.g. insight.symbol === "XRP" when searching XRP)
+    const symbolMatchInsights = ticker ? insights.filter(i => i.symbol === ticker) : []
+    const hasSymbolMatch      = symbolMatchInsights.length > 0
+
+    // Symbol matches take priority; fall back to topic matching (e.g. "crypto", "gold")
+    const hasTopicMatch   = matchedTopics.length > 0 && available && insights.some(i => matchedTopics.includes(i.topic))
+    const hasDirectMatch  = hasSymbolMatch || hasTopicMatch
+
+    let matchedInsights, otherInsights
+    if (hasSymbolMatch) {
+      matchedInsights = symbolMatchInsights
+      otherInsights   = insights.filter(i => !i.symbol) // general market cards
+    } else {
+      matchedInsights = hasTopicMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
+      otherInsights   = hasTopicMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
+    }
+
+    const previewPool = hasDirectMatch ? matchedInsights : insights
+    const preview     = pickOnePerAstrologer(deduplicateSimilar(previewPool), 3)
+    const previewIds  = new Set(preview.map(i => i.id ?? i.summary))
+    const expandedRaw = [
       ...matchedInsights.filter(i => !previewIds.has(i.id ?? i.summary)),
       ...otherInsights,
     ]
     const viewAll = hasDirectMatch
       ? deduplicateSimilar(expandedRaw)
       : deduplicateSimilar(insights.filter(i => !previewIds.has(i.id ?? i.summary)))
-    return { previewInsights: preview, viewAllInsights: viewAll }
-  }, [rawInsights, matchedTopics, available])
+    return { previewInsights: preview, viewAllInsights: viewAll, hasSymbolMatch }
+  }, [rawInsights, matchedTopics, available, ticker])
 
   if (!astroData) return null
 
@@ -419,12 +445,32 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           ) : (
             <>
 
+              {/* No symbol-specific match notice */}
+              {ticker && !hasSymbolMatch && (
+                <div
+                  className="rounded-lg px-4 py-3 flex items-start gap-2"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}
+                >
+                  <span style={{ color: '#94a3b8', flexShrink: 0 }}>ℹ</span>
+                  <p className="text-sm" style={{ color: '#94a3b8' }}>
+                    No particular information found about{' '}
+                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span>.
+                    {' '}The following relates to the entire{' '}
+                    {(() => {
+                      const specific = matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
+                      if (specific) return specific.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
+                      return assetType === 'crypto' ? 'crypto market' : 'stock market'
+                    })()}.
+                  </p>
+                </div>
+              )}
+
               {/* Sentiment gauge — only when ticker has no mapped category */}
               {matchedTopics.length === 0 && <SentimentGauge score={sentiment_score} />}
 
               {/* Overall summary */}
-              {overall_summary && (() => {
-                const bullets = overall_summary
+              {displaySummary && (() => {
+                const bullets = displaySummary
                   .split('\n')
                   .map(l => l.replace(/^[\s•\-\*\d\.]+/, '').trim())
                   .filter(l => l.length > 10)
@@ -449,7 +495,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{overall_summary}</p>
+                      <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{displaySummary}</p>
                     )}
                   </div>
                 )
