@@ -658,7 +658,7 @@ def contact(req: ContactRequest):
         try:
             resend.api_key = RESEND_API_KEY
             resend.Emails.send({
-                "from":    "Starsignal <contact@starsignal.io>",
+                "from":    "Diana Castillo <dianahelene@gmail.com>",
                 "to":      ["contact@starsignal.io"],
                 "reply_to": req.email,
                 "subject":  f"Star Signal Contact: {req.name}",
@@ -691,7 +691,7 @@ def contact_api(req: ContactApiRequest):
         try:
             resend.api_key = RESEND_API_KEY
             resend.Emails.send({
-                "from":    "Starsignal <contact@starsignal.io>",
+                "from":    "Diana Castillo <dianahelene@gmail.com>",
                 "to":      ["contact@starsignal.io"],
                 "reply_to": req.email,
                 "subject":  f"PLATFORM INQUIRY: {req.name}",
@@ -753,7 +753,7 @@ def submit_feedback(req: FeedbackRequest):
             rating_line = f"Rating: {stars} ({req.rating}/5)<br>" if req.rating else ""
             resend.api_key = RESEND_API_KEY
             email_payload = {
-                "from":    "Starsignal <onboarding@starsignal.io>",
+                "from":    "Diana Castillo <dianahelene@gmail.com>",
                 "to":      ["dianahelene@gmail.com"],
                 "subject": f"Beta Feedback from {req.name or 'anonymous'}",
                 "html": (
@@ -2575,7 +2575,7 @@ def create_signup(req: SignupRequest):
 
                 resend.api_key = RESEND_API_KEY
                 resend.Emails.send({
-                    "from": "Starsignal <contact@starsignal.io>",
+                    "from": "Diana Castillo <dianahelene@gmail.com>",
                     "to": ["contact@starsignal.io"],
                     "subject": f"⭐ New Starsignal Beta Signup: {req.name}",
                     "text": (
@@ -3057,7 +3057,7 @@ def send_outreach_email(
         try:
             resend.api_key = RESEND_API_KEY
             result = resend.Emails.send({
-                "from":    "Starsignal <onboarding@starsignal.io>",
+                "from":    "Diana Castillo <dianahelene@gmail.com>",
                 "to":      [c.contact_email],
                 "subject": req.subject or f"Partnership opportunity — Starsignal.io",
                 "text":    req.message,
@@ -3936,7 +3936,7 @@ def _send_email(to: str, subject: str, body: str, text_only: bool = False):
     try:
         resend.api_key = RESEND_API_KEY
         payload: dict = {
-            "from": "Star Signal <contact@starsignal.io>",
+            "from": "Diana Castillo <dianahelene@gmail.com>",
             "to": [to],
             "subject": subject,
         }
