@@ -380,12 +380,12 @@ export default function AdminAstrologers() {
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button
-                            onClick={() => emailMe(p.id)}
-                            disabled={emailingMe === p.id}
+                            onClick={() => resendWelcome(p.id)}
+                            disabled={resending === p.id}
                             className="px-2 py-1 rounded text-xs font-semibold whitespace-nowrap"
-                            style={{ background: emailingMe === p.id ? '#14532d' : '#06b6d4', color: '#fff', border: 'none' }}
+                            style={{ background: resending === p.id ? '#14532d' : '#06b6d4', color: '#fff', border: 'none' }}
                           >
-                            {emailingMe === p.id ? 'Sent ✓' : 'Email me'}
+                            {resending === p.id ? 'Sent ✓' : 'Resend email'}
                           </button>
                           {p.user_tier !== 'free' && (
                             <button

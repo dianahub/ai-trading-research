@@ -6015,8 +6015,6 @@ def admin_resend_partner_welcome(
         first = user.first_name or user.email.split("@")[0]
         referral_link = f"https://starsignal.io/join/{contact.slug}"
         body = (
-            f"Forward this to {first} ({user.email}):\n\n"
-            f"---\n\n"
             f"Hi {first},\n\n"
             f"Thank you for partnering with Star Signal. Your account is set up and ready.\n\n"
             f"Login link (click to access your account):\n{magic_link}\n\n"
@@ -6030,8 +6028,7 @@ def admin_resend_partner_welcome(
             f"Diana Castillo\n"
             f"starsignal.io"
         )
-        admin_email = os.getenv("ADMIN_EMAIL", "dianahelene@gmail.com")
-        _send_email(admin_email, f"Star Signal partner info for {first}", body, text_only=True)
+        _send_email(user.email, "Your Star Signal partner account is ready", body, text_only=True)
         return {"ok": True}
 
 
