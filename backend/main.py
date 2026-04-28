@@ -5946,6 +5946,28 @@ def admin_create_partner_account(
         db.refresh(user)
 
         magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={email}"
+        first = body.first_name or email.split("@")[0]
+        referral_link = f"https://starsignal.io/join/{slug}"
+        welcome_body = (
+            f"Hi {first},\n\n"
+            f"Thank you for partnering with Star Signal. Your account is set up and ready.\n\n"
+            f"Login link (click to access your account):\n{magic_link}\n\n"
+            f"Your promo code: {discount_code}\n"
+            f"Share this with your audience — they get 45 days free and lock in $19/month forever after.\n\n"
+            f"Your referral link: {referral_link}\n"
+            f"Every subscriber who signs up through your link earns you 20% monthly commission automatically.\n\n"
+            f"Your partner dashboard: https://starsignal.io/partners/dashboard\n"
+            f"Track your referrals and commissions in real time.\n\n"
+            f"Let me know if you have any questions.\n\n"
+            f"Diana Castillo\n"
+            f"starsignal.io"
+        )
+        threading.Thread(
+            target=_send_email,
+            args=(email, "Your Star Signal partner account is ready", welcome_body),
+            kwargs={"text_only": True},
+            daemon=True,
+        ).start()
 
         result = _contact_dict(contact)
         result["publication_name"] = contact.platform
