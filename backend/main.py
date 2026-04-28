@@ -871,7 +871,7 @@ def _fetch_astro_data() -> dict | None:
         "overall_summary":  _insights_state.get("summary", ""),
         "total_insights":   total,
         "breakdown":        dict(counts),
-        "insights":         insights[:50],
+        "insights":         insights,
         "astro_signal":     round(score * ASTRO_SIGNAL_WEIGHT, 4),
     }
 
