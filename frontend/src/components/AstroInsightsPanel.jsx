@@ -347,9 +347,11 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
         return true
       })
 
-    // Symbol-exact matches (e.g. insight.symbol === "XRP" when searching XRP)
-    const symbolMatchInsights = ticker ? insights.filter(i => i.symbol === ticker) : []
-    const hasSymbolMatch      = symbolMatchInsights.length > 0
+    // Symbol-exact matches: explicit symbol field OR parenthetical mention e.g. "(ORA)"
+    const symbolMatchInsights = ticker
+      ? insights.filter(i => i.symbol === ticker || mentionedSymbol(i.summary) === ticker)
+      : []
+    const hasSymbolMatch = symbolMatchInsights.length > 0
 
     // Symbol matches take priority; fall back to topic matching (e.g. "crypto", "gold")
     const hasTopicMatch   = matchedTopics.length > 0 && available && insights.some(i => matchedTopics.includes(i.topic))
@@ -358,7 +360,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     let matchedInsights, otherInsights
     if (hasSymbolMatch) {
       matchedInsights = symbolMatchInsights
-      otherInsights   = insights.filter(i => !i.symbol) // general market cards
+      otherInsights   = insights.filter(i => !i.symbol && !mentionedSymbol(i.summary))
     } else {
       matchedInsights = hasTopicMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
       otherInsights   = hasTopicMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
