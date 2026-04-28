@@ -76,9 +76,10 @@ export default function ChatWidget({ usesLeft, onUse, ticker, authedUser, authAc
           bottom:       24,
           right:        24,
           zIndex:       9999,
-          width:        52,
+          width:        open ? 52 : 'auto',
           height:       52,
-          borderRadius: '50%',
+          borderRadius: open ? '50%' : 26,
+          padding:      open ? 0 : '0 18px',
           background:   'linear-gradient(135deg, #1e1b4b, #312e81)',
           border:       '1px solid #3730a3',
           boxShadow:    '0 0 20px #3730a366',
@@ -92,7 +93,7 @@ export default function ChatWidget({ usesLeft, onUse, ticker, authedUser, authAc
         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
       >
-        {open ? '✕' : '♅'}
+        {open ? '✕' : <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.03em' }}>♅ Astro Chat</span>}
       </button>
 
       {/* Chat panel */}
