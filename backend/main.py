@@ -893,6 +893,64 @@ def get_astro():
     return {"available": True, **data}
 
 
+class ChatRequest(BaseModel):
+    messages: list[dict]
+    ticker:   str = ""
+
+
+@app.post("/chat")
+def chat_celeste(body: ChatRequest):
+    """Celeste — astrological market chat assistant."""
+    if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
+        raise HTTPException(status_code=503, detail="AI service unavailable")
+
+    # Build astro context from current insights
+    insights = _insights_state.get("insights", [])
+    context_lines = []
+    if body.ticker:
+        topic_map = {
+            "BTC": "crypto", "ETH": "crypto", "SOL": "crypto",
+            "GLD": "gold", "IAU": "gold", "SLV": "gold",
+            "SPY": "stock market", "QQQ": "tech stocks",
+        }
+        matched_topic = topic_map.get(body.ticker.upper())
+        relevant = [i for i in insights if matched_topic and i.get("topic") == matched_topic][:6]
+        if not relevant:
+            relevant = insights[:6]
+    else:
+        relevant = insights[:6]
+
+    for i in relevant:
+        context_lines.append(
+            f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+        )
+
+    system = (
+        "You are Celeste, an astrological market guide on Starsignal.io — a platform that combines "
+        "technical analysis, news, and financial astrology signals. "
+        "Answer in 2–4 concise sentences. Be helpful and specific. "
+        "This is for informational and educational purposes only — never give direct buy/sell advice.\n"
+    )
+    if body.ticker:
+        system += f"\nThe user is currently researching: {body.ticker.upper()}\n"
+    if context_lines:
+        system += "\nCurrent astrological market signals:\n" + "\n".join(context_lines) + "\n"
+
+    # Validate messages: must alternate user/assistant starting with user
+    api_messages = [m for m in body.messages if m.get("role") in ("user", "assistant") and m.get("content")]
+    if not api_messages or api_messages[0]["role"] != "user":
+        raise HTTPException(status_code=400, detail="messages must start with a user turn")
+
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=350,
+        system=system,
+        messages=api_messages,
+    )
+    return {"reply": resp.content[0].text.strip()}
+
+
 def _fetch_congress_data() -> tuple[list, list]:
     """Fetch and cache House + Senate trading data. Returns (house_trades, senate_trades)."""
     now = time.time()
