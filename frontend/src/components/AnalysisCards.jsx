@@ -39,8 +39,8 @@ export default function AnalysisCards({ analysis }) {
 
   return (
     <div>
-      {/* Header row with show/hide button */}
-      <div className="flex items-center justify-between mb-3">
+      {/* Header row — title + show/hide button inline */}
+      <div className="flex items-center gap-3 flex-wrap mb-3">
         <h3 className="text-sm uppercase tracking-wide font-bold" style={{ color: '#e2e8f0' }}>
           AI Analysis of the Technicals
         </h3>
@@ -55,10 +55,11 @@ export default function AnalysisCards({ analysis }) {
             cursor: 'pointer',
             color: '#e2e8f0',
             fontSize: 13,
+            letterSpacing: '0.05em',
             transition: 'background 0.15s ease',
           }}
         >
-          <span>{open ? 'Hide' : 'Show'}</span>
+          <span>{open ? 'HIDE' : 'SHOW'}</span>
           <ChevronDown size={15} style={{ color: '#06b6d4', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
         </button>
       </div>
