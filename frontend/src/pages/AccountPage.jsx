@@ -14,7 +14,7 @@ function StatCard({ label, value, color }) {
 }
 
 function UpgradeBanner({ currentTier }) {
-  if (['premium', 'platform'].includes(currentTier)) return null
+  if (['premium', 'platform', 'partner_preview'].includes(currentTier)) return null
   const next = currentTier === 'pro' ? 'premium' : 'pro'
   const price = next === 'pro' ? '$29' : '$79'
   const perks = next === 'pro'
@@ -287,23 +287,35 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* Platform upgrade CTA */}
-        <div className="rounded-xl p-5" style={{ background: '#1a1200', border: '1px solid #3d2f00' }}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-bold mb-1" style={{ color: '#d4a847' }}>Platform tier — $299/month</p>
-              <p className="text-xs" style={{ color: '#94a3b8' }}>
-                White-label data feeds, bulk API access, dedicated support, co-marketing.
-                Manual activation only.
-              </p>
+        {/* Platform upgrade CTA — hidden for partners */}
+        {account.tier === 'partner_preview' || account.role === 'astrologer' ? (
+          <div className="rounded-xl p-5" style={{ background: '#061a2e', border: '1px solid #06b6d440' }}>
+            <div className="flex items-center gap-3">
+              <span style={{ fontSize: 22 }}>✦</span>
+              <div>
+                <p className="text-sm font-bold mb-0.5" style={{ color: '#06b6d4' }}>Official Star Signal Partner</p>
+                <p className="text-xs" style={{ color: '#94a3b8' }}>Your access is free forever — no subscription, no trial, no expiration.</p>
+              </div>
             </div>
-            <Link to="/contact-api"
-              className="px-4 py-2 rounded-lg text-xs font-bold flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg,#d4a847,#b8860b)', color: '#0a0a0a', textDecoration: 'none' }}>
-              Contact us
-            </Link>
           </div>
-        </div>
+        ) : (
+          <div className="rounded-xl p-5" style={{ background: '#1a1200', border: '1px solid #3d2f00' }}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold mb-1" style={{ color: '#d4a847' }}>Platform tier — $299/month</p>
+                <p className="text-xs" style={{ color: '#94a3b8' }}>
+                  White-label data feeds, bulk API access, dedicated support, co-marketing.
+                  Manual activation only.
+                </p>
+              </div>
+              <Link to="/contact-api"
+                className="px-4 py-2 rounded-lg text-xs font-bold flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg,#d4a847,#b8860b)', color: '#0a0a0a', textDecoration: 'none' }}>
+                Contact us
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
