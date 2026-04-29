@@ -491,7 +491,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
               {tickerSummary && (
                 <div className="rounded-lg p-4" style={{ background: 'linear-gradient(135deg, #0f2a1a, #0b1120)', border: '1px solid #10b98155', boxShadow: '0 0 18px #10b98122' }}>
                   <p className="text-sm font-bold tracking-wide mb-2" style={{ color: '#34d399' }}>
-                    ♅ {ticker} Astrological Outlook
+                    ♅ {ticker} Astrological Outlook <span style={{ fontWeight: 400, fontSize: 11, color: '#6ee7b7', letterSpacing: 0 }}>(AI generated from all astrologers insights)</span>
                   </p>
                   <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{tickerSummary}</p>
                 </div>
