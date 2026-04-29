@@ -20,6 +20,7 @@ import AstroInsightsPanel from './components/AstroInsightsPanel'
 import ChatWidget from './components/ChatWidget'
 
 const FREE_LIMIT = 10
+const PARTNER_LIMIT = 50
 const USAGE_KEY  = 'ss_daily_usage'
 function getTodayKey() {
   return new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
@@ -168,6 +169,8 @@ export default function App() {
   const [data, setData]           = useState(null)
   const [ticker, setTicker]       = useState(null)
   const [astroData, setAstroData] = useState(null)
+  const [astroTickerSummary, setAstroTickerSummary] = useState(null)
+  const [astroTickerLoading, setAstroTickerLoading] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
   const [showAstro, setShowAstro] = useState(true)
   const [authedUser, setAuthedUser] = useState(() => {
@@ -223,6 +226,31 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
+  // Fetch ticker-specific astro summary whenever ticker or astroData changes.
+  // Passes relevant insights directly so the backend doesn't need its own cache.
+  useEffect(() => {
+    if (!ticker || !astroData?.insights?.length) return
+    setAstroTickerLoading(true)
+    const matchedTopic = ETF_TOPIC_MAP[ticker] ?? null
+    let relevant = matchedTopic
+      ? astroData.insights.filter(i => i.topic === matchedTopic)
+      : []
+    if (relevant.length === 0) {
+      const seen = new Set()
+      for (const i of astroData.insights) {
+        if (!seen.has(i.topic)) { seen.add(i.topic); relevant.push(i) }
+        if (relevant.length >= 8) break
+      }
+    }
+    apiFetch('/astro/ticker-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker, insights: relevant.slice(0, 10) }),
+    })
+      .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
+      .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
+  }, [ticker, astroData])
+
 const handleToggleAstro = () => setShowAstro(prev => !prev)
 
   const handleSearch = async (ticker) => {
@@ -239,6 +267,8 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
     setAnalyzing(false)
     setError(null)
     setData(null)
+    setAstroTickerSummary(null)
+    setAstroTickerLoading(true)
     setTicker(ticker.toUpperCase())
 
     try {
@@ -509,6 +539,8 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               ticker={ticker}
               assetType={data.assetType}
               matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : data.assetType === 'stock' ? ['stock market', 'financial markets'] : null)) : null}
+              tickerSummary={astroTickerSummary}
+              tickerSummaryLoading={astroTickerLoading}
             />
           </div>
         )}
@@ -830,8 +862,8 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       </footer>
 
       <ChatWidget
-        usesLeft={usesLeft}
-        onUse={() => setUsesLeft(decrementUses())}
+        usesLeft={AUTH_ACTIVE && authedUser && (authedUser.tier === 'partner_preview' || ['astrologer','influencer','admin'].includes(authedUser.role)) ? PARTNER_LIMIT : usesLeft}
+        onUse={() => { if (!AUTH_ACTIVE || !authedUser || (authedUser.tier !== 'partner_preview' && !['astrologer','influencer','admin'].includes(authedUser.role))) setUsesLeft(decrementUses()) }}
         ticker={ticker}
         authedUser={authedUser}
         authActive={AUTH_ACTIVE}

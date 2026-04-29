@@ -877,6 +877,51 @@ def _fetch_astro_data() -> dict | None:
     }
 
 
+class TickerSummaryRequest(BaseModel):
+    ticker: str
+    insights: list[dict] = []
+
+
+@app.post("/astro/ticker-summary")
+def get_astro_ticker_summary(body: TickerSummaryRequest):
+    """Generate a ticker-specific astrological summary. Insights are provided by the frontend."""
+    ticker = body.ticker.strip().upper()
+    if not ticker:
+        return {"summary": ""}
+    if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
+        return {"summary": ""}
+
+    # Use insights passed from the frontend (already filtered by topic)
+    insights = body.insights
+    if not insights:
+        return {"summary": ""}
+
+    context = "\n".join(
+        f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+        for i in insights[:10]
+    )
+    try:
+        client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        resp = client_a.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=150,
+            system=(
+                "You are StarSignal, an astrological market guide on Starsignal.io. "
+                "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
+                f"The user is researching {ticker}. "
+                "Answer ONLY from an astrological perspective. Keep your reply to 2 sentences maximum. Be direct and specific about which planets and timeframes matter."
+            ),
+            messages=[{"role": "user", "content": (
+                f"Current astrological signals:\n{context}\n\n"
+                f"What is the astrological outlook for {ticker} based on these planetary signals?"
+            )}],
+        )
+        return {"summary": resp.content[0].text.strip()}
+    except Exception as e:
+        print(f"[astro ticker summary] Failed: {e}", flush=True)
+        return {"summary": ""}
+
+
 @app.get("/astro")
 def get_astro():
     """Return current astro insights to the frontend. Returns empty payload if service unavailable."""
@@ -5544,9 +5589,11 @@ def get_features(ss_session: Optional[str] = Cookie(None)):
 # ── Daily usage ────────────────────────────────────────────────────────────────
 
 def _get_user_tier(user) -> str:
-    """Return effective tier, treating expired beta as free."""
+    """Return effective tier, treating expired beta as free. Admins/astrologers get unlimited."""
     if not user:
         return "free"
+    if user.role in ("admin", "astrologer", "influencer"):
+        return "partner_preview"  # unlimited
     now = datetime.now(timezone.utc)
     beta_expired = (user.tier == "beta" and user.beta_expires_at and
                     user.beta_expires_at.replace(tzinfo=timezone.utc) < now)

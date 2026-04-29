@@ -17,7 +17,6 @@ function outlookCfg(outlook) {
 function MoodIllustration({ score }) {
   const s = parseFloat(score) || 0
   if (s > 0.1) return (
-    // Bullish: glowing sun
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
       <circle cx="32" cy="32" r="20" fill="#f59e0b" opacity="0.12"/>
       <g stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round">
@@ -35,14 +34,12 @@ function MoodIllustration({ score }) {
     </svg>
   )
   if (s < -0.1) return (
-    // Bearish: storm cloud with lightning bolt
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
       <path d="M14 36 Q12 26 22 24 Q24 14 36 14 Q50 14 50 26 Q58 26 58 36 Q58 44 50 44 H16 Q8 44 14 36Z" fill="#334155" opacity="0.9"/>
       <path d="M36 26 L27 38 H33 L25 52 L43 34 H37 L43 26Z" fill="#ef4444" opacity="0.9"/>
     </svg>
   )
   return (
-    // Neutral: Libra balance scales
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
       <line x1="32" y1="10" x2="32" y2="54" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
       <line x1="10" y1="20" x2="54" y2="20" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
@@ -311,26 +308,18 @@ function deduplicateSimilar(pool) {
   return kept
 }
 
-export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic, assetType }) {
+export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic, assetType, tickerSummary, tickerSummaryLoading }) {
   const [visibleCount, setVisibleCount] = useState(0)
 
   function loadMore() {
     setVisibleCount(c => c + 10)
   }
 
-  const { available, sentiment_score, overall_summary, topic_summaries = {}, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
+  const { available, sentiment_score, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
 
   const matchedTopics = useMemo(() =>
     matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
   , [matchedTopic])
-
-  // Use topic-specific summary when available, else fall back to overall
-  const displaySummary = useMemo(() => {
-    for (const t of matchedTopics) {
-      if (topic_summaries[t]) return topic_summaries[t]
-    }
-    return overall_summary || ''
-  }, [matchedTopics, topic_summaries, overall_summary])
 
   // All expensive filtering/dedup runs only when astroData, matchedTopic, or ticker changes
   const { previewInsights, viewAllInsights, hasSymbolMatch, filteredScore } = useMemo(() => {
@@ -347,9 +336,17 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
         return true
       })
 
-    // Symbol-exact matches: explicit symbol field OR parenthetical mention e.g. "(ORA)"
+    // Broader text match: summary mentions the ticker as a standalone word
+    const tickerRegex = ticker ? new RegExp(`\\b${ticker}\\b`, 'i') : null
+    const textMentionsTicker = (summary) => tickerRegex ? tickerRegex.test(summary) : false
+
+    // Priority 1: explicit symbol field, parenthetical, or text mention of the ticker
     const symbolMatchInsights = ticker
-      ? insights.filter(i => i.symbol === ticker || mentionedSymbol(i.summary) === ticker)
+      ? insights.filter(i =>
+          i.symbol === ticker ||
+          mentionedSymbol(i.summary) === ticker ||
+          textMentionsTicker(i.summary)
+        )
       : []
     const hasSymbolMatch = symbolMatchInsights.length > 0
 
@@ -359,8 +356,12 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
     let matchedInsights, otherInsights
     if (hasSymbolMatch) {
-      matchedInsights = symbolMatchInsights
-      otherInsights   = insights.filter(i => !i.symbol && !mentionedSymbol(i.summary))
+      // Within topic matches, put ticker-text mentions first
+      const topicPool = hasTopicMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : insights
+      const textMatches = topicPool.filter(i => textMentionsTicker(i.summary) || i.symbol === ticker)
+      const nonTextMatches = topicPool.filter(i => !textMentionsTicker(i.summary) && i.symbol !== ticker)
+      matchedInsights = [...textMatches, ...nonTextMatches]
+      otherInsights   = insights.filter(i => !matchedTopics.includes(i.topic))
     } else {
       matchedInsights = hasTopicMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
       otherInsights   = hasTopicMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
@@ -464,8 +465,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           ) : (
             <>
 
-              {/* No symbol-specific match notice */}
-              {ticker && !hasSymbolMatch && (
+              {/* No symbol-specific match notice — only show if also no topic match and no AI summary */}
+              {ticker && !hasSymbolMatch && matchedTopics.length === 0 && !tickerSummaryLoading && !tickerSummary && (
                 <div
                   className="rounded-lg px-4 py-3 flex items-start gap-2"
                   style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}
@@ -487,38 +488,42 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
               {/* Sentiment gauge — only when ticker has no mapped category */}
               {matchedTopics.length === 0 && <SentimentGauge score={filteredScore ?? sentiment_score} />}
 
-              {/* Overall summary */}
-              {displaySummary && (() => {
-                const bullets = displaySummary
-                  .split('\n')
-                  .map(l => l.replace(/^[\s•\-\*\d\.]+/, '').trim())
-                  .filter(l => l.length > 10)
-                return (
-                  <div
-                    className="rounded-lg p-4"
-                    style={{ background: 'linear-gradient(135deg, #1e1b4b, #0f1a2e)', border: '1px solid #4338ca', boxShadow: '0 0 18px #3730a322' }}
-                  >
-                    <div className="flex items-center gap-4 mb-3">
-                      <MoodIllustration score={filteredScore ?? sentiment_score} />
-                      <p className="text-sm font-bold tracking-wide" style={{ color: '#a5b4fc' }}>
-                        ♅ Astrological Market Outlook Summary
-                      </p>
-                    </div>
-                    {bullets.length > 1 ? (
-                      <ul className="space-y-2">
-                        {bullets.map((b, i) => (
-                          <li key={i} className="flex gap-2 text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
-                            <span style={{ color: '#6366f1', flexShrink: 0 }}>•</span>
-                            <span>{b}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{displaySummary}</p>
-                    )}
+              {/* Ticker-specific AI summary */}
+              {tickerSummaryLoading ? (
+                <div className="rounded-lg p-3 flex items-center gap-2" style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
+                  <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span className="text-xs" style={{ color: '#94a3b8' }}>Loading {ticker} astrological outlook…</span>
+                </div>
+              ) : tickerSummary ? (
+                <div className="rounded-lg p-4" style={{ background: 'linear-gradient(135deg, #0f2a1a, #0b1120)', border: '1px solid #10b98155', boxShadow: '0 0 18px #10b98122' }}>
+                  <div className="flex items-center gap-4 mb-3">
+                    <MoodIllustration score={filteredScore ?? sentiment_score} />
+                    <p className="text-sm font-bold tracking-wide" style={{ color: '#34d399' }}>
+                      ♅ {ticker} Astrological Outlook <span style={{ fontWeight: 400, fontSize: 11, color: '#6ee7b7', letterSpacing: 0 }}>(AI generated from all astrologers insights)</span>
+                    </p>
                   </div>
-                )
-              })()}
+                  <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{tickerSummary}</p>
+                </div>
+              ) : null}
+
+
+              {/* Category fallback notice — right above the cards */}
+              {ticker && !hasSymbolMatch && matchedTopics.length > 0 && !tickerSummaryLoading && !tickerSummary && (
+                <div className="rounded-lg px-4 py-3 flex items-start gap-2"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
+                  <span style={{ color: '#94a3b8', flexShrink: 0 }}>ℹ</span>
+                  <p className="text-sm" style={{ color: '#94a3b8' }}>
+                    No particular information found about{' '}
+                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span> in posts.{' '}
+                    The following relates to the entire{' '}
+                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>
+                      {matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
+                        ?.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
+                        || (assetType === 'crypto' ? 'crypto market' : 'stock market')}
+                    </span>.
+                  </p>
+                </div>
+              )}
 
               {/* 3 most recent related insight cards — shown below summary */}
               {previewInsights.length > 0 && (
