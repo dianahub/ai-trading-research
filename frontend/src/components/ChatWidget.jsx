@@ -200,6 +200,12 @@ export default function ChatWidget({ usesLeft, onUse, ticker, authedUser, authAc
                 You've used all 10 free analyses for today. Come back tomorrow or upgrade for unlimited access.
               </div>
             )}
+            {messages.some(m => m.role === 'assistant' && !m.ui) && (
+              <p style={{ fontSize: 10, color: '#475569', textAlign: 'center', margin: '4px 0 0', lineHeight: 1.5 }}>
+                This response is not from any individual astrologer. It uses the current astrological insights from the platform astrologers.{' '}
+                <a href="/about" style={{ color: '#6366f1', textDecoration: 'underline' }}>Learn more</a>
+              </p>
+            )}
             <div ref={bottomRef} />
           </div>}
 
