@@ -515,8 +515,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </div>
               )}
 
-              {/* Overall summary — hidden when ticker-specific summary is shown */}
-              {displaySummary && !tickerSummary && (() => {
+              {/* Overall summary — only show when no ticker is searched */}
+              {displaySummary && !ticker && (() => {
                 const bullets = displaySummary
                   .split('\n')
                   .map(l => l.replace(/^[\s•\-\*\d\.]+/, '').trim())
