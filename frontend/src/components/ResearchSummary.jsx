@@ -4,6 +4,7 @@ import { FileText, Shield, ChevronDown } from 'lucide-react'
 export default function ResearchSummary({ analysis, ticker }) {
   if (!analysis) return null
   const [open, setOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const paragraphs = (analysis.research_summary ?? '').split('\n\n').filter(Boolean)
 
   return (
@@ -11,8 +12,17 @@ export default function ResearchSummary({ analysis, ticker }) {
       {/* Header — clickable accordion toggle */}
       <button
         onClick={() => setOpen(o => !o)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         className="w-full text-left px-6 py-4"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', borderBottom: open ? '1px solid #1e2d45' : 'none' }}
+        style={{
+          background: hovered ? '#0f1a2e' : 'none',
+          border: 'none',
+          cursor: 'pointer',
+          borderBottom: open ? '1px solid #1e2d45' : 'none',
+          transition: 'background 0.15s ease',
+          borderRadius: open ? '12px 12px 0 0' : '12px',
+        }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 mb-2">
@@ -24,7 +34,10 @@ export default function ResearchSummary({ analysis, ticker }) {
               {ticker} · Full Research Summary
             </h3>
           </div>
-          <ChevronDown size={16} style={{ color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', flexShrink: 0 }} />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs" style={{ color: '#475569' }}>{open ? 'hide' : 'show'}</span>
+            <ChevronDown size={16} style={{ color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+          </div>
         </div>
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#f59e0b18', border: '1px solid #f59e0b55' }}>
           <span className="text-lg">⚠</span>
