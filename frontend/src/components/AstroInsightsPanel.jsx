@@ -17,7 +17,6 @@ function outlookCfg(outlook) {
 function MoodIllustration({ score }) {
   const s = parseFloat(score) || 0
   if (s > 0.1) return (
-    // Bullish: glowing sun
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
       <circle cx="32" cy="32" r="20" fill="#f59e0b" opacity="0.12"/>
       <g stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round">
@@ -35,14 +34,12 @@ function MoodIllustration({ score }) {
     </svg>
   )
   if (s < -0.1) return (
-    // Bearish: storm cloud with lightning bolt
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
       <path d="M14 36 Q12 26 22 24 Q24 14 36 14 Q50 14 50 26 Q58 26 58 36 Q58 44 50 44 H16 Q8 44 14 36Z" fill="#334155" opacity="0.9"/>
       <path d="M36 26 L27 38 H33 L25 52 L43 34 H37 L43 26Z" fill="#ef4444" opacity="0.9"/>
     </svg>
   )
   return (
-    // Neutral: Libra balance scales
     <svg width="72" height="72" viewBox="0 0 64 64" fill="none">
       <line x1="32" y1="10" x2="32" y2="54" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
       <line x1="10" y1="20" x2="54" y2="20" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round"/>
@@ -318,19 +315,11 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     setVisibleCount(c => c + 10)
   }
 
-  const { available, sentiment_score, overall_summary, topic_summaries = {}, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
+  const { available, sentiment_score, insights: rawInsights = [], total_insights, breakdown = {} } = astroData ?? {}
 
   const matchedTopics = useMemo(() =>
     matchedTopic ? (Array.isArray(matchedTopic) ? matchedTopic : [matchedTopic]) : []
   , [matchedTopic])
-
-  // Use topic-specific summary when available, else fall back to overall
-  const displaySummary = useMemo(() => {
-    for (const t of matchedTopics) {
-      if (topic_summaries[t]) return topic_summaries[t]
-    }
-    return overall_summary || ''
-  }, [matchedTopics, topic_summaries, overall_summary])
 
   // All expensive filtering/dedup runs only when astroData, matchedTopic, or ticker changes
   const { previewInsights, viewAllInsights, hasSymbolMatch, filteredScore } = useMemo(() => {
@@ -495,45 +484,16 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </div>
               ) : tickerSummary ? (
                 <div className="rounded-lg p-4" style={{ background: 'linear-gradient(135deg, #0f2a1a, #0b1120)', border: '1px solid #10b98155', boxShadow: '0 0 18px #10b98122' }}>
-                  <p className="text-sm font-bold tracking-wide mb-2" style={{ color: '#34d399' }}>
-                    ♅ {ticker} Astrological Outlook <span style={{ fontWeight: 400, fontSize: 11, color: '#6ee7b7', letterSpacing: 0 }}>(AI generated from all astrologers insights)</span>
-                  </p>
+                  <div className="flex items-center gap-4 mb-3">
+                    <MoodIllustration score={filteredScore ?? sentiment_score} />
+                    <p className="text-sm font-bold tracking-wide" style={{ color: '#34d399' }}>
+                      ♅ {ticker} Astrological Outlook <span style={{ fontWeight: 400, fontSize: 11, color: '#6ee7b7', letterSpacing: 0 }}>(AI generated from all astrologers insights)</span>
+                    </p>
+                  </div>
                   <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{tickerSummary}</p>
                 </div>
               ) : null}
 
-              {/* Overall summary — show when no ticker-specific summary available and not loading */}
-              {displaySummary && !tickerSummaryLoading && !tickerSummary && (() => {
-                const bullets = displaySummary
-                  .split('\n')
-                  .map(l => l.replace(/^[\s•\-\*\d\.]+/, '').trim())
-                  .filter(l => l.length > 10)
-                return (
-                  <div
-                    className="rounded-lg p-4"
-                    style={{ background: 'linear-gradient(135deg, #1e1b4b, #0f1a2e)', border: '1px solid #4338ca', boxShadow: '0 0 18px #3730a322' }}
-                  >
-                    <div className="flex items-center gap-4 mb-3">
-                      <MoodIllustration score={filteredScore ?? sentiment_score} />
-                      <p className="text-sm font-bold tracking-wide" style={{ color: '#a5b4fc' }}>
-                        ♅ Astrological Market Outlook Summary
-                      </p>
-                    </div>
-                    {bullets.length > 1 ? (
-                      <ul className="space-y-2">
-                        {bullets.map((b, i) => (
-                          <li key={i} className="flex gap-2 text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
-                            <span style={{ color: '#6366f1', flexShrink: 0 }}>•</span>
-                            <span>{b}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{displaySummary}</p>
-                    )}
-                  </div>
-                )
-              })()}
 
               {/* Category fallback notice — right above the cards */}
               {ticker && !hasSymbolMatch && matchedTopics.length > 0 && !tickerSummaryLoading && !tickerSummary && (
