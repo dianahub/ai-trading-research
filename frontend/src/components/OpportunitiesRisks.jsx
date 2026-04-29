@@ -1,4 +1,5 @@
-import { CheckCircle, AlertTriangle } from 'lucide-react'
+import { useState } from 'react'
+import { CheckCircle, AlertTriangle, ChevronDown } from 'lucide-react'
 
 function Item({ text, type }) {
   const isOpp = type === 'opportunity'
@@ -14,6 +15,26 @@ function Item({ text, type }) {
   )
 }
 
+function AccordionSection({ title, color, dotColor, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between py-2"
+        style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+      >
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full" style={{ background: dotColor }} />
+          <span className="text-xs font-semibold" style={{ color }}>{title}</span>
+        </div>
+        <ChevronDown size={14} style={{ color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+      </button>
+      {open && <ul className="space-y-0">{children}</ul>}
+    </div>
+  )
+}
+
 export default function OpportunitiesRisks({ analysis }) {
   if (!analysis) return null
   const { key_opportunities = [], key_risks = [] } = analysis
@@ -26,33 +47,22 @@ export default function OpportunitiesRisks({ analysis }) {
         </h3>
       </div>
 
-      {/* Opportunities */}
       <div className="p-4 pb-2 flex-1">
-        <div className="flex items-center gap-1.5 mb-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span className="text-xs font-semibold" style={{ color: '#10b981' }}>KEY OPPORTUNITIES</span>
-        </div>
-        <ul className="space-y-0">
+        <AccordionSection title="KEY OPPORTUNITIES" color="#10b981" dotColor="#34d399" defaultOpen={true}>
           {key_opportunities.map((opp, i) => (
             <Item key={i} text={opp} type="opportunity" />
           ))}
-        </ul>
+        </AccordionSection>
       </div>
 
-      {/* Divider */}
       <div className="mx-4 h-px" style={{ background: '#1e3a5f' }} />
 
-      {/* Risks */}
       <div className="p-4 pt-2">
-        <div className="flex items-center gap-1.5 mb-2">
-          <div className="w-2 h-2 rounded-full bg-red-400" />
-          <span className="text-xs font-semibold" style={{ color: '#ef4444' }}>KEY RISKS</span>
-        </div>
-        <ul className="space-y-0">
+        <AccordionSection title="KEY RISKS" color="#ef4444" dotColor="#f87171" defaultOpen={true}>
           {key_risks.map((risk, i) => (
             <Item key={i} text={risk} type="risk" />
           ))}
-        </ul>
+        </AccordionSection>
       </div>
     </div>
   )
