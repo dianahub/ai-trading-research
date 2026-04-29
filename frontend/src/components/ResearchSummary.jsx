@@ -16,7 +16,7 @@ export default function ResearchSummary({ analysis, ticker }) {
             style={{ background: '#06b6d422' }}>
             <FileText size={14} style={{ color: '#06b6d4' }} />
           </div>
-          <h3 className="text-xs uppercase tracking-widest font-semibold truncate" style={{ color: '#94a3b8' }}>
+          <h3 className="text-sm uppercase tracking-wide font-bold truncate" style={{ color: '#e2e8f0' }}>
             {ticker} · AI Generated Full Research Summary
           </h3>
         </div>
