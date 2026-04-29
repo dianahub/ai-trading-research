@@ -168,6 +168,7 @@ export default function App() {
   const [data, setData]           = useState(null)
   const [ticker, setTicker]       = useState(null)
   const [astroData, setAstroData] = useState(null)
+  const [astroTickerSummary, setAstroTickerSummary] = useState(null)
   const [navOpen, setNavOpen] = useState(false)
   const [showAstro, setShowAstro] = useState(true)
   const [authedUser, setAuthedUser] = useState(() => {
@@ -239,7 +240,9 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
     setAnalyzing(false)
     setError(null)
     setData(null)
+    setAstroTickerSummary(null)
     setTicker(ticker.toUpperCase())
+    apiFetch(`/astro/ticker-summary?ticker=${encodeURIComponent(ticker)}`).then(d => setAstroTickerSummary(d?.summary || null)).catch(() => {})
 
     try {
       // Detect asset type first so we call the right endpoints
@@ -509,6 +512,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               ticker={ticker}
               assetType={data.assetType}
               matchedTopic={ticker ? (ETF_TOPIC_MAP[ticker] ?? (data.assetType === 'crypto' ? 'crypto' : data.assetType === 'stock' ? ['stock market', 'financial markets'] : null)) : null}
+              tickerSummary={astroTickerSummary}
             />
           </div>
         )}

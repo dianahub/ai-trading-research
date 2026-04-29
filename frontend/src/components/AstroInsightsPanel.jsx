@@ -311,7 +311,7 @@ function deduplicateSimilar(pool) {
   return kept
 }
 
-export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic, assetType }) {
+export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic, assetType, tickerSummary }) {
   const [visibleCount, setVisibleCount] = useState(0)
 
   function loadMore() {
@@ -486,6 +486,16 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
               {/* Sentiment gauge — only when ticker has no mapped category */}
               {matchedTopics.length === 0 && <SentimentGauge score={filteredScore ?? sentiment_score} />}
+
+              {/* Ticker-specific AI summary */}
+              {tickerSummary && (
+                <div className="rounded-lg p-4" style={{ background: 'linear-gradient(135deg, #0f2a1a, #0b1120)', border: '1px solid #10b98155', boxShadow: '0 0 18px #10b98122' }}>
+                  <p className="text-sm font-bold tracking-wide mb-2" style={{ color: '#34d399' }}>
+                    ♅ {ticker} Astrological Outlook
+                  </p>
+                  <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{tickerSummary}</p>
+                </div>
+              )}
 
               {/* Overall summary */}
               {displaySummary && (() => {

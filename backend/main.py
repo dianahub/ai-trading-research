@@ -877,6 +877,69 @@ def _fetch_astro_data() -> dict | None:
     }
 
 
+@app.get("/astro/ticker-summary")
+def get_astro_ticker_summary(ticker: str = ""):
+    """Generate a ticker-specific astrological summary on demand using Claude."""
+    if not ticker:
+        return {"summary": ""}
+    if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
+        return {"summary": ""}
+
+    insights = _insights_state.get("insights", [])
+    if not insights:
+        return {"summary": ""}
+
+    # Map ticker to topic using the same logic as the chat endpoint
+    topic_map = {
+        "BTC": "crypto", "ETH": "crypto", "SOL": "crypto", "XRP": "crypto",
+        "DOGE": "crypto", "ADA": "crypto", "AVAX": "crypto",
+        "GLD": "gold", "IAU": "gold", "SLV": "gold", "GDX": "gold",
+        "SIL": "gold", "SILJ": "gold", "AG": "gold", "PAAS": "gold",
+        "SPY": "stock market", "IWM": "stock market", "DIA": "stock market",
+        "QQQ": "tech stocks", "NVDA": "tech stocks", "AAPL": "tech stocks",
+        "TSLA": "tech stocks", "AMZN": "tech stocks", "META": "tech stocks",
+        "MSFT": "tech stocks", "GOOGL": "tech stocks",
+        "XOM": "oil", "CVX": "oil", "USO": "oil",
+        "JPM": "banking", "GS": "banking", "BAC": "banking",
+    }
+    matched_topic = topic_map.get(ticker.upper())
+    relevant = [i for i in insights if matched_topic and i.get("topic") == matched_topic]
+    if not relevant:
+        seen, relevant = set(), []
+        for i in insights:
+            t = i.get("topic")
+            if t not in seen:
+                seen.add(t)
+                relevant.append(i)
+            if len(relevant) >= 8:
+                break
+
+    context = "\n".join(
+        f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+        for i in relevant[:10]
+    )
+    try:
+        client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        resp = client_a.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            system=(
+                "You are an astrological market analyst. Given current planetary signals, write a focused 2-3 sentence "
+                "astrological outlook specifically for the asset the user is researching. "
+                "Be specific about timeframes and planetary influences. Plain English, no jargon. No bullet points."
+            ),
+            messages=[{"role": "user", "content": (
+                f"The user is researching: {ticker.upper()}\n\n"
+                f"Current astrological signals:\n{context}\n\n"
+                f"Write a focused astrological outlook specifically for {ticker.upper()}."
+            )}],
+        )
+        return {"summary": resp.content[0].text.strip()}
+    except Exception as e:
+        print(f"[astro ticker summary] Failed: {e}", flush=True)
+        return {"summary": ""}
+
+
 @app.get("/astro")
 def get_astro():
     """Return current astro insights to the frontend. Returns empty payload if service unavailable."""
