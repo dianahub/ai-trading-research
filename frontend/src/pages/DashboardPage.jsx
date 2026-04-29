@@ -39,8 +39,10 @@ export default function DashboardPage() {
                 Welcome to Star Signal
               </h2>
               <p className="text-sm" style={{ color: '#94a3b8' }}>
-                You have <strong style={{ color: '#06b6d4' }}>30 days free</strong>.
-                Here's how to get started.
+                {account?.tier === 'partner_preview' || account?.role === 'astrologer'
+                  ? <><strong style={{ color: '#06b6d4' }}>Official Partner</strong> — your access is free forever.</>
+                  : <>You have <strong style={{ color: '#06b6d4' }}>30 days free</strong>. Here's how to get started.</>
+                }
               </p>
             </div>
             <div className="space-y-4 mb-8">
