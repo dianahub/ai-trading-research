@@ -20,12 +20,6 @@ export default function ResearchSummary({ analysis, ticker }) {
             {ticker} · AI Generated Full Research Summary
           </h3>
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#f59e0b18', border: '1px solid #f59e0b55' }}>
-          <span className="text-lg">⚠</span>
-          <p className="text-sm font-bold" style={{ color: '#fbbf24' }}>
-            AI-generated analysis — For educational purposes only. Not financial advice.
-          </p>
-        </div>
       </div>
 
       {/* Big centered show/hide button */}
@@ -52,6 +46,12 @@ export default function ResearchSummary({ analysis, ticker }) {
       {/* Body */}
       {open && (
         <>
+          <div className="flex items-center gap-2 mx-6 mb-4 px-3 py-2 rounded-lg" style={{ background: '#f59e0b18', border: '1px solid #f59e0b55' }}>
+            <span className="text-lg">⚠</span>
+            <p className="text-sm font-bold" style={{ color: '#fbbf24' }}>
+              AI-generated analysis — For educational purposes only. Not financial advice.
+            </p>
+          </div>
           <div className="px-6 py-5 space-y-4" style={{ borderTop: '1px solid #1e2d45' }}>
             {paragraphs.map((para, i) => (
               <div key={i} className="flex gap-4">
