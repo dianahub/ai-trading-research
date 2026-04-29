@@ -41,7 +41,7 @@ export default function AnalysisCards({ analysis }) {
     <div>
       {/* Header row — title + show/hide button inline */}
       <div className="flex items-center gap-3 flex-wrap mb-3">
-        <h3 className="text-sm uppercase tracking-wide font-bold" style={{ color: '#e2e8f0' }}>
+        <h3 className="text-base uppercase tracking-wide font-bold" style={{ color: '#e2e8f0' }}>
           AI Analysis of the Technicals
         </h3>
         <button
