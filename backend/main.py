@@ -7055,6 +7055,22 @@ def public_insights_summary():
     return {"sentimentScore": score, "overallSummary": "", "totalInsights": total, "breakdown": counts}
 
 
+@app.get("/admin/insights/topics")
+def admin_insights_topics(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with _insights_lock:
+        items = list(_insights_state["insights"])
+    from collections import Counter
+    counts = Counter(i.get("topic", "unknown").lower() for i in items)
+    return {
+        "total_insights": len(items),
+        "topics": [{"topic": t, "count": c} for t, c in sorted(counts.items(), key=lambda x: -x[1])],
+    }
+
+
 @app.get("/api/v1/health")
 def astro_health():
     with _insights_lock:
