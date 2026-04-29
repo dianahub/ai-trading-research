@@ -55,7 +55,7 @@ export default function OpportunitiesRisks({ analysis }) {
   return (
     <div className="rounded-xl h-full flex flex-col" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
       <div className="p-4 pb-3">
-        <h3 className="text-sm uppercase tracking-wide font-bold" style={{ color: '#e2e8f0' }}>
+        <h3 className="text-base uppercase tracking-wide font-bold" style={{ color: '#e2e8f0' }}>
           AI Generated Opportunities &amp; Risks
         </h3>
       </div>
