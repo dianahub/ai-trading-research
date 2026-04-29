@@ -311,7 +311,7 @@ function deduplicateSimilar(pool) {
   return kept
 }
 
-export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic, assetType, tickerSummary }) {
+export default function AstroInsightsPanel({ astroData, visible, onToggle, ticker, matchedTopic, assetType, tickerSummary, tickerSummaryLoading }) {
   const [visibleCount, setVisibleCount] = useState(0)
 
   function loadMore() {
@@ -488,14 +488,19 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
               {matchedTopics.length === 0 && <SentimentGauge score={filteredScore ?? sentiment_score} />}
 
               {/* Ticker-specific AI summary */}
-              {tickerSummary && (
+              {tickerSummaryLoading ? (
+                <div className="rounded-lg p-3 flex items-center gap-2" style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
+                  <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span className="text-xs" style={{ color: '#94a3b8' }}>Loading {ticker} astrological outlook…</span>
+                </div>
+              ) : tickerSummary ? (
                 <div className="rounded-lg p-4" style={{ background: 'linear-gradient(135deg, #0f2a1a, #0b1120)', border: '1px solid #10b98155', boxShadow: '0 0 18px #10b98122' }}>
                   <p className="text-sm font-bold tracking-wide mb-2" style={{ color: '#34d399' }}>
                     ♅ {ticker} Astrological Outlook <span style={{ fontWeight: 400, fontSize: 11, color: '#6ee7b7', letterSpacing: 0 }}>(AI generated from all astrologers insights)</span>
                   </p>
                   <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{tickerSummary}</p>
                 </div>
-              )}
+              ) : null}
 
               {/* No direct symbol match — show category fallback notice */}
               {ticker && !hasSymbolMatch && matchedTopics.length > 0 && (
@@ -515,8 +520,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </div>
               )}
 
-              {/* Overall summary — show when no ticker-specific summary available */}
-              {displaySummary && !tickerSummary && (() => {
+              {/* Overall summary — show when no ticker-specific summary available and not loading */}
+              {displaySummary && !tickerSummaryLoading && !tickerSummary && (() => {
                 const bullets = displaySummary
                   .split('\n')
                   .map(l => l.replace(/^[\s•\-\*\d\.]+/, '').trim())
