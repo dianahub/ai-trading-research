@@ -466,7 +466,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
             <>
 
               {/* No symbol-specific match notice — only show if also no topic match and no AI summary */}
-              {ticker && !hasSymbolMatch && matchedTopics.length === 0 && !tickerSummaryLoading && !tickerSummary && (
+              {ticker && !hasSymbolMatch && matchedTopics.length === 0 && !tickerSummaryLoading && (
                 <div
                   className="rounded-lg px-4 py-3 flex items-start gap-2"
                   style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}
@@ -508,7 +508,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
 
               {/* Category fallback notice — right above the cards */}
-              {ticker && !hasSymbolMatch && matchedTopics.length > 0 && !tickerSummaryLoading && !tickerSummary && (
+              {ticker && !hasSymbolMatch && matchedTopics.length > 0 && !tickerSummaryLoading && (
                 <div className="rounded-lg px-4 py-3 flex items-start gap-2"
                   style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
                   <span style={{ color: '#94a3b8', flexShrink: 0 }}>ℹ</span>
