@@ -4016,7 +4016,7 @@ def _get_user_from_cookie(session_token: Optional[str], db: Session) -> Optional
     return None
 
 
-def _send_email(to: str, subject: str, body: str, text_only: bool = False):
+def _send_email(to: str, subject: str, body: str, text_only: bool = False, bcc: str | None = None):
     if not RESEND_API_KEY:
         _log_error("EMAIL", f"to={to}", 0, Exception("RESEND_API_KEY not set"))
         return
@@ -4028,6 +4028,8 @@ def _send_email(to: str, subject: str, body: str, text_only: bool = False):
             "to": [to],
             "subject": subject,
         }
+        if bcc:
+            payload["bcc"] = [bcc]
         if text_only:
             payload["text"] = body
         else:
@@ -6071,11 +6073,10 @@ def admin_create_partner_account(
             f"Diana Castillo\n"
             f"starsignal.io"
         )
-        admin_email = "dianahelene@gmail.com"
         threading.Thread(
             target=_send_email,
-            args=(admin_email, f"Star Signal partner info for {first}", welcome_body),
-            kwargs={"text_only": True},
+            args=(email, f"Star Signal partner info for {first}", welcome_body),
+            kwargs={"text_only": True, "bcc": "dianahelene@gmail.com"},
             daemon=True,
         ).start()
 
@@ -6160,8 +6161,7 @@ def admin_resend_partner_welcome(
             f"Diana Castillo\n"
             f"starsignal.io"
         )
-        admin_email = "dianahelene@gmail.com"
-        _send_email(admin_email, f"Star Signal partner info for {first}", body, text_only=True)
+        _send_email(user.email, f"Star Signal partner info for {first}", body, text_only=True, bcc="dianahelene@gmail.com")
         return {"ok": True}
 
 
