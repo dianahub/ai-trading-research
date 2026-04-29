@@ -259,7 +259,9 @@ export default function AccountPage() {
         <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
           <h3 className="text-sm font-bold mb-3" style={{ color: '#f1f5f9' }}>Your referral link</h3>
           <p className="text-xs mb-3" style={{ color: '#94a3b8' }}>
-            Share this link. When a friend converts to any paid plan, you get 1 month free.
+            {account.tier === 'partner_preview' || account.role === 'astrologer'
+              ? 'Share this with your audience — they get 45 days free and you earn 20% monthly commission.'
+              : 'Share this link. When a friend converts to any paid plan, you get 1 month free.'}
           </p>
           <div className="flex gap-2">
             <div className="flex-1 px-3 py-2.5 rounded-lg text-sm font-mono truncate"
