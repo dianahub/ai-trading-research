@@ -39,7 +39,7 @@ function AccordionSection({ title, color, dotColor, count, children }) {
             style={{ background: color + '22', color }}>{count}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs" style={{ color: '#475569' }}>{open ? 'hide' : 'show'}</span>
+          <span className="text-xs" style={{ color: '#94a3b8' }}>{open ? 'hide' : 'show'}</span>
           <ChevronDown size={14} style={{ color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
         </div>
       </button>

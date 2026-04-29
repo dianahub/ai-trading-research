@@ -35,7 +35,7 @@ export default function ResearchSummary({ analysis, ticker }) {
             </h3>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-xs" style={{ color: '#475569' }}>{open ? 'hide' : 'show'}</span>
+            <span className="text-xs" style={{ color: '#94a3b8' }}>{open ? 'hide' : 'show'}</span>
             <ChevronDown size={16} style={{ color: '#94a3b8', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
           </div>
         </div>
