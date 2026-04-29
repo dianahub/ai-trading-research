@@ -6061,7 +6061,7 @@ def admin_create_partner_account(
         referral_link = f"https://starsignal.io/join/{slug}"
         welcome_body = (
             f"Hi {first},\n\n"
-            f"Thank you for partnering with Star Signal. Your account is set up and ready. I am in beta so will appreciate your feedback.\n\n"
+            f"You are now an official Star Signal Partner. Your account is free forever — no subscription, no trial, no expiration.\n\n"
             f"Login link (click to access your account):\n{magic_link}\n\n"
             f"Your promo code: {discount_code}\n"
             f"Share this with your audience — they get 45 days free and lock in $19/month forever after.\n\n"
@@ -6149,7 +6149,7 @@ def admin_resend_partner_welcome(
         referral_link = f"https://starsignal.io/join/{contact.slug}"
         body = (
             f"Hi {first},\n\n"
-            f"Thank you for partnering with Star Signal. Your account is set up and ready. I am in beta so will appreciate your feedback.\n\n"
+            f"You are now an official Star Signal Partner. Your account is free forever — no subscription, no trial, no expiration.\n\n"
             f"Login link (click to access your account):\n{magic_link}\n\n"
             f"Your promo code: {contact.discount_code}\n"
             f"Share this with your audience — they get 45 days free and lock in $19/month forever after.\n\n"
