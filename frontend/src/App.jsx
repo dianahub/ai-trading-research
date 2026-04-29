@@ -20,6 +20,7 @@ import AstroInsightsPanel from './components/AstroInsightsPanel'
 import ChatWidget from './components/ChatWidget'
 
 const FREE_LIMIT = 10
+const PARTNER_LIMIT = 50
 const USAGE_KEY  = 'ss_daily_usage'
 function getTodayKey() {
   return new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
@@ -834,8 +835,8 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       </footer>
 
       <ChatWidget
-        usesLeft={usesLeft}
-        onUse={() => setUsesLeft(decrementUses())}
+        usesLeft={AUTH_ACTIVE && authedUser && (authedUser.tier === 'partner_preview' || ['astrologer','influencer','admin'].includes(authedUser.role)) ? PARTNER_LIMIT : usesLeft}
+        onUse={() => { if (!AUTH_ACTIVE || !authedUser || (authedUser.tier !== 'partner_preview' && !['astrologer','influencer','admin'].includes(authedUser.role))) setUsesLeft(decrementUses()) }}
         ticker={ticker}
         authedUser={authedUser}
         authActive={AUTH_ACTIVE}

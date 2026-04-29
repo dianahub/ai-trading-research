@@ -5607,9 +5607,11 @@ def get_features(ss_session: Optional[str] = Cookie(None)):
 # ── Daily usage ────────────────────────────────────────────────────────────────
 
 def _get_user_tier(user) -> str:
-    """Return effective tier, treating expired beta as free."""
+    """Return effective tier, treating expired beta as free. Admins/astrologers get unlimited."""
     if not user:
         return "free"
+    if user.role in ("admin", "astrologer", "influencer"):
+        return "partner_preview"  # unlimited
     now = datetime.now(timezone.utc)
     beta_expired = (user.tier == "beta" and user.beta_expires_at and
                     user.beta_expires_at.replace(tzinfo=timezone.utc) < now)
