@@ -201,7 +201,7 @@ export default function ChatWidget({ usesLeft, onUse, ticker, authedUser, authAc
               </div>
             )}
             {messages.some(m => m.role === 'assistant' && !m.ui) && (
-              <p style={{ fontSize: 10, color: '#475569', textAlign: 'center', margin: '4px 0 0', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 10, color: '#94a3b8', textAlign: 'center', margin: '4px 0 0', lineHeight: 1.5 }}>
                 This response is not from any individual astrologer. It uses the current astrological insights from the platform astrologers.{' '}
                 <a href="/about" style={{ color: '#6366f1', textDecoration: 'underline' }}>Learn more</a>
               </p>
