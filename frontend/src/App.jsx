@@ -226,30 +226,18 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
-  // Fetch ticker-specific astro summary whenever ticker or astroData changes.
-  // Passes relevant insights directly so the backend doesn't need its own cache.
+  // Fetch ticker-specific astro summary as soon as ticker is set — backend handles insight filtering.
   useEffect(() => {
-    if (!ticker || !astroData?.insights?.length) return
+    if (!ticker) return
     setAstroTickerLoading(true)
-    const matchedTopic = ETF_TOPIC_MAP[ticker] ?? null
-    let relevant = matchedTopic
-      ? astroData.insights.filter(i => i.topic === matchedTopic)
-      : []
-    if (relevant.length === 0) {
-      const seen = new Set()
-      for (const i of astroData.insights) {
-        if (!seen.has(i.topic)) { seen.add(i.topic); relevant.push(i) }
-        if (relevant.length >= 8) break
-      }
-    }
     apiFetch('/astro/ticker-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker, insights: relevant.slice(0, 10) }),
+      body: JSON.stringify({ ticker }),
     })
       .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
       .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
-  }, [ticker, astroData])
+  }, [ticker])
 
 const handleToggleAstro = () => setShowAstro(prev => !prev)
 

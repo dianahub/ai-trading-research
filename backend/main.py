@@ -879,26 +879,51 @@ def _fetch_astro_data() -> dict | None:
 
 class TickerSummaryRequest(BaseModel):
     ticker: str
-    insights: list[dict] = []
 
 
 @app.post("/astro/ticker-summary")
 def get_astro_ticker_summary(body: TickerSummaryRequest):
-    """Generate a ticker-specific astrological summary. Insights are provided by the frontend."""
+    """Generate a ticker-specific astrological summary using server-side astro data."""
     ticker = body.ticker.strip().upper()
     if not ticker:
         return {"summary": ""}
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         return {"summary": ""}
 
-    # Use insights passed from the frontend (already filtered by topic)
-    insights = body.insights
+    # Fetch and filter insights on the backend — same logic as the chat endpoint
+    all_insights = _insights_state.get("insights", [])
+    if not all_insights:
+        return {"summary": ""}
+
+    topic_map = {
+        "BTC": "crypto", "ETH": "crypto", "SOL": "crypto", "XRP": "crypto",
+        "DOGE": "crypto", "ADA": "crypto", "AVAX": "crypto",
+        "GLD": "gold", "IAU": "gold", "SLV": "gold", "GDX": "gold",
+        "SPY": "stock market", "IWM": "stock market", "DIA": "stock market",
+        "QQQ": "tech stocks", "NVDA": "tech stocks", "AAPL": "tech stocks",
+        "TSLA": "tech stocks", "AMZN": "tech stocks", "META": "tech stocks",
+        "MSFT": "tech stocks", "GOOGL": "tech stocks",
+        "XOM": "oil", "CVX": "oil", "USO": "oil",
+        "JPM": "banking", "GS": "banking", "BAC": "banking",
+    }
+    matched_topic = topic_map.get(ticker)
+    insights = [i for i in all_insights if matched_topic and i.get("topic") == matched_topic][:10]
+    if not insights:
+        seen, insights = set(), []
+        for i in all_insights:
+            t = i.get("topic")
+            if t not in seen:
+                seen.add(t)
+                insights.append(i)
+            if len(insights) >= 8:
+                break
+
     if not insights:
         return {"summary": ""}
 
     context = "\n".join(
         f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
-        for i in insights[:10]
+        for i in insights
     )
     try:
         client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
