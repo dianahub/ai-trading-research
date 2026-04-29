@@ -226,6 +226,31 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
+  // Fetch ticker-specific astro summary whenever ticker or astroData changes.
+  // Passes relevant insights directly so the backend doesn't need its own cache.
+  useEffect(() => {
+    if (!ticker || !astroData?.insights?.length) return
+    setAstroTickerLoading(true)
+    const matchedTopic = ETF_TOPIC_MAP[ticker] ?? null
+    let relevant = matchedTopic
+      ? astroData.insights.filter(i => i.topic === matchedTopic)
+      : []
+    if (relevant.length === 0) {
+      const seen = new Set()
+      for (const i of astroData.insights) {
+        if (!seen.has(i.topic)) { seen.add(i.topic); relevant.push(i) }
+        if (relevant.length >= 8) break
+      }
+    }
+    apiFetch('/astro/ticker-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker, insights: relevant.slice(0, 10) }),
+    })
+      .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
+      .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
+  }, [ticker, astroData])
+
 const handleToggleAstro = () => setShowAstro(prev => !prev)
 
   const handleSearch = async (ticker) => {
@@ -245,9 +270,6 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
     setAstroTickerSummary(null)
     setAstroTickerLoading(true)
     setTicker(ticker.toUpperCase())
-    apiFetch(`/astro/ticker-summary?ticker=${encodeURIComponent(ticker)}`)
-      .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
-      .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
 
     try {
       // Detect asset type first so we call the right endpoints
