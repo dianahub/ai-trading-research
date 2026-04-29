@@ -6056,7 +6056,7 @@ def admin_create_partner_account(
         db.refresh(contact)
         db.refresh(user)
 
-        magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={email}"
+        magic_link = f"https://starsignal.io/magic-login?token={magic_token}&email={email}"
         first = body.first_name or email.split("@")[0]
         referral_link = f"https://starsignal.io/join/{slug}"
         welcome_body = (
@@ -6144,7 +6144,7 @@ def admin_resend_partner_welcome(
         user.email_verification_token = _hash_password(magic_token)
         user.email_verification_expires = now + timedelta(hours=72)
         db.commit()
-        magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={user.email}"
+        magic_link = f"https://starsignal.io/magic-login?token={magic_token}&email={user.email}"
         first = user.first_name or user.email.split("@")[0]
         referral_link = f"https://starsignal.io/join/{contact.slug}"
         body = (
@@ -6184,7 +6184,7 @@ def admin_email_me_partner_info(
         user.email_verification_token = _hash_password(magic_token)
         user.email_verification_expires = now + timedelta(hours=72)
         db.commit()
-        magic_link = f"{SITE_URL}/magic-login?token={magic_token}&email={user.email}"
+        magic_link = f"https://starsignal.io/magic-login?token={magic_token}&email={user.email}"
         first = user.first_name or user.email.split("@")[0]
         referral_link = f"https://starsignal.io/join/{contact.slug}"
         body = (
