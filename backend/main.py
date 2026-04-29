@@ -922,14 +922,12 @@ def get_astro_ticker_summary(ticker: str = ""):
         client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         resp = client_a.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=400,
+            max_tokens=150,
             system=(
                 "You are StarSignal, an astrological market guide on Starsignal.io. "
                 "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
                 f"The user is researching {ticker.upper()}. "
-                "Given the current astrological signals below, reason through the planetary influences and write a direct 3-4 sentence astrological outlook for this asset. "
-                "Explain which planets and timeframes matter most and what that means for price action. "
-                "Be specific, plain English, no bullet points."
+                "Answer ONLY from an astrological perspective. Keep your reply to 2 sentences maximum. Be direct and specific about which planets and timeframes matter."
             ),
             messages=[{"role": "user", "content": (
                 f"Current astrological signals:\n{context}\n\n"
