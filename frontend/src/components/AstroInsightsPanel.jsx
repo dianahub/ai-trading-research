@@ -464,8 +464,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           ) : (
             <>
 
-              {/* No symbol-specific match notice — only show if also no topic match */}
-              {ticker && !hasSymbolMatch && matchedTopics.length === 0 && (
+              {/* No symbol-specific match notice — only show if also no topic match and no AI summary */}
+              {ticker && !hasSymbolMatch && matchedTopics.length === 0 && !tickerSummaryLoading && !tickerSummary && (
                 <div
                   className="rounded-lg px-4 py-3 flex items-start gap-2"
                   style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}
@@ -502,24 +502,6 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                 </div>
               ) : null}
 
-              {/* No direct symbol match — show category fallback notice */}
-              {ticker && !hasSymbolMatch && matchedTopics.length > 0 && (
-                <div className="rounded-lg px-4 py-3 flex items-start gap-2"
-                  style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
-                  <span style={{ color: '#94a3b8', flexShrink: 0 }}>ℹ</span>
-                  <p className="text-sm" style={{ color: '#94a3b8' }}>
-                    No particular information found about{' '}
-                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span>.{' '}
-                    The following relates to the entire{' '}
-                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>
-                      {matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
-                        ?.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
-                        || (assetType === 'crypto' ? 'crypto market' : 'stock market')}
-                    </span>.
-                  </p>
-                </div>
-              )}
-
               {/* Overall summary — show when no ticker-specific summary available and not loading */}
               {displaySummary && !tickerSummaryLoading && !tickerSummary && (() => {
                 const bullets = displaySummary
@@ -552,6 +534,24 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   </div>
                 )
               })()}
+
+              {/* Category fallback notice — right above the cards */}
+              {ticker && !hasSymbolMatch && matchedTopics.length > 0 && !tickerSummaryLoading && !tickerSummary && (
+                <div className="rounded-lg px-4 py-3 flex items-start gap-2"
+                  style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
+                  <span style={{ color: '#94a3b8', flexShrink: 0 }}>ℹ</span>
+                  <p className="text-sm" style={{ color: '#94a3b8' }}>
+                    No particular information found about{' '}
+                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span> in posts.{' '}
+                    The following relates to the entire{' '}
+                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>
+                      {matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
+                        ?.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
+                        || (assetType === 'crypto' ? 'crypto market' : 'stock market')}
+                    </span>.
+                  </p>
+                </div>
+              )}
 
               {/* 3 most recent related insight cards — shown below summary */}
               {previewInsights.length > 0 && (
