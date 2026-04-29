@@ -5989,10 +5989,22 @@ def get_account(ss_session: Optional[str] = Cookie(None)):
             if partner:
                 referring_partner_name = partner.name
 
+        partner_contact = None
+        if user.tier == "partner_preview" or user.role == "astrologer":
+            partner_contact = db.query(OutreachContact).filter(
+                OutreachContact.contact_email == user.email
+            ).first()
+
+        if partner_contact and (partner_contact.slug or partner_contact.referral_code):
+            slug = partner_contact.slug or partner_contact.referral_code
+            referral_link = f"https://starsignal.io/join/{slug}"
+        else:
+            referral_link = f"{SITE_URL}/join?ref={user.referral_code}"
+
         return {
             **_user_dict(user),
             "beta_days_left": beta_days_left,
-            "referral_link": f"{SITE_URL}/join?ref={user.referral_code}",
+            "referral_link": referral_link,
             "referrals_total": len(refs),
             "referrals_converted": sum(1 for r in refs if r.converted),
             "referring_partner_name": referring_partner_name,
