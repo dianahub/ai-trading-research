@@ -336,9 +336,17 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
         return true
       })
 
-    // Symbol-exact matches: explicit symbol field OR parenthetical mention e.g. "(ORA)"
+    // Broader text match: summary mentions the ticker as a standalone word
+    const tickerRegex = ticker ? new RegExp(`\\b${ticker}\\b`, 'i') : null
+    const textMentionsTicker = (summary) => tickerRegex ? tickerRegex.test(summary) : false
+
+    // Priority 1: explicit symbol field, parenthetical, or text mention of the ticker
     const symbolMatchInsights = ticker
-      ? insights.filter(i => i.symbol === ticker || mentionedSymbol(i.summary) === ticker)
+      ? insights.filter(i =>
+          i.symbol === ticker ||
+          mentionedSymbol(i.summary) === ticker ||
+          textMentionsTicker(i.summary)
+        )
       : []
     const hasSymbolMatch = symbolMatchInsights.length > 0
 
@@ -348,8 +356,12 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
     let matchedInsights, otherInsights
     if (hasSymbolMatch) {
-      matchedInsights = symbolMatchInsights
-      otherInsights   = insights.filter(i => !i.symbol && !mentionedSymbol(i.summary))
+      // Within topic matches, put ticker-text mentions first
+      const topicPool = hasTopicMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : insights
+      const textMatches = topicPool.filter(i => textMentionsTicker(i.summary) || i.symbol === ticker)
+      const nonTextMatches = topicPool.filter(i => !textMentionsTicker(i.summary) && i.symbol !== ticker)
+      matchedInsights = [...textMatches, ...nonTextMatches]
+      otherInsights   = insights.filter(i => !matchedTopics.includes(i.topic))
     } else {
       matchedInsights = hasTopicMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
       otherInsights   = hasTopicMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
