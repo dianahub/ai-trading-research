@@ -2659,7 +2659,7 @@ def create_signup(req: SignupRequest):
 
                 resend.api_key = RESEND_API_KEY
                 resend.Emails.send({
-                    "from": "Star Signal <onboarding@resend.dev>",
+                    "from": "Star Signal <diana.castillo@futurotek.com>",
                     "reply_to": "dianahelene@gmail.com",
                     "to": ["contact@starsignal.io"],
                     "subject": f"⭐ New Starsignal Beta Signup: {req.name}",
@@ -4023,7 +4023,7 @@ def _send_email(to: str, subject: str, body: str, text_only: bool = False):
     try:
         resend.api_key = RESEND_API_KEY
         payload: dict = {
-            "from": "Star Signal <onboarding@resend.dev>",
+            "from": "Star Signal <diana.castillo@futurotek.com>",
             "reply_to": "dianahelene@gmail.com",
             "to": [to],
             "subject": subject,
