@@ -9,17 +9,15 @@ export default function ResearchSummary({ analysis, ticker }) {
 
   return (
     <div className="rounded-xl" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
-      {/* Header row — title + show/hide button on same line */}
-      <div className="px-6 py-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: '#06b6d422' }}>
-            <FileText size={14} style={{ color: '#06b6d4' }} />
-          </div>
-          <h3 className="text-sm uppercase tracking-wide font-bold truncate" style={{ color: '#e2e8f0' }}>
-            {ticker} · AI Generated Full Research Summary
-          </h3>
+      {/* Header row — icon + title + show/hide button inline */}
+      <div className="px-6 py-4 flex items-center gap-3 flex-wrap">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: '#06b6d422' }}>
+          <FileText size={14} style={{ color: '#06b6d4' }} />
         </div>
+        <h3 className="text-sm uppercase tracking-wide font-bold" style={{ color: '#e2e8f0' }}>
+          {ticker} · AI Generated Full Research Summary
+        </h3>
         <button
           onClick={() => setOpen(o => !o)}
           onMouseEnter={() => setHovered(true)}
@@ -31,10 +29,11 @@ export default function ResearchSummary({ analysis, ticker }) {
             cursor: 'pointer',
             color: '#e2e8f0',
             fontSize: 13,
+            letterSpacing: '0.05em',
             transition: 'background 0.15s ease',
           }}
         >
-          <span>{open ? 'Hide' : 'Show'}</span>
+          <span>{open ? 'HIDE' : 'SHOW'}</span>
           <ChevronDown size={15} style={{ color: '#06b6d4', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
         </button>
       </div>
