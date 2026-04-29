@@ -879,19 +879,27 @@ def _fetch_astro_data() -> dict | None:
 
 class TickerSummaryRequest(BaseModel):
     ticker: str
+    insights: list[dict] = []  # fallback if server-side state is empty
 
 
 @app.post("/astro/ticker-summary")
 def get_astro_ticker_summary(body: TickerSummaryRequest):
-    """Generate a ticker-specific astrological summary using server-side astro data."""
+    """Generate a ticker-specific astrological summary.
+
+    Uses server-side _insights_state (fast path). Falls back to insights
+    passed by the frontend if the ingestion thread hasn't populated state yet.
+    """
     ticker = body.ticker.strip().upper()
     if not ticker:
         return {"summary": ""}
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         return {"summary": ""}
 
-    # Fetch and filter insights on the backend — same logic as the chat endpoint
+    # Prefer server-side state; fall back to frontend-supplied insights
     all_insights = _insights_state.get("insights", [])
+    if not all_insights:
+        all_insights = body.insights
+
     if not all_insights:
         return {"summary": ""}
 

@@ -226,10 +226,11 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
-  // Fetch ticker-specific astro summary as soon as ticker is set — backend handles insight filtering.
+  // Fast path: fire immediately when ticker changes — backend uses server-side insights if available.
   useEffect(() => {
     if (!ticker) return
     setAstroTickerLoading(true)
+    setAstroTickerSummary('')
     apiFetch('/astro/ticker-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -238,6 +239,32 @@ export default function App() {
       .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
       .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
   }, [ticker])
+
+  // Fallback: once astroData loads, re-fire with insights if the fast path returned empty.
+  useEffect(() => {
+    if (!ticker || !astroData?.insights?.length) return
+    setAstroTickerSummary(prev => {
+      if (prev) return prev  // fast path already succeeded — don't overwrite
+      setAstroTickerLoading(true)
+      const matchedTopic = ETF_TOPIC_MAP[ticker] ?? null
+      let relevant = matchedTopic ? astroData.insights.filter(i => i.topic === matchedTopic) : []
+      if (relevant.length === 0) {
+        const seen = new Set()
+        for (const i of astroData.insights) {
+          if (!seen.has(i.topic)) { seen.add(i.topic); relevant.push(i) }
+          if (relevant.length >= 8) break
+        }
+      }
+      apiFetch('/astro/ticker-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker, insights: relevant.slice(0, 10) }),
+      })
+        .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
+        .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
+      return prev
+    })
+  }, [ticker, astroData])
 
 const handleToggleAstro = () => setShowAstro(prev => !prev)
 
