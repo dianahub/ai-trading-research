@@ -464,8 +464,8 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
           ) : (
             <>
 
-              {/* No symbol-specific match notice */}
-              {ticker && !hasSymbolMatch && (
+              {/* No symbol-specific match notice — only show if also no topic match */}
+              {ticker && !hasSymbolMatch && matchedTopics.length === 0 && (
                 <div
                   className="rounded-lg px-4 py-3 flex items-start gap-2"
                   style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}
