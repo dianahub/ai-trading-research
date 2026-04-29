@@ -9,50 +9,46 @@ export default function ResearchSummary({ analysis, ticker }) {
 
   return (
     <div className="rounded-xl" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
-      {/* Header */}
-      <div className="px-6 pt-5 pb-3">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+      {/* Header row — title + show/hide button on same line */}
+      <div className="px-6 py-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
             style={{ background: '#06b6d422' }}>
             <FileText size={14} style={{ color: '#06b6d4' }} />
           </div>
-          <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
+          <h3 className="text-xs uppercase tracking-widest font-semibold truncate" style={{ color: '#94a3b8' }}>
             {ticker} · AI Generated Full Research Summary
           </h3>
         </div>
-      </div>
-
-      {/* Big centered show/hide button */}
-      <div className="px-6 pb-4">
         <button
           onClick={() => setOpen(o => !o)}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold flex-shrink-0"
           style={{
             background: hovered ? '#1e3a5f' : '#0f1a2e',
             border: '1px solid #1e3a5f',
             cursor: 'pointer',
             color: '#e2e8f0',
-            fontSize: 15,
+            fontSize: 13,
             transition: 'background 0.15s ease',
           }}
         >
-          <span>{open ? 'Hide Summary' : 'Show Summary'}</span>
-          <ChevronDown size={18} style={{ color: '#06b6d4', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+          <span>{open ? 'Hide' : 'Show'}</span>
+          <ChevronDown size={15} style={{ color: '#06b6d4', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
         </button>
       </div>
 
       {/* Body */}
       {open && (
         <>
-          <div className="flex items-center gap-2 mx-6 mb-4 px-3 py-2 rounded-lg" style={{ background: '#f59e0b18', border: '1px solid #f59e0b55' }}>
+          <div className="flex items-center gap-2 mx-6 mb-0 px-3 py-2 rounded-lg" style={{ background: '#f59e0b18', border: '1px solid #f59e0b55' }}>
             <span className="text-lg">⚠</span>
             <p className="text-sm font-bold" style={{ color: '#fbbf24' }}>
               AI-generated analysis — For educational purposes only. Not financial advice.
             </p>
           </div>
-          <div className="px-6 py-5 space-y-4" style={{ borderTop: '1px solid #1e2d45' }}>
+          <div className="px-6 py-5 space-y-4" style={{ borderTop: '1px solid #1e2d45', marginTop: '16px' }}>
             {paragraphs.map((para, i) => (
               <div key={i} className="flex gap-4">
                 <div className="w-1 rounded-full shrink-0"
