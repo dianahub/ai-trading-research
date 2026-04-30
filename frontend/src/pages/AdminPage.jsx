@@ -32,6 +32,12 @@ const PAGES = [
     icon:  '✦',
   },
   {
+    path:  '/admin/influencers',
+    title: 'Influencer Contacts',
+    desc:  'Contact info for influencers (YouTube, TikTok, etc.) used for outreach.',
+    icon:  '📣',
+  },
+  {
     path:  '/admin/free-signups',
     title: 'Free API Signups',
     desc:  'Review, approve, or reject free API key requests.',
