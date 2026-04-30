@@ -6107,6 +6107,7 @@ class AdminCreatePartnerRequest(BaseModel):
     last_name: str = ""
     email: str
     publication_name: str = ""
+    role: str = "astrologer"
 
 
 @app.post("/admin/partner-accounts", status_code=201)
@@ -6148,7 +6149,7 @@ def admin_create_partner_account(
             email_verified=True,
             referral_code=ref_code,
             beta_expires_at=None,
-            role="astrologer",
+            role=body.role if body.role in ("astrologer", "influencer") else "astrologer",
             email_verification_token=_hash_password(magic_token),
             email_verification_expires=now + timedelta(hours=72),
         )
