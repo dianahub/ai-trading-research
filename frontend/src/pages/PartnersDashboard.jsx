@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import QRCode from 'qrcode'
 
 const ASTRO_URL = import.meta.env.VITE_ASTRO_URL ?? 'https://astro-api-production.up.railway.app'
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -128,6 +129,12 @@ export default function PartnersDashboard() {
   const [commissionsLoading, setCommissionsLoading] = useState(false)
   const [connectLoading, setConnectLoading] = useState(false)
   const [copied, setCopied] = useState(null)
+  const [qrDataUrl, setQrDataUrl] = useState(null)
+  const [captions, setCaptions] = useState(null)
+  const [captionsLoading, setCaptionsLoading] = useState(false)
+  const [captionsError, setCaptionsError] = useState('')
+  const [copiedCaption, setCopiedCaption] = useState(null)
+  const IS_STAGING = !import.meta.env.VITE_API_URL || !import.meta.env.VITE_API_URL.includes('starsignal')
 
   // Handle magic link token from URL
   useEffect(() => {
@@ -248,10 +255,60 @@ export default function PartnersDashboard() {
     if (activeTab === 'commissions' && !commissions) loadCommissions()
   }, [activeTab])
 
+  useEffect(() => {
+    if (commissions?.partner?.slug && !qrDataUrl) generateQr(commissions.partner.slug)
+  }, [commissions])
+
   function copy(text, key) {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(key)
       setTimeout(() => setCopied(null), 2000)
+    })
+  }
+
+  async function generateQr(slug) {
+    try {
+      const url = `https://starsignal.io/join/${slug}`
+      const dataUrl = await QRCode.toDataURL(url, {
+        width: 256,
+        margin: 2,
+        color: { dark: '#f1f5f9', light: '#0b1120' },
+      })
+      setQrDataUrl(dataUrl)
+    } catch { /* ignore */ }
+  }
+
+  function downloadQr(slug) {
+    const a = document.createElement('a')
+    a.href = qrDataUrl
+    a.download = `starsignal-${slug}-qr.png`
+    a.click()
+  }
+
+  async function generateCaptions(partnerName, promoCode, creatorType = 'astrologer') {
+    setCaptionsLoading(true)
+    setCaptionsError('')
+    try {
+      const r = await fetch(`${API}/partners/generate-captions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ partner_name: partnerName, promo_code: promoCode, creator_type: creatorType }),
+      })
+      if (!r.ok) { setCaptionsError('Could not generate captions — make sure you are logged in to starsignal.io.'); return }
+      const data = await r.json()
+      setCaptions(data.captions)
+    } catch {
+      setCaptionsError('Network error. Please try again.')
+    } finally {
+      setCaptionsLoading(false)
+    }
+  }
+
+  function copyCaption(text, idx) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedCaption(idx)
+      setTimeout(() => setCopiedCaption(null), 2000)
     })
   }
 
@@ -407,6 +464,77 @@ export default function PartnersDashboard() {
                           </div>
                         </div>
                       )}
+
+                      {/* QR Code */}
+                      <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                        <div className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>QR Code</div>
+                        <p className="text-xs mb-4" style={{ color: '#64748b' }}>
+                          Download and share this QR code — it links directly to your referral page at{' '}
+                          <span style={{ color: '#06b6d4' }}>starsignal.io/join/{slug}</span>.
+                        </p>
+                        {qrDataUrl ? (
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <img src={qrDataUrl} alt="Referral QR code" width={128} height={128}
+                              style={{ borderRadius: 8, border: '1px solid #1e3a5f' }} />
+                            <button onClick={() => downloadQr(slug)}
+                              className="px-4 py-2 rounded-lg text-xs font-semibold"
+                              style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                              ⬇ Download QR Code
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs" style={{ color: '#475569' }}>Generating…</p>
+                        )}
+                      </div>
+
+                      {/* Social Captions */}
+                      <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
+                        <div className="text-xs font-semibold mb-1" style={{ color: '#94a3b8' }}>Social Media Captions</div>
+                        <p className="text-xs mb-4" style={{ color: '#64748b' }}>
+                          Generate ready-to-post captions for TikTok, Instagram, Twitter/X, and Newsletter — personalised with your name and promo code.
+                        </p>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          <button
+                            onClick={() => generateCaptions(p.name, p.discount_code)}
+                            disabled={captionsLoading || !p.discount_code}
+                            className="px-4 py-2 rounded-lg text-xs font-semibold"
+                            style={{ background: captionsLoading ? '#1e2d45' : 'linear-gradient(135deg,#1e1b4b,#312e81)', color: captionsLoading ? '#64748b' : '#a5b4fc', border: '1px solid #3730a3', cursor: captionsLoading ? 'not-allowed' : 'pointer' }}>
+                            {captionsLoading ? 'Generating…' : captions ? 'Regenerate' : '✦ Generate Captions'}
+                          </button>
+                          {IS_STAGING && captions && (
+                            <button
+                              onClick={() => generateCaptions(p.name, p.discount_code)}
+                              disabled={captionsLoading}
+                              className="px-4 py-2 rounded-lg text-xs font-semibold"
+                              style={{ background: '#0f2a1a', color: '#34d399', border: '1px solid #065f46', cursor: 'pointer' }}>
+                              ↺ New variation
+                            </button>
+                          )}
+                        </div>
+                        {captionsError && (
+                          <div className="rounded-lg px-4 py-3 text-xs mb-4" style={{ background: '#450a0a', color: '#f87171', border: '1px solid #7f1d1d' }}>
+                            {captionsError}
+                          </div>
+                        )}
+                        {captions && (
+                          <div className="flex flex-col gap-3">
+                            {captions.map((c, i) => (
+                              <div key={i} className="rounded-lg p-4" style={{ background: '#060a14', border: '1px solid #1e2d45' }}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-bold uppercase tracking-wide" style={{ color: '#06b6d4' }}>{c.platform}</span>
+                                  <button
+                                    onClick={() => copyCaption(c.caption, i)}
+                                    className="px-2.5 py-1 rounded text-xs font-medium"
+                                    style={{ background: copiedCaption === i ? '#052e16' : '#1e2d45', color: copiedCaption === i ? '#34d399' : '#94a3b8', border: 'none', cursor: 'pointer' }}>
+                                    {copiedCaption === i ? 'Copied!' : 'Copy'}
+                                  </button>
+                                </div>
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#cbd5e1' }}>{c.caption}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Payout account */}
                       <div className="rounded-xl p-5" style={{ background: '#0f1a2e', border: '1px solid #1e2d45' }}>
