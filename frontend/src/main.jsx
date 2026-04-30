@@ -13,6 +13,7 @@ import PartnersApply from './pages/PartnersApply.jsx'
 import PartnersDashboard from './pages/PartnersDashboard.jsx'
 import AdminPartners from './pages/AdminPartners.jsx'
 import AdminAstrologers from './pages/AdminAstrologers.jsx'
+import AdminInfluencers from './pages/AdminInfluencers.jsx'
 import AdminFreeSignups from './pages/AdminFreeSignups.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
@@ -50,6 +51,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/outreach" element={<AdminOutreach />} />
         <Route path="/admin/partners" element={<AdminPartners />} />
         <Route path="/admin/astrologers" element={<AdminAstrologers />} />
+        <Route path="/admin/influencers" element={<AdminInfluencers />} />
         <Route path="/admin/free-signups" element={<AdminFreeSignups />} />
         <Route path="/partners" element={<PartnersLanding />} />
         <Route path="/partners/apply" element={<PartnersApply />} />

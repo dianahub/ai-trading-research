@@ -37,7 +37,7 @@ function CopyButton({ text }) {
   )
 }
 
-export default function AdminAstrologers() {
+export default function AdminInfluencers() {
   const [list, setList]         = useState([])
   const [loading, setLoading]   = useState(true)
   const [editing, setEditing]   = useState(null)
@@ -47,9 +47,9 @@ export default function AdminAstrologers() {
   const [deleting, setDeleting] = useState('')
 
   // per-row partner creation state
-  const [making, setMaking]     = useState({})  // id → true while in flight
-  const [madeIds, setMadeIds]   = useState({})  // id → partner record once done
-  const [makeErr, setMakeErr]   = useState({})  // id → error string
+  const [making, setMaking]     = useState({})
+  const [madeIds, setMadeIds]   = useState({})
+  const [makeErr, setMakeErr]   = useState({})
 
   // partner accounts table
   const [partners, setPartners]               = useState([])
@@ -69,9 +69,9 @@ export default function AdminAstrologers() {
   async function load() {
     setLoading(true)
     try {
-      const r = await fetch(`${API}/admin/astrologers`, { headers: adminHeaders() })
+      const r = await fetch(`${API}/admin/influencers`, { headers: adminHeaders() })
       const d = await r.json()
-      setList(d.astrologers ?? [])
+      setList(d.influencers ?? [])
     } catch { setError('Failed to load') }
     setLoading(false)
   }
@@ -85,7 +85,6 @@ export default function AdminAstrologers() {
     setPartnersLoading(false)
   }
 
-  // ── Astrologer CRUD ───────────────────────────────────────────────────────────
   function openNew()    { setEditing('new'); setForm(EMPTY); setError('') }
   function openEdit(a)  { setEditing(a); setForm({ ...a }); setError('') }
   function closeEdit()  { setEditing(null); setError('') }
@@ -96,8 +95,8 @@ export default function AdminAstrologers() {
     try {
       const isNew = editing === 'new'
       const url   = isNew
-        ? `${API}/admin/astrologers`
-        : `${API}/admin/astrologers/${editing.id}`
+        ? `${API}/admin/influencers`
+        : `${API}/admin/influencers/${editing.id}`
       const r = await fetch(url, {
         method:  isNew ? 'POST' : 'PATCH',
         headers: adminHeaders(),
@@ -111,14 +110,13 @@ export default function AdminAstrologers() {
   }
 
   async function del(id) {
-    if (!confirm('Delete this astrologer contact?')) return
+    if (!confirm('Delete this influencer contact?')) return
     setDeleting(id)
-    await fetch(`${API}/admin/astrologers/${id}`, { method: 'DELETE', headers: adminHeaders() })
+    await fetch(`${API}/admin/influencers/${id}`, { method: 'DELETE', headers: adminHeaders() })
     setList(l => l.filter(a => a.id !== id))
     setDeleting('')
   }
 
-  // ── Make Partner ──────────────────────────────────────────────────────────────
   async function makePartner(a) {
     if (!a.email) {
       setMakeErr(e => ({ ...e, [a.id]: 'No email on file' }))
@@ -153,7 +151,6 @@ export default function AdminAstrologers() {
     setMaking(m => ({ ...m, [a.id]: false }))
   }
 
-  // ── Partner actions ───────────────────────────────────────────────────────────
   async function resendWelcome(id) {
     setResending(id)
     try {
@@ -249,7 +246,7 @@ export default function AdminAstrologers() {
         <div className="flex items-center gap-3 mb-2">
           <Link to="/" className="text-xs" style={{ color: '#94a3b8', textDecoration: 'none' }}>← Dashboard</Link>
           <span style={{ color: '#1e2d45' }}>·</span>
-          <Link to="/admin/influencers" className="text-xs" style={{ color: '#94a3b8', textDecoration: 'none' }}>Influencers</Link>
+          <Link to="/admin/astrologers" className="text-xs" style={{ color: '#94a3b8', textDecoration: 'none' }}>Astrologers</Link>
           <span style={{ color: '#1e2d45' }}>·</span>
           <Link to="/admin/partners" className="text-xs" style={{ color: '#94a3b8', textDecoration: 'none' }}>Partners</Link>
           <span style={{ color: '#1e2d45' }}>·</span>
@@ -257,31 +254,31 @@ export default function AdminAstrologers() {
         </div>
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-black" style={{ color: '#f1f5f9' }}>Astrologer Contacts</h1>
-            <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>Contact info for astrologers whose feeds are used in the API</p>
+            <h1 className="text-2xl font-black" style={{ color: '#f1f5f9' }}>Influencer Contacts</h1>
+            <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>Contact info for influencers and content creators</p>
           </div>
           <button
             onClick={openNew}
             className="px-4 py-2 rounded-lg text-sm font-semibold"
             style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff' }}
           >
-            + Add Astrologer
+            + Add Influencer
           </button>
         </div>
 
-        {/* Astrologer contacts table */}
+        {/* Influencer contacts table */}
         {loading ? (
           <p style={{ color: '#94a3b8' }}>Loading…</p>
         ) : list.length === 0 ? (
           <div className="rounded-xl p-12 text-center" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
-            <p className="text-sm" style={{ color: '#94a3b8' }}>No astrologer contacts yet. Click "Add Astrologer" to get started.</p>
+            <p className="text-sm" style={{ color: '#94a3b8' }}>No influencer contacts yet. Click "Add Influencer" to get started.</p>
           </div>
         ) : (
           <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #1e2d45' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: '#0b1120', borderBottom: '1px solid #1e2d45' }}>
-                  {['Name', 'Email', 'Feed URL', 'Topics', 'Actions'].map(h => (
+                  {['Name', 'Email', 'Channel / Profile', 'Topics', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                       style={{ color: '#94a3b8' }}>{h}</th>
                   ))}
@@ -484,7 +481,7 @@ export default function AdminAstrologers() {
         </div>
       </div>
 
-      {/* Add / Edit Astrologer modal */}
+      {/* Add / Edit Influencer modal */}
       {editing !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)' }}
@@ -492,19 +489,19 @@ export default function AdminAstrologers() {
           <div className="w-full max-w-lg rounded-2xl p-8"
             style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
             <h2 className="text-lg font-black mb-6" style={{ color: '#f1f5f9' }}>
-              {editing === 'new' ? 'Add Astrologer' : `Edit — ${editing.name}`}
+              {editing === 'new' ? 'Add Influencer' : `Edit — ${editing.name}`}
             </h2>
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
-                {field('name',    'Name *', 'Astrologer name')}
+                {field('name',    'Name *', 'Influencer name')}
                 {field('email',   'Email',  'contact@example.com')}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {field('website', 'Website', 'https://...')}
+                {field('website', 'Website / Profile', 'https://...')}
                 {field('twitter', 'Twitter / X', '@handle')}
               </div>
-              {field('feedUrl', 'RSS Feed URL', 'https://...')}
-              {field('topics',  'Topics', 'crypto, gold, tech stocks')}
+              {field('feedUrl', 'Channel URL (YouTube, TikTok, etc.)', 'https://...')}
+              {field('topics',  'Topics', 'crypto, stocks, trading')}
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: '#94a3b8' }}>Notes</label>
                 <textarea
