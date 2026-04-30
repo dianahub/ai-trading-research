@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+
 function Card({ title, children }) {
   return (
     <div className="rounded-xl p-4" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
@@ -231,6 +234,8 @@ function VolumeCard({ data }) {
 }
 
 export default function TechnicalGrid({ technicals }) {
+  const [open, setOpen] = useState(false)
+
   if (!technicals) return null
 
   if (technicals._unavailable) {
@@ -255,16 +260,33 @@ export default function TechnicalGrid({ technicals }) {
 
   return (
     <div>
-      <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#94a3b8' }}>
-        Technical Indicators
-      </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <MacdCard data={ind.macd} />
-        <RsiCard data={ind.rsi} />
-        <SmaCard data={ind.sma} currentPrice={price} />
-        <BollingerCard data={ind.bollinger_bands} currentPrice={price} />
-        <VolumeCard data={ind.volume} />
-      </div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between mb-3 group"
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+      >
+        <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
+          Technical Indicators
+        </h3>
+        <ChevronDown
+          size={16}
+          style={{
+            color: '#94a3b8',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
+          }}
+        />
+      </button>
+
+      {open && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <MacdCard data={ind.macd} />
+          <RsiCard data={ind.rsi} />
+          <SmaCard data={ind.sma} currentPrice={price} />
+          <BollingerCard data={ind.bollinger_bands} currentPrice={price} />
+          <VolumeCard data={ind.volume} />
+        </div>
+      )}
     </div>
   )
 }

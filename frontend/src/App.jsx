@@ -473,7 +473,6 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 { href: '#ai-summary',  label: '🤖 AI Summary',  show: !!data.analysis },
                 { href: '#price',       label: '💰 Price',        show: true },
                 { href: '#technicals',  label: '📈 Technicals',   show: true },
-                { href: '#analysis',    label: '🔍 Analysis',     show: !!data.analysis },
                 { href: '#smart-money', label: data.assetType === 'crypto' ? '🐋 Whales' : '📊 Insiders', show: !!(data.whales || data.insiders) },
                 { href: '#astro',       label: '♅ Astro',         show: true },
                 { href: '#news',        label: '📰 News',         show: true },
@@ -731,14 +730,12 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               <div className="fade-in">
                 <SupportResistance technicals={data.technicals} price={data.price} />
               </div>
+              {data.analysis && (
+                <div className="fade-in">
+                  <AnalysisCards analysis={data.analysis} />
+                </div>
+              )}
             </div>
-
-            {/* Analysis cards */}
-            {data.analysis && (
-              <div id="analysis" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
-                <AnalysisCards analysis={data.analysis} />
-              </div>
-            )}
 
             {/* Smart money — whale (crypto) or insiders (stocks) */}
             <div id="smart-money" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
