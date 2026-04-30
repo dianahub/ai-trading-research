@@ -25,14 +25,13 @@ export default function NewsSection({ news, newsSentiment }) {
   return (
     <div className="rounded-xl" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
       {/* Header — always visible, acts as accordion toggle */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-5 py-4"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', borderBottom: open ? '1px solid #1e2d45' : 'none' }}
+      <div
+        className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: open ? '1px solid #1e2d45' : 'none' }}
       >
-        <div className="flex items-center gap-2">
-          <Newspaper size={15} style={{ color: '#94a3b8' }} />
-          <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Newspaper size={16} style={{ color: '#e2e8f0' }} />
+          <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
             {ticker} · Recent News
           </h3>
           {cfg && (
@@ -43,16 +42,32 @@ export default function NewsSection({ news, newsSentiment }) {
             </div>
           )}
         </div>
-        <ChevronDown
-          size={16}
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold flex-shrink-0"
           style={{
-            color: '#94a3b8',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s ease',
-            flexShrink: 0,
+            background: open ? '#1e3a5f' : '#0f1a2e',
+            border: '1px solid #1e3a5f',
+            cursor: 'pointer',
+            color: '#e2e8f0',
+            fontSize: 13,
+            letterSpacing: '0.05em',
+            transition: 'background 0.15s ease',
           }}
-        />
-      </button>
+          onMouseEnter={e => e.currentTarget.style.background = '#1e3a5f'}
+          onMouseLeave={e => { if (!open) e.currentTarget.style.background = '#0f1a2e' }}
+        >
+          <span>{open ? 'HIDE' : 'SHOW'}</span>
+          <ChevronDown
+            size={15}
+            style={{
+              color: '#06b6d4',
+              transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          />
+        </button>
+      </div>
 
       {/* Articles — collapsed by default */}
       {open && (

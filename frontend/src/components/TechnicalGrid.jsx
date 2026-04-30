@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import SupportResistance from './SupportResistance'
 
 function Card({ title, children }) {
   return (
@@ -233,66 +234,77 @@ function VolumeCard({ data }) {
   )
 }
 
-export default function TechnicalGrid({ technicals }) {
+export default function TechnicalGrid({ technicals, price }) {
   const [open, setOpen] = useState(false)
 
   if (!technicals) return null
 
   if (technicals._unavailable) {
     return (
-      <div>
-        <h3 className="text-xs uppercase tracking-widest font-semibold mb-3" style={{ color: '#94a3b8' }}>
-          Technical Indicators
-        </h3>
-        <div className="rounded-xl p-4 flex items-center gap-3"
-          style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+      <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+        <div className="flex items-center justify-between px-5 py-4">
+          <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
+            Technical Indicators
+          </h3>
+        </div>
+        <div className="px-5 pb-5 flex items-center gap-3">
           <span style={{ color: '#f59e0b' }}>⚠</span>
-          <p className="text-sm" style={{ color: '#94a3b8' }}>
-            Technical data temporarily unavailable
-          </p>
+          <p className="text-sm" style={{ color: '#94a3b8' }}>Technical data temporarily unavailable</p>
         </div>
       </div>
     )
   }
 
   const ind = technicals.indicators ?? {}
-  const price = technicals.current_price
+  const currentPrice = technicals.current_price
 
   return (
-    <div>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-3"
-        style={{
-          background: '#111827',
-          border: '1px solid #1e2d45',
-          cursor: 'pointer',
-          transition: 'border-color 0.15s ease',
-        }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = '#2a4a7f'}
-        onMouseLeave={e => e.currentTarget.style.borderColor = '#1e2d45'}
+    <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+      {/* Header row */}
+      <div
+        className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: open ? '1px solid #1e2d45' : 'none' }}
       >
-        <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
+        <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
           Technical Indicators
         </h3>
-        <ChevronDown
-          size={16}
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold"
           style={{
-            color: '#94a3b8',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s ease',
-            flexShrink: 0,
+            background: open ? '#1e3a5f' : '#0f1a2e',
+            border: '1px solid #1e3a5f',
+            cursor: 'pointer',
+            color: '#e2e8f0',
+            fontSize: 13,
+            letterSpacing: '0.05em',
+            transition: 'background 0.15s ease',
           }}
-        />
-      </button>
+          onMouseEnter={e => e.currentTarget.style.background = '#1e3a5f'}
+          onMouseLeave={e => e.currentTarget.style.background = open ? '#1e3a5f' : '#0f1a2e'}
+        >
+          <span>{open ? 'HIDE' : 'SHOW'}</span>
+          <ChevronDown
+            size={15}
+            style={{
+              color: '#06b6d4',
+              transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          />
+        </button>
+      </div>
 
       {open && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <MacdCard data={ind.macd} />
-          <RsiCard data={ind.rsi} />
-          <SmaCard data={ind.sma} currentPrice={price} />
-          <BollingerCard data={ind.bollinger_bands} currentPrice={price} />
-          <VolumeCard data={ind.volume} />
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <MacdCard data={ind.macd} />
+            <RsiCard data={ind.rsi} />
+            <SmaCard data={ind.sma} currentPrice={currentPrice} />
+            <BollingerCard data={ind.bollinger_bands} currentPrice={currentPrice} />
+            <VolumeCard data={ind.volume} />
+          </div>
+          <SupportResistance technicals={technicals} price={price} />
         </div>
       )}
     </div>

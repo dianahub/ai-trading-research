@@ -10,7 +10,6 @@ const AUTH_ACTIVE = AUTH_ENABLED && !isPublicDomain()
 import PriceCard from './components/PriceCard'
 import SentimentBanner from './components/SentimentBanner'
 import TechnicalGrid from './components/TechnicalGrid'
-import SupportResistance from './components/SupportResistance'
 import OpportunitiesRisks from './components/OpportunitiesRisks'
 import AnalysisCards from './components/AnalysisCards'
 import NewsSection from './components/NewsSection'
@@ -727,10 +726,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             {/* Technicals */}
             <div id="technicals" className="space-y-4" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
               <div className="fade-in">
-                <TechnicalGrid technicals={data.technicals} />
-              </div>
-              <div className="fade-in">
-                <SupportResistance technicals={data.technicals} price={data.price} />
+                <TechnicalGrid technicals={data.technicals} price={data.price} />
               </div>
               {data.analysis && (
                 <div className="fade-in">
