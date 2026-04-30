@@ -5875,6 +5875,26 @@ def admin_resend_welcome(
         return {"ok": True}
 
 
+@app.delete("/admin/users/{user_id}", status_code=200)
+def admin_delete_user(
+    user_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        db.query(UserSession).filter(UserSession.user_id == user_id).delete()
+        db.query(DailyUsage).filter(DailyUsage.user_id == user_id).delete()
+        db.query(ReferralAttribution).filter(ReferralAttribution.referred_user_id == user_id).delete()
+        db.query(Referral).filter(Referral.referred_id == user_id).delete()
+        db.delete(user)
+        db.commit()
+    return {"ok": True, "deleted": user_id}
+
+
 # ── Admin: site config (BETA_OPEN toggle) ─────────────────────────────────────
 
 @app.get("/admin/config")
