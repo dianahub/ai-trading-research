@@ -293,6 +293,49 @@ function ActivityPanel({ user, onClose }) {
   )
 }
 
+// ── Delete Confirmation Modal ─────────────────────────────────────────────────
+function DeleteUserModal({ user, onClose, onDeleted }) {
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function confirm() {
+    setDeleting(true)
+    setError('')
+    const r = await fetch(`${API}/admin/users/${user.id}`, { method: 'DELETE', headers: headers() })
+    if (r.ok) { onDeleted(); onClose() }
+    else {
+      const j = await r.json().catch(() => ({}))
+      setError(j.detail || 'Failed to delete user')
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.75)' }} onClick={onClose}>
+      <div className="rounded-xl p-6 w-full max-w-sm" style={{ background: '#0b1120', border: '1px solid #1e2d45' }} onClick={e => e.stopPropagation()}>
+        <h2 className="text-base font-bold mb-1" style={{ color: '#f1f5f9' }}>Delete user?</h2>
+        <p className="text-sm mb-1" style={{ color: '#94a3b8' }}>
+          This will permanently delete <strong style={{ color: '#f1f5f9' }}>{user.email}</strong> and all their sessions and usage data.
+        </p>
+        <p className="text-xs mb-5" style={{ color: '#475569' }}>This cannot be undone.</p>
+        {error && <p className="text-xs mb-3" style={{ color: '#f87171' }}>{error}</p>}
+        <div className="flex gap-2">
+          <button onClick={confirm} disabled={deleting}
+            className="flex-1 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: '#450a0a', color: '#f87171', border: '1px solid #7f1d1d', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}>
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+          <button onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#94a3b8', cursor: 'pointer' }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
@@ -300,6 +343,7 @@ export default function AdminUsers() {
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [deleting, setDeleting] = useState(null)
   const [activityFor, setActivityFor] = useState(null)
   const [resending, setResending] = useState({})
 
@@ -396,6 +440,11 @@ export default function AdminUsers() {
                         style={{ background: resending[u.id] ? '#14532d' : '#1e2d45', color: resending[u.id] ? '#86efac' : '#94a3b8', cursor: 'pointer', border: 'none' }}>
                         {resending[u.id] ? 'Sent ✓' : 'Resend email'}
                       </button>
+                      <button onClick={() => setDeleting(u)}
+                        className="px-2.5 py-1 rounded text-xs font-medium"
+                        style={{ background: '#1e2d45', color: '#f87171', cursor: 'pointer', border: 'none' }}>
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>,
@@ -408,6 +457,7 @@ export default function AdminUsers() {
 
       {showAdd && <AddUserModal onClose={() => setShowAdd(false)} onSaved={refresh} />}
       {editing && <EditUserModal user={editing} onClose={() => setEditing(null)} onSaved={refresh} />}
+      {deleting && <DeleteUserModal user={deleting} onClose={() => setDeleting(null)} onDeleted={refresh} />}
     </div>
   )
 }
