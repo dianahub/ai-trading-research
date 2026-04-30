@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ExternalLink, Newspaper, ChevronDown } from 'lucide-react'
 
 const SENTIMENT_CONFIG = {
@@ -18,6 +18,15 @@ function timeAgo(dateStr) {
 
 export default function NewsSection({ news, newsSentiment }) {
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#news') setOpen(true)
+    }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [])
   const articles = news?.articles ?? []
   const ticker = news?.ticker ?? ''
   const cfg = SENTIMENT_CONFIG[newsSentiment] ?? null

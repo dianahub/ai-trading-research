@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import SupportResistance from './SupportResistance'
 
@@ -236,6 +236,15 @@ function VolumeCard({ data }) {
 
 export default function TechnicalGrid({ technicals, price }) {
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#technicals') setOpen(true)
+    }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [])
 
   if (!technicals) return null
 

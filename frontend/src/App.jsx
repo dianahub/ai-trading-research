@@ -474,6 +474,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 { href: '#ai-summary',  label: '🤖 AI Summary',  show: !!data.analysis },
                 { href: '#price',       label: '💰 Price',        show: true },
                 { href: '#technicals',  label: '📈 Technicals',   show: true },
+                { href: '#ai-analysis', label: '🔍 AI Analysis',  show: !!data.analysis },
                 { href: '#smart-money', label: data.assetType === 'crypto' ? '🐋 Whales' : '📊 Insiders', show: !!(data.whales || data.insiders) },
                 { href: '#astro',       label: '♅ Astro',         show: true },
                 { href: '#news',        label: '📰 News',         show: true },
@@ -729,7 +730,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 <TechnicalGrid technicals={data.technicals} price={data.price} />
               </div>
               {data.analysis && (
-                <div className="fade-in">
+                <div id="ai-analysis" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
                   <AnalysisCards analysis={data.analysis} />
                 </div>
               )}
