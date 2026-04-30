@@ -39,9 +39,14 @@ export default function AnalysisCards({ analysis }) {
     const handleHash = () => {
       if (window.location.hash === '#ai-analysis') setOpen(true)
     }
+    const handleOpen = (e) => { if (e.detail === '#ai-analysis') setOpen(true) }
     handleHash()
     window.addEventListener('hashchange', handleHash)
-    return () => window.removeEventListener('hashchange', handleHash)
+    window.addEventListener('open-section', handleOpen)
+    return () => {
+      window.removeEventListener('hashchange', handleHash)
+      window.removeEventListener('open-section', handleOpen)
+    }
   }, [])
 
   if (!analysis) return null

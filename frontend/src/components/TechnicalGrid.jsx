@@ -241,9 +241,14 @@ export default function TechnicalGrid({ technicals, price }) {
     const handleHash = () => {
       if (window.location.hash === '#technicals') setOpen(true)
     }
+    const handleOpen = (e) => { if (e.detail === '#technicals') setOpen(true) }
     handleHash()
     window.addEventListener('hashchange', handleHash)
-    return () => window.removeEventListener('hashchange', handleHash)
+    window.addEventListener('open-section', handleOpen)
+    return () => {
+      window.removeEventListener('hashchange', handleHash)
+      window.removeEventListener('open-section', handleOpen)
+    }
   }, [])
 
   if (!technicals) return null

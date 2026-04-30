@@ -23,9 +23,14 @@ export default function NewsSection({ news, newsSentiment }) {
     const handleHash = () => {
       if (window.location.hash === '#news') setOpen(true)
     }
+    const handleOpen = (e) => { if (e.detail === '#news') setOpen(true) }
     handleHash()
     window.addEventListener('hashchange', handleHash)
-    return () => window.removeEventListener('hashchange', handleHash)
+    window.addEventListener('open-section', handleOpen)
+    return () => {
+      window.removeEventListener('hashchange', handleHash)
+      window.removeEventListener('open-section', handleOpen)
+    }
   }, [])
   const articles = news?.articles ?? []
   const ticker = news?.ticker ?? ''

@@ -215,9 +215,14 @@ export default function WhaleSection({ whales, whaleAnalysis }) {
     const handleHash = () => {
       if (window.location.hash === '#smart-money') setOpen(true)
     }
+    const handleOpen = (e) => { if (e.detail === '#smart-money') setOpen(true) }
     handleHash()
     window.addEventListener('hashchange', handleHash)
-    return () => window.removeEventListener('hashchange', handleHash)
+    window.addEventListener('open-section', handleOpen)
+    return () => {
+      window.removeEventListener('hashchange', handleHash)
+      window.removeEventListener('open-section', handleOpen)
+    }
   }, [])
 
   if (!whales) return null

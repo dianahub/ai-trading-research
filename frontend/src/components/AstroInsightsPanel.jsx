@@ -326,7 +326,27 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     // Drop cards about a different specific asset — e.g. hide XRP cards when searching AAPL.
     // Also catch insights where the summary names a specific ticker in parentheses e.g. "(ORA)"
     // but symbol wasn't extracted by Claude.
-    const mentionedSymbol = (summary) => (summary?.match(/\b([A-Z]{1,5})\b(?=\s*[-–]|\s+is\b|\s+stock\b|\s+shares\b)|\(([A-Z]{1,5})\)/) ?? [])[1] ?? (summary?.match(/\(([A-Z]{1,5})\)/) ?? [])[1] ?? null
+    const COMPANY_TICKER = {
+      'ormat technologies': 'ORA', 'ormat': 'ORA',
+      'palantir': 'PLTR', 'coinbase': 'COIN', 'robinhood': 'HOOD',
+      'rivian': 'RIVN', 'lucid': 'LCID', 'rivian automotive': 'RIVN',
+      'microstrategy': 'MSTR', 'strategy': 'MSTR',
+      'gamestop': 'GME', 'amc entertainment': 'AMC',
+    }
+    const mentionedSymbol = (summary) => {
+      if (!summary) return null
+      const parens = summary.match(/\(([A-Z]{1,5})\)/)
+      if (parens) return parens[1]
+      const exchange = summary.match(/(?:NYSE|NASDAQ|AMEX):\s*([A-Z]{1,5})\b/)
+      if (exchange) return exchange[1]
+      const allCaps = (summary.match(/\b([A-Z]{1,5})\b(?=\s*[-–]|\s+is\b|\s+stock\b|\s+shares\b)/) ?? [])[1]
+      if (allCaps) return allCaps
+      const lc = summary.toLowerCase()
+      for (const [name, sym] of Object.entries(COMPANY_TICKER)) {
+        if (lc.includes(name)) return sym
+      }
+      return null
+    }
     const insights = (rawInsights ?? [])
       .filter(i => isFutureOrCurrent(i.timeframe))
       .filter(i => {

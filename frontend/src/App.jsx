@@ -515,7 +515,10 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                     <div className="flex flex-col md:hidden px-4 pb-3 gap-1" style={{ borderTop: '1px solid #1e2d45' }}>
                       {navLinks.map(s => (
                         <a key={s.href} href={s.href}
-                          onClick={() => setNavOpen(false)}
+                          onClick={() => {
+                            setNavOpen(false)
+                            window.dispatchEvent(new CustomEvent('open-section', { detail: s.href }))
+                          }}
                           className="px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:brightness-125"
                           style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
                           {s.label}
@@ -532,6 +535,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                     <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
                     {navLinks.map(s => (
                       <a key={s.href} href={s.href}
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-section', { detail: s.href }))}
                         className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
                         style={{ background: '#111827', color: '#94a3b8', border: '1px solid #1e2d45' }}>
                         {s.label}
