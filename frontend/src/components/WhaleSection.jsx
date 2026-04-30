@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 // ── Ocean palette ────────────────────────────────────────────────────────────
@@ -207,6 +209,22 @@ function TransactionTable({ transactions }) {
 // ── Main component ───────────────────────────────────────────────────────────
 
 export default function WhaleSection({ whales, whaleAnalysis }) {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#smart-money') setOpen(true)
+    }
+    const handleOpen = (e) => { if (e.detail === '#smart-money') setOpen(true) }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    window.addEventListener('open-section', handleOpen)
+    return () => {
+      window.removeEventListener('hashchange', handleHash)
+      window.removeEventListener('open-section', handleOpen)
+    }
+  }, [])
+
   if (!whales) return null
 
   const {
@@ -237,11 +255,11 @@ export default function WhaleSection({ whales, whaleAnalysis }) {
       <div
         className="px-6 py-4 flex items-center justify-between"
         style={{
-          borderBottom: `1px solid ${OCEAN.border}`,
+          borderBottom: open ? `1px solid ${OCEAN.border}` : 'none',
           background: `linear-gradient(90deg, #020d1a 0%, #031a2e 100%)`,
         }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
             style={{
@@ -252,19 +270,44 @@ export default function WhaleSection({ whales, whaleAnalysis }) {
             🐋
           </div>
           <div>
-            <h3 className="text-sm font-bold tracking-wide" style={{ color: OCEAN.text }}>
+            <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
               Whale & Smart Money Activity
             </h3>
             <p className="text-xs mt-0.5" style={{ color: OCEAN.textDim }}>
               {ticker} · Large transactions ≥ $500k USD
             </p>
           </div>
+          <SentimentBadge label={whale_sentiment} sentiment={whale_sentiment_label} />
         </div>
 
-        <SentimentBadge label={whale_sentiment} sentiment={whale_sentiment_label} />
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold flex-shrink-0"
+          style={{
+            background: open ? '#1e3a5f' : '#0f1a2e',
+            border: '1px solid #1e3a5f',
+            cursor: 'pointer',
+            color: '#e2e8f0',
+            fontSize: 13,
+            letterSpacing: '0.05em',
+            transition: 'background 0.15s ease',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#1e3a5f'}
+          onMouseLeave={e => { if (!open) e.currentTarget.style.background = '#0f1a2e' }}
+        >
+          <span>{open ? 'HIDE' : 'SHOW'}</span>
+          <ChevronDown
+            size={15}
+            style={{
+              color: '#06b6d4',
+              transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          />
+        </button>
       </div>
 
-      <div className="p-6 space-y-6">
+      {open && <div className="p-6 space-y-6">
 
         {/* ── Stats row ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -393,7 +436,7 @@ export default function WhaleSection({ whales, whaleAnalysis }) {
             <p className="text-xs" style={{ color: OCEAN.textDim }}>⚠ {disclaimer}</p>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

@@ -10,7 +10,6 @@ const AUTH_ACTIVE = AUTH_ENABLED && !isPublicDomain()
 import PriceCard from './components/PriceCard'
 import SentimentBanner from './components/SentimentBanner'
 import TechnicalGrid from './components/TechnicalGrid'
-import SupportResistance from './components/SupportResistance'
 import OpportunitiesRisks from './components/OpportunitiesRisks'
 import AnalysisCards from './components/AnalysisCards'
 import NewsSection from './components/NewsSection'
@@ -226,18 +225,47 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
-  // Fetch ticker-specific astro summary as soon as ticker is set — backend handles insight filtering.
+  // Fire ticker-specific astro summary whenever ticker or astroData changes.
+  // Sends whatever insights are available at the time; backend also checks server-side state.
   useEffect(() => {
     if (!ticker) return
+    let cancelled = false
+
     setAstroTickerLoading(true)
+    setAstroTickerSummary('')
+
+    let insights = []
+    if (astroData?.insights?.length) {
+      const matchedTopic = ETF_TOPIC_MAP[ticker] ?? null
+      let relevant = matchedTopic ? astroData.insights.filter(i => i.topic === matchedTopic) : []
+      if (relevant.length === 0) {
+        const seen = new Set()
+        for (const i of astroData.insights) {
+          if (!seen.has(i.topic)) { seen.add(i.topic); relevant.push(i) }
+          if (relevant.length >= 8) break
+        }
+      }
+      insights = relevant.slice(0, 10)
+    }
+
     apiFetch('/astro/ticker-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker }),
+      body: JSON.stringify({ ticker, insights }),
     })
-      .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
-      .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
-  }, [ticker])
+      .then(d => {
+        if (cancelled) return
+        setAstroTickerSummary(d?.summary || '')
+        setAstroTickerLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setAstroTickerSummary('')
+        setAstroTickerLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [ticker, astroData])
 
 const handleToggleAstro = () => setShowAstro(prev => !prev)
 
@@ -446,7 +474,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 { href: '#ai-summary',  label: '🤖 AI Summary',  show: !!data.analysis },
                 { href: '#price',       label: '💰 Price',        show: true },
                 { href: '#technicals',  label: '📈 Technicals',   show: true },
-                { href: '#analysis',    label: '🔍 Analysis',     show: !!data.analysis },
+                { href: '#ai-analysis', label: '🔍 AI Analysis',  show: !!data.analysis },
                 { href: '#smart-money', label: data.assetType === 'crypto' ? '🐋 Whales' : '📊 Insiders', show: !!(data.whales || data.insiders) },
                 { href: '#astro',       label: '♅ Astro',         show: true },
                 { href: '#news',        label: '📰 News',         show: true },
@@ -487,7 +515,10 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                     <div className="flex flex-col md:hidden px-4 pb-3 gap-1" style={{ borderTop: '1px solid #1e2d45' }}>
                       {navLinks.map(s => (
                         <a key={s.href} href={s.href}
-                          onClick={() => setNavOpen(false)}
+                          onClick={() => {
+                            setNavOpen(false)
+                            window.dispatchEvent(new CustomEvent('open-section', { detail: s.href }))
+                          }}
                           className="px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:brightness-125"
                           style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
                           {s.label}
@@ -504,6 +535,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                     <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
                     {navLinks.map(s => (
                       <a key={s.href} href={s.href}
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-section', { detail: s.href }))}
                         className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
                         style={{ background: '#111827', color: '#94a3b8', border: '1px solid #1e2d45' }}>
                         {s.label}
@@ -699,19 +731,14 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             {/* Technicals */}
             <div id="technicals" className="space-y-4" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
               <div className="fade-in">
-                <TechnicalGrid technicals={data.technicals} />
+                <TechnicalGrid technicals={data.technicals} price={data.price} />
               </div>
-              <div className="fade-in">
-                <SupportResistance technicals={data.technicals} price={data.price} />
-              </div>
+              {data.analysis && (
+                <div id="ai-analysis" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
+                  <AnalysisCards analysis={data.analysis} />
+                </div>
+              )}
             </div>
-
-            {/* Analysis cards */}
-            {data.analysis && (
-              <div id="analysis" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
-                <AnalysisCards analysis={data.analysis} />
-              </div>
-            )}
 
             {/* Smart money — whale (crypto) or insiders (stocks) */}
             <div id="smart-money" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>

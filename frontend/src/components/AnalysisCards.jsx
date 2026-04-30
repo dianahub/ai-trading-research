@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BarChart2, Activity, TrendingUp, ChevronDown } from 'lucide-react'
 
 function AnalysisCard({ icon: Icon, title, accentColor, children }) {
   return (
     <div className="rounded-xl p-5 flex flex-col gap-3"
-      style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+      style={{ background: '#0a0e1a', border: '1px solid #1e2d45' }}>
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center"
           style={{ background: `${accentColor}22` }}>
@@ -33,24 +33,38 @@ function Paragraphs({ text }) {
 }
 
 export default function AnalysisCards({ analysis }) {
-  if (!analysis) return null
   const [open, setOpen] = useState(false)
-  const [hovered, setHovered] = useState(false)
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#ai-analysis') setOpen(true)
+    }
+    const handleOpen = (e) => { if (e.detail === '#ai-analysis') setOpen(true) }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    window.addEventListener('open-section', handleOpen)
+    return () => {
+      window.removeEventListener('hashchange', handleHash)
+      window.removeEventListener('open-section', handleOpen)
+    }
+  }, [])
+
+  if (!analysis) return null
 
   return (
-    <div>
-      {/* Header row — title + show/hide button inline */}
-      <div className="flex items-center gap-3 flex-wrap mb-3">
-        <h3 className="text-base uppercase tracking-wide font-bold" style={{ color: '#e2e8f0' }}>
+    <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+      <div
+        className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: open ? '1px solid #1e2d45' : 'none' }}
+      >
+        <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
           AI Analysis of the Technicals
         </h3>
         <button
           onClick={() => setOpen(o => !o)}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold flex-shrink-0"
           style={{
-            background: hovered ? '#1e3a5f' : '#0f1a2e',
+            background: open ? '#1e3a5f' : '#0f1a2e',
             border: '1px solid #1e3a5f',
             cursor: 'pointer',
             color: '#e2e8f0',
@@ -58,14 +72,23 @@ export default function AnalysisCards({ analysis }) {
             letterSpacing: '0.05em',
             transition: 'background 0.15s ease',
           }}
+          onMouseEnter={e => e.currentTarget.style.background = '#1e3a5f'}
+          onMouseLeave={e => { if (!open) e.currentTarget.style.background = '#0f1a2e' }}
         >
           <span>{open ? 'HIDE' : 'SHOW'}</span>
-          <ChevronDown size={15} style={{ color: '#06b6d4', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+          <ChevronDown
+            size={15}
+            style={{
+              color: '#06b6d4',
+              transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          />
         </button>
       </div>
 
       {open && (
-        <>
+        <div className="p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <AnalysisCard icon={Activity} title="Technical Summary" accentColor="#06b6d4">
               <Paragraphs text={analysis.technical_summary} />
@@ -81,8 +104,8 @@ export default function AnalysisCards({ analysis }) {
           </div>
 
           {analysis.support_resistance_analysis && (
-            <div className="mt-4 rounded-xl p-5"
-              style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+            <div className="rounded-xl p-5"
+              style={{ background: '#0a0e1a', border: '1px solid #1e2d45' }}>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center"
                   style={{ background: '#10b98122' }}>
@@ -97,7 +120,7 @@ export default function AnalysisCards({ analysis }) {
               </p>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )
