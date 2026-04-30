@@ -332,6 +332,12 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
       'rivian': 'RIVN', 'lucid': 'LCID', 'rivian automotive': 'RIVN',
       'microstrategy': 'MSTR', 'strategy': 'MSTR',
       'gamestop': 'GME', 'amc entertainment': 'AMC',
+      // Crypto full names → ticker symbols
+      'bitcoin': 'BTC', 'ethereum': 'ETH', 'solana': 'SOL',
+      'ripple': 'XRP', 'dogecoin': 'DOGE', 'cardano': 'ADA',
+      'avalanche': 'AVAX', 'chainlink': 'LINK', 'polygon': 'MATIC',
+      'uniswap': 'UNI', 'litecoin': 'LTC', 'polkadot': 'DOT',
+      'binance coin': 'BNB', 'shiba inu': 'SHIB', 'near protocol': 'NEAR',
     }
     const mentionedSymbol = (summary) => {
       if (!summary) return null
@@ -586,7 +592,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                       boxShadow: '0 0 16px #3730a344',
                     }}
                   >
-                    {`♅ See ${Math.min(10, remaining)} more insight${Math.min(10, remaining) !== 1 ? 's' : ''} ↓`}
+                    {`♅ ${Math.min(10, remaining)} more Astrological insight${Math.min(10, remaining) !== 1 ? 's' : ''} ↓`}
                   </button>
                 )
               })()}
