@@ -73,6 +73,12 @@ const PAGES = [
     desc:  'Feedback submissions from beta testers with ratings.',
     icon:  '⭐',
   },
+  {
+    path:  '/admin/broadcast',
+    title: 'Broadcast Email',
+    desc:  'Write and send an email to all users in a given role. Includes a test-send to your inbox.',
+    icon:  '📨',
+  },
 ]
 
 export default function AdminPage() {

@@ -34,6 +34,7 @@ import AdminConfig from './pages/AdminConfig.jsx'
 import AdminErrors from './pages/AdminErrors.jsx'
 import AdminContacts from './pages/AdminContacts.jsx'
 import AdminFeedback from './pages/AdminFeedback.jsx'
+import AdminBroadcast from './pages/AdminBroadcast.jsx'
 import FeedbackPage from './pages/FeedbackPage.jsx'
 import ContactApiPage from './pages/ContactApiPage.jsx'
 
@@ -78,6 +79,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/errors" element={<AdminErrors />} />
         <Route path="/admin/contacts" element={<AdminContacts />} />
         <Route path="/admin/feedback" element={<AdminFeedback />} />
+        <Route path="/admin/broadcast" element={<AdminBroadcast />} />
         <Route path="/feedback" element={<FeedbackPage />} />
       </Routes>
     </BrowserRouter>

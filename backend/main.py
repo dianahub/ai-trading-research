@@ -7378,3 +7378,67 @@ def admin_migrate_from_astro(
         imported["errors"].append(f"insights: {e}")
 
     return imported
+
+
+# ── Broadcast Email ──────────────────────────────────────────────────────────
+
+class _BroadcastEmailRequest(BaseModel):
+    role: str
+    subject: str
+    body: str
+
+class _BroadcastTestRequest(BaseModel):
+    subject: str
+    body: str
+
+_BROADCAST_ROLES = {"user", "astrologer", "influencer", "admin", "all"}
+
+@app.post("/admin/broadcast-email/test")
+def admin_broadcast_email_test(
+    payload: _BroadcastTestRequest,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    _send_email("dianahelene@gmail.com", f"[TEST] {payload.subject}", payload.body)
+    return {"sent": True, "to": "dianahelene@gmail.com"}
+
+@app.get("/admin/broadcast-email/preview")
+def admin_broadcast_email_preview(
+    role: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    if role not in _BROADCAST_ROLES:
+        raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(sorted(_BROADCAST_ROLES))}")
+    with Session(_engine) as db:
+        q = db.query(User.email)
+        if role != "all":
+            q = q.filter(User.role == role)
+        emails = [row[0] for row in q.all()]
+    return {"role": role, "count": len(emails), "emails": emails}
+
+@app.post("/admin/broadcast-email")
+def admin_broadcast_email(
+    payload: _BroadcastEmailRequest,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    if payload.role not in _BROADCAST_ROLES:
+        raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(sorted(_BROADCAST_ROLES))}")
+    with Session(_engine) as db:
+        q = db.query(User)
+        if payload.role != "all":
+            q = q.filter(User.role == payload.role)
+        users = q.all()
+    sent = 0
+    errors = []
+    for user in users:
+        try:
+            _send_email(user.email, payload.subject, payload.body)
+            sent += 1
+        except Exception as e:
+            errors.append({"email": user.email, "error": str(e)})
+    return {"sent": sent, "total": len(users), "errors": errors}
