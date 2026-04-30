@@ -136,6 +136,7 @@ export default function AdminInfluencers() {
           last_name:        last,
           email:            a.email,
           publication_name: a.website || '',
+          role:             'influencer',
         }),
       })
       const d = await r.json()
