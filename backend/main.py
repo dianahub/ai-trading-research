@@ -5170,6 +5170,46 @@ def partner_stripe_connect(ss_session: Optional[str] = Cookie(None)):
         return {"url": link.url}
 
 
+class _CaptionsRequest(BaseModel):
+    partner_name: str
+    promo_code: str
+    creator_type: str = "astrologer"   # "astrologer" | "influencer"
+
+@app.post("/partners/generate-captions")
+def partner_generate_captions(
+    body: _CaptionsRequest,
+    ss_session: Optional[str] = Cookie(None),
+):
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            raise HTTPException(401, "Not authenticated")
+    creator_label = "financial influencer" if body.creator_type == "influencer" else "astrologer"
+    prompt = (
+        f"Write 4 social media captions for a {creator_label} promoting a financial astrology trading platform called Star Signal. "
+        f"Their name is {body.partner_name} and their promo code is {body.promo_code}. "
+        f"Platform 1: TikTok — short, curiosity driven, ends with 'use code {body.promo_code} for 45 days free, link in bio', 3-5 hashtags. "
+        f"Platform 2: Instagram — slightly longer, more context, 10 hashtags. "
+        f"Platform 3: Twitter/X — under 280 characters, punchy. "
+        f"Platform 4: Newsletter/Substack — 2-3 sentences, professional tone. "
+        f"Return only a JSON array of 4 objects each with platform and caption fields."
+    )
+    try:
+        client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        resp = client_a.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = resp.content[0].text.strip()
+        cleaned = text.replace("```json", "").replace("```", "").strip()
+        captions = json.loads(cleaned)
+        return {"captions": captions}
+    except Exception as e:
+        _log_error("CAPTIONS", f"partner={body.partner_name}", 0, e)
+        raise HTTPException(500, "Failed to generate captions")
+
+
 # ── Admin commission dashboard ──────────────────────────────────────────────────
 
 @app.get("/admin/commissions")
