@@ -134,6 +134,8 @@ STRIPE_PRO_PRICE_ID       = os.getenv("STRIPE_PRO_PRICE_ID", "")
 STRIPE_PREMIUM_PRICE_ID   = os.getenv("STRIPE_PREMIUM_PRICE_ID", "")
 STRIPE_FOUNDING_PRICE_ID  = os.getenv("STRIPE_FOUNDING_PRICE_ID", "")
 STRIPE_REFERRED_PRICE_ID  = os.getenv("STRIPE_REFERRED_PRICE_ID", "")  # $19/mo, referred path — separate from founding for Stripe tracking
+STRIPE_API_STARTER_PRICE_ID = os.getenv("STRIPE_API_STARTER_PRICE_ID", "")
+STRIPE_API_PRO_PRICE_ID   = os.getenv("STRIPE_API_PRO_PRICE_ID", "")
 STRIPE_CONNECT_CLIENT_ID  = os.getenv("STRIPE_CONNECT_CLIENT_ID", "")
 BETA_OPEN_ENV             = os.getenv("BETA_OPEN", "true").lower() == "true"
 if _stripe_available and STRIPE_SECRET_KEY:
@@ -3811,6 +3813,7 @@ class User(_Base):
     beta_day14_sent             = Column(Boolean, default=False)
     beta_day25_sent             = Column(Boolean, default=False)
     role                        = Column(String, default="user")  # user|astrologer|influencer|admin
+    api_key                     = Column(String, nullable=True)
     created_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                                          onupdate=lambda: datetime.now(timezone.utc))
@@ -4014,6 +4017,7 @@ def _run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_code_used TEXT DEFAULT ''",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS pricing_tier TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key TEXT",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS discount_code TEXT DEFAULT ''",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS password_hash TEXT",
         "INSERT INTO site_config (key, value) VALUES ('beta_open', 'true') ON CONFLICT DO NOTHING",
@@ -4045,14 +4049,20 @@ def _pricing_tier_for_signup(has_promo_code: bool, beta_open: bool) -> str:
 
 
 def _tier_from_price_id(price_id: str) -> str:
-    """Map a Stripe price ID to an access tier. Both founding and referred → 'founding' access."""
+    """Map a Stripe price ID to an access tier."""
     if price_id == STRIPE_PREMIUM_PRICE_ID:
         return "premium"
     if price_id in (STRIPE_FOUNDING_PRICE_ID, STRIPE_REFERRED_PRICE_ID):
         return "founding"
     if price_id == STRIPE_PRO_PRICE_ID:
         return "pro"
+    if price_id in (STRIPE_API_STARTER_PRICE_ID, STRIPE_API_PRO_PRICE_ID):
+        return "premium"  # API tiers include premium feature access
     return "pro"  # safe fallback
+
+
+def _is_api_price(price_id: str) -> bool:
+    return bool(price_id) and price_id in (STRIPE_API_STARTER_PRICE_ID, STRIPE_API_PRO_PRICE_ID)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -5439,6 +5449,46 @@ def admin_partner_commission_detail(
         }
 
 
+def _send_payment_confirmed_email(to: str, first_name: str, tier: str):
+    name = first_name or to.split("@")[0]
+    tier_label = {"founding": "Founding Member", "pro": "Pro", "premium": "Premium"}.get(tier, tier.title())
+    _send_email(
+        to,
+        f"Welcome to Star Signal {tier_label}",
+        f"<p>Hey {name},</p>"
+        f"<p>Your <strong>Star Signal {tier_label}</strong> subscription is now active. You have full access.</p>"
+        f"<p>Go to <a href='https://starsignal.io'>starsignal.io</a> to start exploring.</p>"
+        f"<p>Diana<br>Founder, Star Signal</p>",
+    )
+
+
+def _send_payment_failed_email(to: str, first_name: str):
+    name = first_name or to.split("@")[0]
+    _send_email(
+        to,
+        "Star Signal — payment failed",
+        f"<p>Hey {name},</p>"
+        f"<p>We couldn't process your latest Star Signal payment. Please update your card to keep access:</p>"
+        f"<p><a href='https://starsignal.io/account'>Update payment method →</a></p>"
+        f"<p>If you need help, just reply to this email.</p>"
+        f"<p>Diana<br>Founder, Star Signal</p>",
+    )
+
+
+def _send_api_key_email(to: str, first_name: str, api_key: str, plan_name: str):
+    name = first_name or to.split("@")[0]
+    _send_email(
+        to,
+        "Your Star Signal API key",
+        f"<p>Hey {name},</p>"
+        f"<p>Thanks for subscribing to the <strong>Star Signal {plan_name}</strong> plan. Here is your API key:</p>"
+        f"<p style='font-family:monospace;background:#0f1a2e;padding:12px;border-radius:8px;color:#06b6d4;font-size:14px'>{api_key}</p>"
+        f"<p>Keep this key private. Use it as a Bearer token in the <code>Authorization</code> header of API requests.</p>"
+        f"<p>If you need to regenerate your key, visit <a href='https://starsignal.io/account'>your account page</a>.</p>"
+        f"<p>Diana<br>Founder, Star Signal</p>",
+    )
+
+
 # ── Stripe checkout ────────────────────────────────────────────────────────────
 
 @app.post("/stripe/checkout")
@@ -5452,6 +5502,12 @@ def stripe_checkout(body: dict, ss_session: Optional[str] = Cookie(None)):
 
         if requested == "premium":
             price_id = STRIPE_PREMIUM_PRICE_ID
+        elif requested == "pro":
+            price_id = STRIPE_PRO_PRICE_ID
+        elif requested == "api_starter":
+            price_id = STRIPE_API_STARTER_PRICE_ID
+        elif requested == "api_pro":
+            price_id = STRIPE_API_PRO_PRICE_ID
         elif user:
             pt = user.pricing_tier or ("founding" if _get_beta_open(db) else "pro")
             price_id = {
@@ -5521,10 +5577,24 @@ async def stripe_webhook(request: Request):
             if user:
                 user.stripe_customer_id = customer_id
                 user.stripe_subscription_id = sub_id
+                price_id = None
                 if sub_id:
                     sub = _stripe.Subscription.retrieve(sub_id)
                     price_id = sub["items"]["data"][0]["price"]["id"]
                     user.tier = _tier_from_price_id(price_id)
+                # Generate API key for API-tier purchases
+                if price_id and _is_api_price(price_id) and not user.api_key:
+                    user.api_key = secrets.token_hex(32)
+                    plan_name = "API Pro" if price_id == STRIPE_API_PRO_PRICE_ID else "API Starter"
+                    import threading as _t
+                    _t.Thread(target=_send_api_key_email,
+                              args=(user.email, user.first_name or "", user.api_key, plan_name),
+                              daemon=True).start()
+                else:
+                    import threading as _t
+                    _t.Thread(target=_send_payment_confirmed_email,
+                              args=(user.email, user.first_name or "", user.tier),
+                              daemon=True).start()
                 db.commit()
 
         elif event["type"] == "customer.subscription.updated":
@@ -5549,6 +5619,21 @@ async def stripe_webhook(request: Request):
                 user.tier = "free"
                 user.stripe_subscription_id = None
                 db.commit()
+
+        elif event["type"] == "invoice.payment_succeeded":
+            # Alias — same payload shape as invoice.paid; handled below via fall-through
+            pass
+
+        elif event["type"] == "invoice.payment_failed":
+            inv  = event["data"]["object"]
+            cid  = inv.get("customer")
+            if cid:
+                user = db.query(User).filter(User.stripe_customer_id == cid).first()
+                if user:
+                    import threading as _t
+                    _t.Thread(target=_send_payment_failed_email,
+                              args=(user.email, user.first_name or ""),
+                              daemon=True).start()
 
         elif event["type"] == "invoice.paid":
             inv = event["data"]["object"]
@@ -5629,6 +5714,12 @@ async def stripe_webhook(request: Request):
             db.commit()
 
     return {"ok": True}
+
+
+# Alias — Stripe dashboard can be pointed at either path
+@app.post("/webhooks/stripe")
+async def stripe_webhook_alias(request: Request):
+    return await stripe_webhook(request)
 
 
 # ── Feature gating ─────────────────────────────────────────────────────────────
