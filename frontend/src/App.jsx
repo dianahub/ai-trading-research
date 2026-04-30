@@ -226,26 +226,17 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
-  // Fast path: fire immediately when ticker changes — backend uses server-side insights if available.
+  // Fire ticker-specific astro summary whenever ticker or astroData changes.
+  // Sends whatever insights are available at the time; backend also checks server-side state.
   useEffect(() => {
     if (!ticker) return
+    let cancelled = false
+
     setAstroTickerLoading(true)
     setAstroTickerSummary('')
-    apiFetch('/astro/ticker-summary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker }),
-    })
-      .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
-      .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
-  }, [ticker])
 
-  // Fallback: once astroData loads, re-fire with insights if the fast path returned empty.
-  useEffect(() => {
-    if (!ticker || !astroData?.insights?.length) return
-    setAstroTickerSummary(prev => {
-      if (prev) return prev  // fast path already succeeded — don't overwrite
-      setAstroTickerLoading(true)
+    let insights = []
+    if (astroData?.insights?.length) {
       const matchedTopic = ETF_TOPIC_MAP[ticker] ?? null
       let relevant = matchedTopic ? astroData.insights.filter(i => i.topic === matchedTopic) : []
       if (relevant.length === 0) {
@@ -255,15 +246,26 @@ export default function App() {
           if (relevant.length >= 8) break
         }
       }
-      apiFetch('/astro/ticker-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker, insights: relevant.slice(0, 10) }),
-      })
-        .then(d => { setAstroTickerSummary(d?.summary || ''); setAstroTickerLoading(false) })
-        .catch(() => { setAstroTickerSummary(''); setAstroTickerLoading(false) })
-      return prev
+      insights = relevant.slice(0, 10)
+    }
+
+    apiFetch('/astro/ticker-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker, insights }),
     })
+      .then(d => {
+        if (cancelled) return
+        setAstroTickerSummary(d?.summary || '')
+        setAstroTickerLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setAstroTickerSummary('')
+        setAstroTickerLoading(false)
+      })
+
+    return () => { cancelled = true }
   }, [ticker, astroData])
 
 const handleToggleAstro = () => setShowAstro(prev => !prev)

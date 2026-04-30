@@ -262,8 +262,15 @@ export default function TechnicalGrid({ technicals }) {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between mb-3 group"
-        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        className="w-full flex items-center justify-between px-4 py-3 rounded-xl mb-3"
+        style={{
+          background: '#111827',
+          border: '1px solid #1e2d45',
+          cursor: 'pointer',
+          transition: 'border-color 0.15s ease',
+        }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = '#2a4a7f'}
+        onMouseLeave={e => e.currentTarget.style.borderColor = '#1e2d45'}
       >
         <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
           Technical Indicators
@@ -274,6 +281,7 @@ export default function TechnicalGrid({ technicals }) {
             color: '#94a3b8',
             transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s ease',
+            flexShrink: 0,
           }}
         />
       </button>
