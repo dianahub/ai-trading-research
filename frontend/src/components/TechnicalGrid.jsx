@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, BarChart2 } from 'lucide-react'
 import SupportResistance from './SupportResistance'
 
 function Card({ title, children }) {
@@ -255,11 +255,16 @@ export default function TechnicalGrid({ technicals, price }) {
 
   if (technicals._unavailable) {
     return (
-      <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+      <div className="rounded-xl overflow-hidden" style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}>
         <div className="flex items-center justify-between px-5 py-4">
-          <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
-            Technical Indicators
-          </h3>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#38bdf822' }}>
+              <BarChart2 size={14} style={{ color: '#38bdf8' }} />
+            </div>
+            <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
+              Technical Indicators
+            </h3>
+          </div>
         </div>
         <div className="px-5 pb-5 flex items-center gap-3">
           <span style={{ color: '#f59e0b' }}>⚠</span>
@@ -273,15 +278,20 @@ export default function TechnicalGrid({ technicals, price }) {
   const currentPrice = technicals.current_price
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+    <div className="rounded-xl overflow-hidden" style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}>
       {/* Header row */}
       <div
         className="flex items-center justify-between px-5 py-4"
-        style={{ borderBottom: open ? '1px solid #1e2d45' : 'none' }}
+        style={{ borderBottom: open ? '1px solid #38bdf844' : 'none' }}
       >
-        <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
-          Technical Indicators
-        </h3>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#38bdf822' }}>
+            <BarChart2 size={14} style={{ color: '#38bdf8' }} />
+          </div>
+          <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
+            Technical Indicators
+          </h3>
+        </div>
         <button
           onClick={() => setOpen(o => !o)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold"

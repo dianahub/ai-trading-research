@@ -37,11 +37,11 @@ export default function NewsSection({ news, newsSentiment }) {
   const cfg = SENTIMENT_CONFIG[newsSentiment] ?? null
 
   return (
-    <div className="rounded-xl" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+    <div className="rounded-xl" style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}>
       {/* Header — always visible, acts as accordion toggle */}
       <div
         className="flex items-center justify-between px-5 py-4"
-        style={{ borderBottom: open ? '1px solid #1e2d45' : 'none' }}
+        style={{ borderBottom: open ? '1px solid #38bdf844' : 'none' }}
       >
         <div className="flex items-center gap-2 flex-wrap">
           <Newspaper size={16} style={{ color: '#e2e8f0' }} />
