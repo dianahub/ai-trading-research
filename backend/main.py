@@ -1027,17 +1027,29 @@ def chat_celeste(body: ChatRequest):
             f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
         )
 
+    # Always include war/geopolitical signals — they are cross-asset and valid regardless of ticker
+    war_lines = []
+    for i in insights:
+        if i.get("topic") == "war" and i not in relevant:
+            war_lines.append(
+                f"- [WAR] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+            )
+            if len(war_lines) >= 3:
+                break
+
     system = (
         "You are StarSignal, an astrological market guide on Starsignal.io. "
         "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
-        "Answer ONLY from an astrological perspective. Never refuse a question because a ticker is outside your scope. "
+        "You also cover geopolitical topics like war and conflict when they appear in the astrological signals, as these directly affect markets. "
+        "Answer ONLY from an astrological perspective. Never refuse a question because a ticker or topic is outside your scope. "
         "Never suggest consulting other experts. "
         "Keep every reply to 2 sentences maximum. Be direct and specific."
     )
     if body.ticker:
         system += f"\nThe user is currently researching: {body.ticker.upper()}\n"
-    if context_lines:
-        system += "\nCurrent astrological market signals:\n" + "\n".join(context_lines) + "\n"
+    all_context = context_lines + war_lines
+    if all_context:
+        system += "\nCurrent astrological market signals:\n" + "\n".join(all_context) + "\n"
 
     # Validate messages: must alternate user/assistant starting with user
     api_messages = [m for m in body.messages if m.get("role") in ("user", "assistant") and m.get("content")]
