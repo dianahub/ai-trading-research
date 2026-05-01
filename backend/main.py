@@ -1601,19 +1601,18 @@ def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypas
             if user:
                 tier = _get_user_tier(user)
                 limit = TIER_DAILY_LIMITS.get(tier)
-                if limit is not None:
-                    row = _get_or_create_usage(db, user.id)
-                    if row.request_count >= limit:
-                        upgrade = TIER_UPGRADE_COPY.get(tier, {})
-                        raise HTTPException(status_code=429, detail={
-                            "reason":  "daily_limit",
-                            "count":   row.request_count,
-                            "limit":   limit,
-                            "tier":    tier,
-                            "upgrade": upgrade,
-                        })
-                    row.request_count += 1
-                    db.commit()
+                row = _get_or_create_usage(db, user.id)
+                if limit is not None and row.request_count >= limit:
+                    upgrade = TIER_UPGRADE_COPY.get(tier, {})
+                    raise HTTPException(status_code=429, detail={
+                        "reason":  "daily_limit",
+                        "count":   row.request_count,
+                        "limit":   limit,
+                        "tier":    tier,
+                        "upgrade": upgrade,
+                    })
+                row.request_count += 1
+                db.commit()
 
     # ── Shared formatters ──────────────────────────────────────────────────────
     def _fmt(v):
