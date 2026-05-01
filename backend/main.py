@@ -6737,6 +6737,7 @@ def _extract_insights_from_article(title, content, source_url, source_name, pub_
             result.append({
                 "id":             str(uuid.uuid4()),
                 "topic":          str(item["topic"]).lower(),
+                "symbol":         item.get("symbol") or None,
                 "outlook":        item["outlook"],
                 "timeframe":      item.get("timeframe", "unspecified"),
                 "summary":        item["summary"],
