@@ -151,6 +151,12 @@ _engine = create_engine(_DB_URL, pool_pre_ping=True)
 
 class _Base(DeclarativeBase): pass
 
+class ProcessedUrl(_Base):
+    __tablename__ = "processed_urls"
+    url          = Column(String, primary_key=True)
+    processed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    had_insights = Column(Boolean, default=False)
+
 class WaitlistSignup(_Base):
     __tablename__ = "waitlist_signups"
     id              = Column(Integer, primary_key=True, autoincrement=True)
@@ -6693,8 +6699,17 @@ _INSIGHT_SYSTEM_PROMPT = (
     "'volatile', 'cautious', 'stable'), timeframe (string, e.g. 'June–August 2026', 'Q3 2026'), "
     "summary (1–2 sentences in plain English with zero astrological jargon), confidence (one of: 'low', "
     "'medium', 'high'), source_name, source_url, published_date (ISO date string). "
-    "IMPORTANT: Only extract predictions about what WILL happen. Skip retrospective analysis. "
-    "If there are no qualifying conclusions, return an empty array."
+    "CRITICAL GROUNDING RULES — violating these is worse than returning an empty array: "
+    "(1) ONLY extract predictions that are EXPLICITLY AND DIRECTLY STATED in the article text. Never infer, "
+    "extrapolate, or assume a prediction exists. "
+    "(2) If the article content is a short teaser, preview, or introduction without substantive predictions "
+    "(e.g. under 300 words of actual forecast content), return an empty array — do not guess at what the "
+    "full article might say. "
+    "(3) An asset mentioned as a historical parallel (e.g. 'Bitcoin did 15x during Uranus in Taurus') is "
+    "NOT a prediction about that asset — do not extract it as one. "
+    "(4) Only extract predictions about what WILL happen. Skip any content that reviews, evaluates, or "
+    "reflects on past forecasts. Only include items with a clear, specific, future-facing market conclusion "
+    "explicitly made by the author. If there are no qualifying conclusions, return an empty array."
 )
 
 _RETROSPECTIVE = re.compile(
@@ -6889,9 +6904,17 @@ def _run_ingestion():
     print(f"[{datetime.now().isoformat()}] Starting RSS ingestion...", flush=True)
     with Session(_engine) as db:
         feeds = _load_astro_feeds(db)
+        # Use processed_urls log (not persisted_insights) so deleted records don't get re-imported
+        try:
+            result = db.execute(__import__('sqlalchemy').text('SELECT url FROM processed_urls'))
+            known_urls: set[str] = {row[0] for row in result}
+        except Exception:
+            known_urls = set()
+    print(f"[ingestion] {len(known_urls)} URLs already processed — skipping those.", flush=True)
 
     new_insights: list[dict] = []
     partner_counts: dict[str, int] = {}
+    newly_processed: list[tuple[str, bool]] = []  # (url, had_insights)
 
     for feed in feeds:
         articles = _fetch_rss_feed(feed["url"], feed["name"])
@@ -6905,8 +6928,14 @@ def _run_ingestion():
                     db.commit()
 
         for article in articles:
-            if not article["content"] or len(article["content"]) < 100:
+            # 600 chars is roughly a teaser paragraph — not enough for grounded extraction
+            if not article["content"] or len(article["content"]) < 600:
                 continue
+            if article["link"] in known_urls:
+                continue
+            # Register URL immediately so it's blocked even if insights are later deleted
+            known_urls.add(article["link"])
+            newly_processed.append((article["link"], False))
             raw = _extract_insights_from_article(
                 article["title"], article["content"],
                 article["link"], article["source_name"], article["pub_date"],
@@ -6928,6 +6957,11 @@ def _run_ingestion():
                 new_insights.extend(forward)
                 if feed.get("partner_id"):
                     partner_counts[feed["partner_id"]] = partner_counts.get(feed["partner_id"], 0) + len(forward)
+                # Update hadInsights for this URL in newly_processed
+                for idx in range(len(newly_processed) - 1, -1, -1):
+                    if newly_processed[idx][0] == article["link"]:
+                        newly_processed[idx] = (article["link"], True)
+                        break
 
     with _insights_lock:
         merged = _deduplicate_insights(new_insights, _insights_state["insights"])
@@ -6960,6 +6994,18 @@ def _run_ingestion():
             if p:
                 p.insights_extracted = (p.insights_extracted or 0) + cnt
                 db.commit()
+
+        # Record processed URLs so they're never re-imported even if insights are deleted later
+        sa_text = __import__('sqlalchemy').text
+        for url, had_insights in newly_processed:
+            try:
+                db.execute(sa_text(
+                    'INSERT INTO processed_urls (url, processed_at, had_insights) '
+                    'VALUES (:url, NOW(), :had) ON CONFLICT (url) DO NOTHING'
+                ), {"url": url, "had": had_insights})
+            except Exception:
+                pass
+        db.commit()
 
     print(f"[ingestion] Done — {len(merged)} insights cached.", flush=True)
 
@@ -7009,6 +7055,9 @@ def _load_insights_from_db():
 def _schedule_ingestion_loop():
     def loop():
         _load_insights_from_db()
+        # Wait 6h before first ingestion so a fresh deploy serves clean DB data immediately
+        # without immediately re-importing any URLs that were manually cleaned
+        time.sleep(6 * 3600)
         while True:
             try:
                 _run_ingestion()
@@ -7051,6 +7100,22 @@ def _contact_out(c: AstrologerContact) -> dict:
         "createdAt":   c.created_at.isoformat() if c.created_at else None,
         "updatedAt":   c.updated_at.isoformat() if c.updated_at else None,
     }
+
+
+@app.post("/admin/cache/reload")
+def admin_cache_reload(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Force reload in-memory insight cache from DB without running a full ingestion."""
+    _require_admin(x_admin_email, x_admin_password)
+    def _run():
+        try:
+            _load_insights_from_db()
+        except Exception as e:
+            print(f"[admin cache/reload] ERROR: {e}", flush=True)
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "reloading", "message": "Cache will refresh from DB in a few seconds."}
 
 
 @app.post("/admin/ingest-now")
