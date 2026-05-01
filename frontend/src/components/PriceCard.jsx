@@ -54,7 +54,7 @@ export default function PriceCard({ price }) {
   const sparkData = (price.sparkline_7d ?? []).map((p, i) => ({ i, price: p }))
 
   return (
-    <div className="rounded-xl h-full" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+    <div className="rounded-xl h-full" style={{ background: '#111827', border: '1px solid #38bdf8' }}>
       <div className="p-5">
         {/* Header row */}
         <div className="flex items-start justify-between mb-4">

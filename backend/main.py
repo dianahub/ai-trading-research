@@ -944,6 +944,7 @@ def get_astro_ticker_summary(body: TickerSummaryRequest):
                 "You are StarSignal, an astrological market guide on Starsignal.io. "
                 "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
                 f"The user is researching {ticker}. "
+                f"Only discuss {ticker} — do not mention or reference any other tickers, coins, or assets even if they appear in the signals. "
                 "Answer ONLY from an astrological perspective. Keep your reply to 2 sentences maximum. Be direct and specific about which planets and timeframes matter."
             ),
             messages=[{"role": "user", "content": (
@@ -1027,17 +1028,29 @@ def chat_celeste(body: ChatRequest):
             f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
         )
 
+    # Always include war/geopolitical signals — they are cross-asset and valid regardless of ticker
+    war_lines = []
+    for i in insights:
+        if i.get("topic") == "war" and i not in relevant:
+            war_lines.append(
+                f"- [WAR] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+            )
+            if len(war_lines) >= 3:
+                break
+
     system = (
         "You are StarSignal, an astrological market guide on Starsignal.io. "
         "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
-        "Answer ONLY from an astrological perspective. Never refuse a question because a ticker is outside your scope. "
+        "You also cover geopolitical topics like war and conflict when they appear in the astrological signals, as these directly affect markets. "
+        "Answer ONLY from an astrological perspective. Never refuse a question because a ticker or topic is outside your scope. "
         "Never suggest consulting other experts. "
         "Keep every reply to 2 sentences maximum. Be direct and specific."
     )
     if body.ticker:
         system += f"\nThe user is currently researching: {body.ticker.upper()}\n"
-    if context_lines:
-        system += "\nCurrent astrological market signals:\n" + "\n".join(context_lines) + "\n"
+    all_context = context_lines + war_lines
+    if all_context:
+        system += "\nCurrent astrological market signals:\n" + "\n".join(all_context) + "\n"
 
     # Validate messages: must alternate user/assistant starting with user
     api_messages = [m for m in body.messages if m.get("role") in ("user", "assistant") and m.get("content")]
@@ -3969,6 +3982,7 @@ class PersistedInsight(_Base):
     period_start   = Column(String, nullable=True)
     period_end     = Column(String, nullable=True)
     trend_type     = Column(String, nullable=True)
+    symbol         = Column(String, nullable=True)
     featured       = Column(Boolean, default=False)
     verified       = Column(Boolean, default=False)
     source_avatar  = Column(String, nullable=True)
@@ -3982,6 +3996,14 @@ _Base.metadata.create_all(_engine)
 try:
     with _engine.connect() as _conn:
         _conn.execute(text("ALTER TABLE astrologer_contacts ADD COLUMN contact_type TEXT NOT NULL DEFAULT 'astrologer'"))
+        _conn.commit()
+except Exception:
+    pass  # column already exists
+
+# Add symbol column to persisted_insights table (idempotent)
+try:
+    with _engine.connect() as _conn:
+        _conn.execute(text("ALTER TABLE persisted_insights ADD COLUMN symbol TEXT"))
         _conn.commit()
 except Exception:
     pass  # column already exists
@@ -6666,7 +6688,9 @@ _INSIGHT_SYSTEM_PROMPT = (
     "conclusions relevant to financial markets or geopolitics. Return ONLY a valid JSON array — no preamble, "
     "no markdown — where each item has these fields: topic (string, e.g. 'crypto', 'banking', 'war', 'gold', "
     "'tech stocks', 'oil', 'currency', 'stock market' — use 'stock market' for broad equities, indices, or "
-    "general stock market outlooks not specific to one sector), outlook (one of: 'bullish', 'bearish', "
+    "general stock market outlooks not specific to one sector), symbol (string or null — the specific ticker "
+    "symbol this insight is about, e.g. 'XRP', 'BTC', 'AAPL', 'NVDA'; set to null if the insight covers a "
+    "broad category rather than one specific asset), outlook (one of: 'bullish', 'bearish', "
     "'volatile', 'cautious', 'stable'), timeframe (string, e.g. 'June–August 2026', 'Q3 2026'), "
     "summary (1–2 sentences in plain English with zero astrological jargon), confidence (one of: 'low', "
     "'medium', 'high'), source_name, source_url, published_date (ISO date string). "
@@ -6713,6 +6737,7 @@ def _extract_insights_from_article(title, content, source_url, source_name, pub_
             result.append({
                 "id":             str(uuid.uuid4()),
                 "topic":          str(item["topic"]).lower(),
+                "symbol":         item.get("symbol") or None,
                 "outlook":        item["outlook"],
                 "timeframe":      item.get("timeframe", "unspecified"),
                 "summary":        item["summary"],
@@ -6953,6 +6978,7 @@ def _load_insights_from_db():
             fresh.append({
                 "id":             r.id,
                 "topic":          r.topic,
+                "symbol":         r.symbol,
                 "outlook":        r.outlook,
                 "timeframe":      r.timeframe,
                 "summary":        r.summary,
@@ -7025,6 +7051,36 @@ def _contact_out(c: AstrologerContact) -> dict:
         "contactType": getattr(c, "contact_type", "astrologer"),
         "createdAt":   c.created_at.isoformat() if c.created_at else None,
         "updatedAt":   c.updated_at.isoformat() if c.updated_at else None,
+    }
+
+
+@app.post("/admin/ingest-now")
+def admin_ingest_now(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Trigger a background ingestion run immediately. Returns straight away."""
+    _require_admin(x_admin_email, x_admin_password)
+    def _run():
+        try:
+            _run_ingestion()
+        except Exception as e:
+            print(f"[admin ingest-now] ERROR: {e}", flush=True)
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "ingestion started", "message": "Insights will appear in 2–5 minutes once feeds are processed."}
+
+
+@app.get("/admin/astro-status")
+def admin_astro_status(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Return current insight count and last fetch time."""
+    _require_admin(x_admin_email, x_admin_password)
+    return {
+        "insight_count": len(_insights_state.get("insights", [])),
+        "last_fetch":    _insights_state.get("last_fetch", "never"),
+        "available":     len(_insights_state.get("insights", [])) > 0,
     }
 
 

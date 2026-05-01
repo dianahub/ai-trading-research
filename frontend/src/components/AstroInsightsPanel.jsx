@@ -1,6 +1,7 @@
 // AstroInsightsPanel.jsx
 // Displays financial astrology insights from the Astro API microservice.
 import { useState, useMemo } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 const OUTLOOK_CONFIG = {
   bullish:  { color: '#10b981', bg: '#052e16', border: '#065f46', label: 'BULLISH' },
@@ -345,7 +346,9 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
       if (parens) return parens[1]
       const exchange = summary.match(/(?:NYSE|NASDAQ|AMEX):\s*([A-Z]{1,5})\b/)
       if (exchange) return exchange[1]
-      const allCaps = (summary.match(/\b([A-Z]{1,5})\b(?=\s*[-–]|\s+is\b|\s+stock\b|\s+shares\b)/) ?? [])[1]
+      const possessive = (summary.match(/^([A-Z]{2,5})'s\b/) ?? [])[1]
+      if (possessive) return possessive
+      const allCaps = (summary.match(/\b([A-Z]{2,5})\b(?=\s*[-–]|\s+is\b|\s+stock\b|\s+shares\b|\s+shows\b|\s+has\b|\s+could\b|\s+may\b|\s+will\b|\s+faces\b|\s+breaks\b|\s+surges\b|\s+falls\b|\s+rises\b|\s+flipped\b|\s+gains\b|\s+drops\b|\s+hits\b|\s+reaches\b|\s+approaches\b|\s+price\b|\s+tokens?\b)/) ?? [])[1]
       if (allCaps) return allCaps
       const lc = summary.toLowerCase()
       for (const [name, sym] of Object.entries(COMPANY_TICKER)) {
@@ -422,7 +425,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ background: '#0b0f1e', border: '1px solid #1e2d45' }}
+      style={{ background: '#0b0f1e', border: '1px solid #38bdf8' }}
     >
       {/* Panel header */}
       <div
@@ -466,14 +469,20 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
 
         <button
           onClick={onToggle}
-          className="text-xs px-3 py-1 rounded transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold cursor-pointer"
           style={{
-            background: visible ? '#1e2d45' : '#111827',
-            color: '#94a3b8',
-            border: '1px solid #1e2d45',
+            background: visible ? '#1e3a5f' : '#0f1a2e',
+            border: '1px solid #1e3a5f',
+            color: '#e2e8f0',
+            fontSize: 13,
+            letterSpacing: '0.05em',
+            transition: 'background 0.15s ease',
           }}
+          onMouseEnter={e => e.currentTarget.style.background = '#1e3a5f'}
+          onMouseLeave={e => { if (!visible) e.currentTarget.style.background = '#0f1a2e' }}
         >
-          {visible ? 'Hide' : 'Show'}
+          <span>{visible ? 'HIDE' : 'SHOW'}</span>
+          <ChevronDown size={15} style={{ color: '#06b6d4', transform: visible ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
         </button>
       </div>
 

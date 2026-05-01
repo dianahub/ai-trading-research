@@ -20,7 +20,7 @@ export default function SupportResistance({ technicals, price }) {
   const distToResistance = resistance ? (((resistance - currentPrice) / currentPrice) * 100).toFixed(2) : null
 
   return (
-    <div className="rounded-xl p-5" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+    <div className="rounded-xl p-5" style={{ background: '#111827', border: '1px solid #38bdf8' }}>
       <h3 className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: '#94a3b8' }}>
         Support &amp; Resistance · 30-Day Range
       </h3>

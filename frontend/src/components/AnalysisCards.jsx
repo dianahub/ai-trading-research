@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BarChart2, Activity, TrendingUp, ChevronDown } from 'lucide-react'
+import { BarChart2, Activity, TrendingUp, ChevronDown, Cpu } from 'lucide-react'
 
 function AnalysisCard({ icon: Icon, title, accentColor, children }) {
   return (
@@ -52,14 +52,19 @@ export default function AnalysisCards({ analysis }) {
   if (!analysis) return null
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #1e2d45' }}>
+    <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #38bdf8' }}>
       <div
         className="flex items-center justify-between px-5 py-4"
-        style={{ borderBottom: open ? '1px solid #1e2d45' : 'none' }}
+        style={{ borderBottom: open ? '1px solid #38bdf844' : 'none' }}
       >
-        <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
-          AI Analysis of the Technicals
-        </h3>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#38bdf822' }}>
+            <Cpu size={14} style={{ color: '#38bdf8' }} />
+          </div>
+          <h3 className="text-base font-bold uppercase tracking-wide" style={{ color: '#e2e8f0' }}>
+            AI Analysis of the Technicals
+          </h3>
+        </div>
         <button
           onClick={() => setOpen(o => !o)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold flex-shrink-0"
