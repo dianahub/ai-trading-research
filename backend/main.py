@@ -3982,6 +3982,7 @@ class PersistedInsight(_Base):
     period_start   = Column(String, nullable=True)
     period_end     = Column(String, nullable=True)
     trend_type     = Column(String, nullable=True)
+    symbol         = Column(String, nullable=True)
     featured       = Column(Boolean, default=False)
     verified       = Column(Boolean, default=False)
     source_avatar  = Column(String, nullable=True)
@@ -3995,6 +3996,14 @@ _Base.metadata.create_all(_engine)
 try:
     with _engine.connect() as _conn:
         _conn.execute(text("ALTER TABLE astrologer_contacts ADD COLUMN contact_type TEXT NOT NULL DEFAULT 'astrologer'"))
+        _conn.commit()
+except Exception:
+    pass  # column already exists
+
+# Add symbol column to persisted_insights table (idempotent)
+try:
+    with _engine.connect() as _conn:
+        _conn.execute(text("ALTER TABLE persisted_insights ADD COLUMN symbol TEXT"))
         _conn.commit()
 except Exception:
     pass  # column already exists
@@ -6968,6 +6977,7 @@ def _load_insights_from_db():
             fresh.append({
                 "id":             r.id,
                 "topic":          r.topic,
+                "symbol":         r.symbol,
                 "outlook":        r.outlook,
                 "timeframe":      r.timeframe,
                 "summary":        r.summary,
