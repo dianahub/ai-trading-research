@@ -151,6 +151,12 @@ _engine = create_engine(_DB_URL, pool_pre_ping=True)
 
 class _Base(DeclarativeBase): pass
 
+class ProcessedUrl(_Base):
+    __tablename__ = "processed_urls"
+    url          = Column(String, primary_key=True)
+    processed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    had_insights = Column(Boolean, default=False)
+
 class WaitlistSignup(_Base):
     __tablename__ = "waitlist_signups"
     id              = Column(Integer, primary_key=True, autoincrement=True)
@@ -6898,9 +6904,9 @@ def _run_ingestion():
     print(f"[{datetime.now().isoformat()}] Starting RSS ingestion...", flush=True)
     with Session(_engine) as db:
         feeds = _load_astro_feeds(db)
-        # Use ProcessedUrl log (not PersistedInsight) so deleted records don't get re-imported
+        # Use processed_urls log (not persisted_insights) so deleted records don't get re-imported
         try:
-            result = db.execute(__import__('sqlalchemy').text('SELECT url FROM "ProcessedUrl"'))
+            result = db.execute(__import__('sqlalchemy').text('SELECT url FROM processed_urls'))
             known_urls: set[str] = {row[0] for row in result}
         except Exception:
             known_urls = set()
@@ -6994,7 +7000,7 @@ def _run_ingestion():
         for url, had_insights in newly_processed:
             try:
                 db.execute(sa_text(
-                    'INSERT INTO "ProcessedUrl" (url, "processedAt", "hadInsights") '
+                    'INSERT INTO processed_urls (url, processed_at, had_insights) '
                     'VALUES (:url, NOW(), :had) ON CONFLICT (url) DO NOTHING'
                 ), {"url": url, "had": had_insights})
             except Exception:
