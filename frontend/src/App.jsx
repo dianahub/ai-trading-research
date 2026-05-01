@@ -107,7 +107,7 @@ const ETF_TOPIC_MAP = {
 }
 
 async function apiFetch(path, opts = {}) {
-  const res = await fetch(`${API}${path}`, opts)
+  const res = await fetch(`${API}${path}`, { credentials: 'include', ...opts })
   const json = await res.json()
   if (!res.ok) {
     const detail = json.detail
