@@ -6898,11 +6898,17 @@ def _run_ingestion():
     print(f"[{datetime.now().isoformat()}] Starting RSS ingestion...", flush=True)
     with Session(_engine) as db:
         feeds = _load_astro_feeds(db)
-        known_urls: set[str] = {r.source_url for r in db.query(PersistedInsight.source_url).all()}
-    print(f"[ingestion] {len(known_urls)} URLs already in DB — skipping those.", flush=True)
+        # Use ProcessedUrl log (not PersistedInsight) so deleted records don't get re-imported
+        try:
+            result = db.execute(__import__('sqlalchemy').text('SELECT url FROM "ProcessedUrl"'))
+            known_urls: set[str] = {row[0] for row in result}
+        except Exception:
+            known_urls = set()
+    print(f"[ingestion] {len(known_urls)} URLs already processed — skipping those.", flush=True)
 
     new_insights: list[dict] = []
     partner_counts: dict[str, int] = {}
+    newly_processed: list[tuple[str, bool]] = []  # (url, had_insights)
 
     for feed in feeds:
         articles = _fetch_rss_feed(feed["url"], feed["name"])
@@ -6942,6 +6948,7 @@ def _run_ingestion():
                 new_insights.extend(forward)
                 if feed.get("partner_id"):
                     partner_counts[feed["partner_id"]] = partner_counts.get(feed["partner_id"], 0) + len(forward)
+            newly_processed.append((article["link"], len(forward) > 0))
 
     with _insights_lock:
         merged = _deduplicate_insights(new_insights, _insights_state["insights"])
@@ -6974,6 +6981,18 @@ def _run_ingestion():
             if p:
                 p.insights_extracted = (p.insights_extracted or 0) + cnt
                 db.commit()
+
+        # Record processed URLs so they're never re-imported even if insights are deleted later
+        sa_text = __import__('sqlalchemy').text
+        for url, had_insights in newly_processed:
+            try:
+                db.execute(sa_text(
+                    'INSERT INTO "ProcessedUrl" (url, "processedAt", "hadInsights") '
+                    'VALUES (:url, NOW(), :had) ON CONFLICT (url) DO NOTHING'
+                ), {"url": url, "had": had_insights})
+            except Exception:
+                pass
+        db.commit()
 
     print(f"[ingestion] Done — {len(merged)} insights cached.", flush=True)
 
