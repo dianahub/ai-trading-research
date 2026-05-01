@@ -6720,6 +6720,73 @@ _RETROSPECTIVE = re.compile(
 )
 
 
+def _parse_json_array_from_text(text: str) -> list:
+    """Robustly extract the first JSON array from Claude's response, even if there's trailing text."""
+    # Strip markdown code fences
+    cleaned = re.sub(r"^```(?:json)?\s*", "", text.strip(), flags=re.I)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    # Try direct parse first
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, list):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    # Fall back: find the outermost [...] array in the text
+    match = re.search(r'\[.*?\]', cleaned, re.DOTALL)
+    if match:
+        try:
+            parsed = json.loads(match.group())
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    return []
+
+
+def _verify_insights_against_source(insights: list[dict], content: str, title: str) -> list[dict]:
+    """Second-pass Claude check: drop any insight not explicitly supported by the article text."""
+    if not insights:
+        return []
+    numbered = "\n".join(
+        f"{i+1}. {ins['outlook'].upper()} {ins['topic']} ({ins['timeframe']}): {ins['summary']}"
+        for i, ins in enumerate(insights)
+    )
+    try:
+        client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        resp = client_a.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=256,
+            system=(
+                "You are a strict fact-checker for financial market predictions. "
+                "Given an article and a numbered list of extracted predictions, return ONLY a JSON array "
+                "of 1-based indices for predictions that are EXPLICITLY stated in the article — "
+                "not inferred, not implied, not extrapolated. "
+                "If the article content is too short or paywalled to verify, return []. "
+                "Return nothing except the JSON array."
+            ),
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Article title: {title}\n\n"
+                    f"Article content:\n{content[:4000]}\n\n"
+                    f"Predictions to verify:\n{numbered}\n\n"
+                    "Return a JSON array of indices of predictions explicitly supported by the article."
+                ),
+            }],
+        )
+        text = resp.content[0].text.strip()
+        indices = _parse_json_array_from_text(text)
+        verified = [insights[i - 1] for i in indices if isinstance(i, int) and 1 <= i <= len(insights)]
+        dropped = len(insights) - len(verified)
+        if dropped:
+            print(f"[ingestion] Verification dropped {dropped}/{len(insights)} ungrounded insights from \"{title[:60]}\"", flush=True)
+        return verified
+    except Exception as e:
+        print(f"[ingestion] WARNING: verification failed for \"{title[:60]}\": {e} — keeping all insights", flush=True)
+        return insights  # On error keep originals rather than silently dropping everything
+
+
 def _extract_insights_from_article(title, content, source_url, source_name, pub_date) -> list[dict]:
     truncated = content[:8000]
     try:
@@ -6737,11 +6804,7 @@ def _extract_insights_from_article(title, content, source_url, source_name, pub_
             }],
         )
         text = resp.content[0].text.strip()
-        cleaned = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
-        parsed = json.loads(cleaned)
-        if not isinstance(parsed, list):
-            return []
+        parsed = _parse_json_array_from_text(text)
         result = []
         for item in parsed:
             if not isinstance(item, dict):
@@ -6760,7 +6823,8 @@ def _extract_insights_from_article(title, content, source_url, source_name, pub_
                 "source_url":     item.get("source_url", source_url),
                 "published_date": item.get("published_date", pub_date),
             })
-        return result
+        # Second-pass verification: drop anything not explicitly in the source text
+        return _verify_insights_against_source(result, truncated, title)
     except Exception as e:
         print(f"[ingestion] ERROR extracting from \"{title[:60]}\": {e}", flush=True)
         return []
@@ -6930,6 +6994,7 @@ def _run_ingestion():
         for article in articles:
             # 600 chars is roughly a teaser paragraph — not enough for grounded extraction
             if not article["content"] or len(article["content"]) < 600:
+                print(f"[ingestion] SKIPPED (too short, {len(article.get('content',''))} chars): \"{article['title'][:60]}\"", flush=True)
                 continue
             if article["link"] in known_urls:
                 continue
