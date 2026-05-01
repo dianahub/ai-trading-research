@@ -6693,8 +6693,17 @@ _INSIGHT_SYSTEM_PROMPT = (
     "'volatile', 'cautious', 'stable'), timeframe (string, e.g. 'June–August 2026', 'Q3 2026'), "
     "summary (1–2 sentences in plain English with zero astrological jargon), confidence (one of: 'low', "
     "'medium', 'high'), source_name, source_url, published_date (ISO date string). "
-    "IMPORTANT: Only extract predictions about what WILL happen. Skip retrospective analysis. "
-    "If there are no qualifying conclusions, return an empty array."
+    "CRITICAL GROUNDING RULES — violating these is worse than returning an empty array: "
+    "(1) ONLY extract predictions that are EXPLICITLY AND DIRECTLY STATED in the article text. Never infer, "
+    "extrapolate, or assume a prediction exists. "
+    "(2) If the article content is a short teaser, preview, or introduction without substantive predictions "
+    "(e.g. under 300 words of actual forecast content), return an empty array — do not guess at what the "
+    "full article might say. "
+    "(3) An asset mentioned as a historical parallel (e.g. 'Bitcoin did 15x during Uranus in Taurus') is "
+    "NOT a prediction about that asset — do not extract it as one. "
+    "(4) Only extract predictions about what WILL happen. Skip any content that reviews, evaluates, or "
+    "reflects on past forecasts. Only include items with a clear, specific, future-facing market conclusion "
+    "explicitly made by the author. If there are no qualifying conclusions, return an empty array."
 )
 
 _RETROSPECTIVE = re.compile(
@@ -6889,6 +6898,8 @@ def _run_ingestion():
     print(f"[{datetime.now().isoformat()}] Starting RSS ingestion...", flush=True)
     with Session(_engine) as db:
         feeds = _load_astro_feeds(db)
+        known_urls: set[str] = {r.source_url for r in db.query(PersistedInsight.source_url).all()}
+    print(f"[ingestion] {len(known_urls)} URLs already in DB — skipping those.", flush=True)
 
     new_insights: list[dict] = []
     partner_counts: dict[str, int] = {}
@@ -6905,7 +6916,10 @@ def _run_ingestion():
                     db.commit()
 
         for article in articles:
-            if not article["content"] or len(article["content"]) < 100:
+            # 600 chars is roughly a teaser paragraph — not enough for grounded extraction
+            if not article["content"] or len(article["content"]) < 600:
+                continue
+            if article["link"] in known_urls:
                 continue
             raw = _extract_insights_from_article(
                 article["title"], article["content"],
@@ -7051,6 +7065,22 @@ def _contact_out(c: AstrologerContact) -> dict:
         "createdAt":   c.created_at.isoformat() if c.created_at else None,
         "updatedAt":   c.updated_at.isoformat() if c.updated_at else None,
     }
+
+
+@app.post("/admin/cache/reload")
+def admin_cache_reload(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Force reload in-memory insight cache from DB without running a full ingestion."""
+    _require_admin(x_admin_email, x_admin_password)
+    def _run():
+        try:
+            _load_insights_from_db()
+        except Exception as e:
+            print(f"[admin cache/reload] ERROR: {e}", flush=True)
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "reloading", "message": "Cache will refresh from DB in a few seconds."}
 
 
 @app.post("/admin/ingest-now")
