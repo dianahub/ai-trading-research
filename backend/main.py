@@ -7053,6 +7053,36 @@ def _contact_out(c: AstrologerContact) -> dict:
     }
 
 
+@app.post("/admin/ingest-now")
+def admin_ingest_now(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Trigger a background ingestion run immediately. Returns straight away."""
+    _require_admin(x_admin_email, x_admin_password)
+    def _run():
+        try:
+            _run_ingestion()
+        except Exception as e:
+            print(f"[admin ingest-now] ERROR: {e}", flush=True)
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "ingestion started", "message": "Insights will appear in 2–5 minutes once feeds are processed."}
+
+
+@app.get("/admin/astro-status")
+def admin_astro_status(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Return current insight count and last fetch time."""
+    _require_admin(x_admin_email, x_admin_password)
+    return {
+        "insight_count": len(_insights_state.get("insights", [])),
+        "last_fetch":    _insights_state.get("last_fetch", "never"),
+        "available":     len(_insights_state.get("insights", [])) > 0,
+    }
+
+
 @app.get("/admin/astrologers")
 def admin_list_astrologers(
     x_admin_email: str = Header(default=""),
