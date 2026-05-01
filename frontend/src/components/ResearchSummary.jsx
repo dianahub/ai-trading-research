@@ -8,7 +8,7 @@ export default function ResearchSummary({ analysis, ticker }) {
   const paragraphs = (analysis.research_summary ?? '').split('\n\n').filter(Boolean)
 
   return (
-    <div className="rounded-xl" style={{ background: '#0a1628', border: '1px solid #0e4d6e', marginTop: '24px' }}>
+    <div className="rounded-xl" style={{ background: '#0c2a3f', border: '1px solid #38bdf8', marginTop: '24px' }}>
       {/* Header row — icon + title + show/hide button inline */}
       <div className="px-6 py-4 flex items-center gap-3 flex-wrap">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
