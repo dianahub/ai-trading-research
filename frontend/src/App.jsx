@@ -475,7 +475,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 { href: '#price',       label: '💰 Price',        show: true },
                 { href: '#technicals',  label: '📈 Technicals',   show: true },
                 { href: '#ai-analysis', label: '🔍 AI Analysis',  show: !!data.analysis },
-                { href: '#smart-money', label: data.assetType === 'crypto' ? '🐋 Whales' : '📊 Insiders', show: !!(data.whales || data.insiders) },
+                { href: '#smart-money', label: '🐋 Whales', show: !!data.whales },
                 { href: '#astro',       label: '♅ Astro',         show: true },
                 { href: '#news',        label: '📰 News',         show: true },
               ].filter(s => s.show)
