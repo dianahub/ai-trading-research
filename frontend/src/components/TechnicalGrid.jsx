@@ -255,7 +255,7 @@ export default function TechnicalGrid({ technicals, price }) {
 
   if (technicals._unavailable) {
     return (
-      <div className="rounded-xl overflow-hidden" style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}>
+      <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #38bdf8' }}>
         <div className="flex items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#38bdf822' }}>
@@ -278,7 +278,7 @@ export default function TechnicalGrid({ technicals, price }) {
   const currentPrice = technicals.current_price
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}>
+    <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #38bdf8' }}>
       {/* Header row */}
       <div
         className="flex items-center justify-between px-5 py-4"

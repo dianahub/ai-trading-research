@@ -425,7 +425,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}
+      style={{ background: '#0b0f1e', border: '1px solid #38bdf8' }}
     >
       {/* Panel header */}
       <div

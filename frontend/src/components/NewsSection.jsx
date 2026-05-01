@@ -37,7 +37,7 @@ export default function NewsSection({ news, newsSentiment }) {
   const cfg = SENTIMENT_CONFIG[newsSentiment] ?? null
 
   return (
-    <div className="rounded-xl" style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}>
+    <div className="rounded-xl" style={{ background: '#111827', border: '1px solid #38bdf8' }}>
       {/* Header — always visible, acts as accordion toggle */}
       <div
         className="flex items-center justify-between px-5 py-4"

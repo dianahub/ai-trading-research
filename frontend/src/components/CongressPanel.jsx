@@ -85,7 +85,7 @@ export default function CongressPanel({ congressData, ticker }) {
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}
+      style={{ background: '#0b0f1e', border: '1px solid #38bdf8' }}
     >
       {/* Header */}
       <div className="px-5 py-4 flex items-center justify-between gap-4"

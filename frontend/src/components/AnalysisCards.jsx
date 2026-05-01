@@ -52,7 +52,7 @@ export default function AnalysisCards({ analysis }) {
   if (!analysis) return null
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: '#0c2a3f', border: '1px solid #38bdf8' }}>
+    <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #38bdf8' }}>
       <div
         className="flex items-center justify-between px-5 py-4"
         style={{ borderBottom: open ? '1px solid #38bdf844' : 'none' }}
