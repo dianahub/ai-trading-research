@@ -346,7 +346,9 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
       if (parens) return parens[1]
       const exchange = summary.match(/(?:NYSE|NASDAQ|AMEX):\s*([A-Z]{1,5})\b/)
       if (exchange) return exchange[1]
-      const allCaps = (summary.match(/\b([A-Z]{2,5})\b(?=\s*[-–]|\s+is\b|\s+stock\b|\s+shares\b|\s+shows\b|\s+has\b|\s+could\b|\s+may\b|\s+will\b|\s+faces\b|\s+breaks\b|\s+surges\b|\s+falls\b|\s+rises\b|\s+flipped\b|\s+gains\b|\s+drops\b|\s+hits\b|\s+reaches\b|\s+approaches\b)/) ?? [])[1]
+      const possessive = (summary.match(/^([A-Z]{2,5})'s\b/) ?? [])[1]
+      if (possessive) return possessive
+      const allCaps = (summary.match(/\b([A-Z]{2,5})\b(?=\s*[-–]|\s+is\b|\s+stock\b|\s+shares\b|\s+shows\b|\s+has\b|\s+could\b|\s+may\b|\s+will\b|\s+faces\b|\s+breaks\b|\s+surges\b|\s+falls\b|\s+rises\b|\s+flipped\b|\s+gains\b|\s+drops\b|\s+hits\b|\s+reaches\b|\s+approaches\b|\s+price\b|\s+tokens?\b)/) ?? [])[1]
       if (allCaps) return allCaps
       const lc = summary.toLowerCase()
       for (const [name, sym] of Object.entries(COMPANY_TICKER)) {
