@@ -6927,6 +6927,9 @@ def _run_ingestion():
                 continue
             if article["link"] in known_urls:
                 continue
+            # Register URL immediately so it's blocked even if insights are later deleted
+            known_urls.add(article["link"])
+            newly_processed.append((article["link"], False))
             raw = _extract_insights_from_article(
                 article["title"], article["content"],
                 article["link"], article["source_name"], article["pub_date"],
@@ -6948,7 +6951,11 @@ def _run_ingestion():
                 new_insights.extend(forward)
                 if feed.get("partner_id"):
                     partner_counts[feed["partner_id"]] = partner_counts.get(feed["partner_id"], 0) + len(forward)
-            newly_processed.append((article["link"], len(forward) > 0))
+                # Update hadInsights for this URL in newly_processed
+                for idx in range(len(newly_processed) - 1, -1, -1):
+                    if newly_processed[idx][0] == article["link"]:
+                        newly_processed[idx] = (article["link"], True)
+                        break
 
     with _insights_lock:
         merged = _deduplicate_insights(new_insights, _insights_state["insights"])
@@ -7042,6 +7049,9 @@ def _load_insights_from_db():
 def _schedule_ingestion_loop():
     def loop():
         _load_insights_from_db()
+        # Wait 6h before first ingestion so a fresh deploy serves clean DB data immediately
+        # without immediately re-importing any URLs that were manually cleaned
+        time.sleep(6 * 3600)
         while True:
             try:
                 _run_ingestion()
