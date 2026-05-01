@@ -410,7 +410,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
   return (
     <div className="min-h-screen" style={{ background: '#0a0e1a' }}>
       {/* Header */}
-      <header ref={headerRef} style={{ background: '#0a0e1a', borderBottom: '1px solid #1e2d45' }}
+      <header ref={headerRef} style={{ background: '#0a0e1a', borderBottom: '1px solid #38bdf8' }}
         className="sticky top-0 z-50 px-4 md:px-6 py-3 md:py-4">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
           {/* Logo + title row — on mobile also holds the LIVE badge */}
@@ -481,30 +481,28 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               ].filter(s => s.show)
 
               return (
-                <nav className="fade-in rounded-xl" style={{ background: '#0b0f1e', border: '1px solid #1e2d45' }}>
+                <nav className="fade-in rounded-xl" style={{ background: '#0c2a3f', border: '1px solid #38bdf8', boxShadow: '0 0 16px #38bdf822' }}>
                   {/* Mobile: hamburger header */}
                   <div className="flex md:hidden items-center justify-between px-4 py-2.5">
-                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#94a3b8' }}>
+                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#38bdf8' }}>
                       Jump to
                     </span>
                     <button
                       onClick={() => setNavOpen(o => !o)}
                       className="flex flex-col justify-center items-center gap-1 w-8 h-8 rounded-lg cursor-pointer transition-colors"
-                      style={{ background: navOpen ? '#1e2d45' : 'transparent', border: '1px solid #1e2d45' }}
+                      style={{ background: navOpen ? '#0e4d6e' : '#0c2a3f', border: '1px solid #38bdf8' }}
                       aria-label="Toggle navigation"
                     >
                       {navOpen ? (
-                        // X icon
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                          <line x1="1" y1="1" x2="13" y2="13" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"/>
-                          <line x1="13" y1="1" x2="1" y2="13" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="1" y1="1" x2="13" y2="13" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round"/>
+                          <line x1="13" y1="1" x2="1" y2="13" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round"/>
                         </svg>
                       ) : (
-                        // Hamburger icon
                         <>
-                          <span className="block w-4 h-0.5 rounded" style={{ background: '#94a3b8' }} />
-                          <span className="block w-4 h-0.5 rounded" style={{ background: '#94a3b8' }} />
-                          <span className="block w-4 h-0.5 rounded" style={{ background: '#94a3b8' }} />
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#38bdf8' }} />
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#38bdf8' }} />
+                          <span className="block w-4 h-0.5 rounded" style={{ background: '#38bdf8' }} />
                         </>
                       )}
                     </button>
@@ -512,15 +510,15 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
                   {/* Mobile: dropdown links */}
                   {navOpen && (
-                    <div className="flex flex-col md:hidden px-4 pb-3 gap-1" style={{ borderTop: '1px solid #1e2d45' }}>
+                    <div className="flex flex-col md:hidden px-4 pb-3 gap-1" style={{ borderTop: '1px solid #38bdf844' }}>
                       {navLinks.map(s => (
                         <a key={s.href} href={s.href}
                           onClick={() => {
                             setNavOpen(false)
                             window.dispatchEvent(new CustomEvent('open-section', { detail: s.href }))
                           }}
-                          className="px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:brightness-125"
-                          style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
+                          className="px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:brightness-125"
+                          style={{ background: '#0e3a56', border: '1px solid #38bdf855', color: '#e2e8f0' }}>
                           {s.label}
                         </a>
                       ))}
@@ -529,15 +527,15 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
                   {/* Desktop: horizontal pill row */}
                   <div className="hidden md:flex items-center gap-3 px-4 py-2.5 overflow-x-auto">
-                    <span className="text-xs font-semibold uppercase tracking-widest shrink-0" style={{ color: '#94a3b8' }}>
+                    <span className="text-xs font-bold uppercase tracking-widest shrink-0" style={{ color: '#38bdf8' }}>
                       Jump to
                     </span>
-                    <div className="w-px h-4 shrink-0" style={{ background: '#1e2d45' }} />
+                    <div className="w-px h-4 shrink-0" style={{ background: '#38bdf844' }} />
                     {navLinks.map(s => (
                       <a key={s.href} href={s.href}
                         onClick={() => window.dispatchEvent(new CustomEvent('open-section', { detail: s.href }))}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors hover:brightness-125"
-                        style={{ background: '#111827', color: '#94a3b8', border: '1px solid #1e2d45' }}>
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors hover:brightness-125"
+                        style={{ background: '#0e3a56', color: '#e2e8f0', border: '1px solid #38bdf855' }}>
                         {s.label}
                       </a>
                     ))}
