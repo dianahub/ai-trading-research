@@ -871,9 +871,9 @@ def _fetch_astro_data() -> dict | None:
     if _astro_cache["data"] is not None and now - _astro_cache["fetched_at"] < ASTRO_CACHE_TTL:
         return _astro_cache["data"]
 
-    url = ASTRO_API_URL.rstrip("/") + "/api/v1/insights"
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/insights-feed"
     try:
-        resp = requests.get(url, headers={"x-api-key": ASTRO_API_KEY_INTERNAL}, timeout=15)
+        resp = requests.get(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=15)
         resp.raise_for_status()
         payload = resp.json()
     except Exception as e:
