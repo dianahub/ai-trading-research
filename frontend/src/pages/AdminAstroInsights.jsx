@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -112,14 +112,21 @@ function AstrologerGroup({ name, insights }) {
 }
 
 export default function AdminAstroInsights() {
-  const [data, setData]         = useState(null)
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState('')
+  const [data, setData]               = useState(null)
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState('')
   const [refreshing, setRefreshing]   = useState(false)
   const [reingesting, setReingesting] = useState(false)
   const [actionMsg, setActionMsg]     = useState('')
+  const [polling, setPolling]         = useState(false)
+  const [pollStatus, setPollStatus]   = useState('')
 
-  async function load() {
+  const pollRef          = useRef(null)
+  const pollStartRef     = useRef(null)
+  const baselineCountRef = useRef(null)
+  const elapsedRef       = useRef(0)
+
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
@@ -131,13 +138,57 @@ export default function AdminAstroInsights() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
+
+  // Polling loop: expire cache → fetch → check count
+  const pollOnce = useCallback(async () => {
+    elapsedRef.current = Math.round((Date.now() - pollStartRef.current) / 1000)
+
+    // Expire the Python cache so we get fresh data from astro-api
+    try {
+      await fetch(`${API}/admin/ingest-now`, { method: 'POST', headers: adminHeaders() })
+    } catch {}
+
+    // Give the background fetch a moment to complete
+    await new Promise(r => setTimeout(r, 4000))
+
+    try {
+      const r = await fetch(`${API}/admin/insights`, { headers: adminHeaders() })
+      if (!r.ok) return
+      const d = await r.json()
+      const newCount = d.total ?? 0
+      const elapsed  = elapsedRef.current
+
+      if (newCount !== baselineCountRef.current) {
+        setData(d)
+        setPolling(false)
+        setPollStatus(`✓ Done — ${newCount} insights (was ${baselineCountRef.current})`)
+      } else if (elapsed >= 480) {
+        setData(d)
+        setPolling(false)
+        setPollStatus('8 minutes elapsed — insight count unchanged. Ingestion may have found no new articles.')
+      } else {
+        setPollStatus(`Checking… ${elapsed}s elapsed`)
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (!polling) {
+      if (pollRef.current) clearInterval(pollRef.current)
+      return
+    }
+    pollRef.current = setInterval(pollOnce, 15000)
+    return () => clearInterval(pollRef.current)
+  }, [polling, pollOnce])
 
   async function syncCache() {
     setRefreshing(true)
     setActionMsg('')
+    setPolling(false)
+    setPollStatus('')
     try {
       const r = await fetch(`${API}/admin/ingest-now`, { method: 'POST', headers: adminHeaders() })
       const j = await r.json()
@@ -153,10 +204,19 @@ export default function AdminAstroInsights() {
   async function rerunIngestion() {
     setReingesting(true)
     setActionMsg('')
+    setPollStatus('')
     try {
       const r = await fetch(`${API}/admin/astro-reingest`, { method: 'POST', headers: adminHeaders() })
       const j = await r.json()
-      setActionMsg(j.message ?? 'Ingestion started — takes 2–5 minutes. Reload when done.')
+      if (r.ok) {
+        baselineCountRef.current = data?.total ?? 0
+        pollStartRef.current     = Date.now()
+        elapsedRef.current       = 0
+        setPollStatus('Ingestion started — checking for updates every 15s…')
+        setPolling(true)
+      } else {
+        setActionMsg(j.detail ?? 'Failed to start ingestion.')
+      }
     } catch (e) {
       setActionMsg(`Error: ${e.message}`)
     } finally {
@@ -214,19 +274,42 @@ export default function AdminAstroInsights() {
               />
               <ActionButton
                 onClick={rerunIngestion}
-                disabled={reingesting}
-                label={reingesting ? 'Starting…' : '♅ Re-run Ingestion'}
+                disabled={reingesting || polling}
+                label={reingesting ? 'Starting…' : polling ? '♅ Ingestion Running…' : '♅ Re-run Ingestion'}
                 desc="Re-scrape all RSS feeds + re-process with Claude (2–5 min)"
                 color="#1c1208"
                 textColor="#fbbf24"
                 border="#78350f"
               />
             </div>
-            {actionMsg && (
-              <p className="text-xs" style={{ color: '#94a3b8', maxWidth: 360, textAlign: 'right' }}>{actionMsg}</p>
+
+            {/* Polling status */}
+            {polling && (
+              <div className="flex items-center gap-2 mt-1" style={{ maxWidth: 360 }}>
+                <span
+                  style={{
+                    width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', flexShrink: 0,
+                    animation: 'pulse 1.5s ease-in-out infinite',
+                  }}
+                />
+                <p className="text-xs" style={{ color: '#fbbf24' }}>{pollStatus}</p>
+              </div>
+            )}
+
+            {/* One-shot action message (non-polling) */}
+            {!polling && (actionMsg || pollStatus) && (
+              <p className="text-xs" style={{
+                color: pollStatus.startsWith('✓') ? '#10b981' : '#94a3b8',
+                maxWidth: 360,
+                textAlign: 'right',
+              }}>
+                {pollStatus || actionMsg}
+              </p>
             )}
           </div>
         </div>
+
+        <style>{`@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }`}</style>
 
         {error && (
           <div className="rounded-lg px-4 py-3 mb-6 text-sm" style={{ background: '#1f0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }}>
