@@ -107,6 +107,10 @@ const ETF_TOPIC_MAP = {
   FXE: 'currency', FXY: 'currency', FXB: 'currency', FXF: 'currency',
   FXC: 'currency', FXA: 'currency', FXS: 'currency', CEW: 'currency',
   DBV: 'currency', EUFX: 'currency', USDX: 'currency',
+  // Stablecoins (dollar-pegged crypto — currency insights most relevant)
+  USDC: 'currency', USDT: 'currency', BUSD: 'currency', DAI: 'currency',
+  TUSD: 'currency', USDP: 'currency', FRAX: 'currency', LUSD: 'currency',
+  GUSD: 'currency', PYUSD: 'currency',
 }
 
 async function apiFetch(path, opts = {}) {

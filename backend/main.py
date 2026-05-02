@@ -953,6 +953,8 @@ def get_astro_ticker_summary(body: TickerSummaryRequest):
         "USDJPY": "currency", "FXE": "currency", "FXB": "currency",
         "FXY": "currency", "FXF": "currency", "FXC": "currency",
         "USD": "currency",
+        "USDC": "currency", "USDT": "currency", "BUSD": "currency", "DAI": "currency",
+        "TUSD": "currency", "USDP": "currency", "FRAX": "currency", "PYUSD": "currency",
     }
     matched_topic = topic_map.get(ticker)
     insights = [i for i in all_insights if matched_topic and i.get("topic") == matched_topic][:10]
@@ -1043,6 +1045,8 @@ def chat_celeste(body: ChatRequest):
             "USDJPY": "currency", "FXE": "currency", "FXB": "currency",
             "FXY": "currency", "FXF": "currency", "FXC": "currency",
             "USD": "currency",
+        "USDC": "currency", "USDT": "currency", "BUSD": "currency", "DAI": "currency",
+        "TUSD": "currency", "USDP": "currency", "FRAX": "currency", "PYUSD": "currency",
         }
         matched_topic = topic_map.get(body.ticker.upper())
         relevant = [i for i in insights if matched_topic and i.get("topic") == matched_topic][:6]
