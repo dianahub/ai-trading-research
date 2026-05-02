@@ -946,8 +946,13 @@ def get_astro_ticker_summary(body: TickerSummaryRequest):
         "QQQ": "tech stocks", "NVDA": "tech stocks", "AAPL": "tech stocks",
         "TSLA": "tech stocks", "AMZN": "tech stocks", "META": "tech stocks",
         "MSFT": "tech stocks", "GOOGL": "tech stocks",
-        "XOM": "oil", "CVX": "oil", "USO": "oil",
+        "XOM": "oil", "CVX": "oil", "USO": "oil", "CL": "oil",
         "JPM": "banking", "GS": "banking", "BAC": "banking",
+        "USDU": "currency", "UUP": "currency", "DXY": "currency",
+        "UDN": "currency", "EURUSD": "currency", "GBPUSD": "currency",
+        "USDJPY": "currency", "FXE": "currency", "FXB": "currency",
+        "FXY": "currency", "FXF": "currency", "FXC": "currency",
+        "USD": "currency",
     }
     matched_topic = topic_map.get(ticker)
     insights = [i for i in all_insights if matched_topic and i.get("topic") == matched_topic][:10]
@@ -1031,8 +1036,13 @@ def chat_celeste(body: ChatRequest):
             "QQQ": "tech stocks", "NVDA": "tech stocks", "AAPL": "tech stocks",
             "TSLA": "tech stocks", "AMZN": "tech stocks", "META": "tech stocks",
             "MSFT": "tech stocks", "GOOGL": "tech stocks",
-            "XOM": "oil", "CVX": "oil", "USO": "oil",
+            "XOM": "oil", "CVX": "oil", "USO": "oil", "CL": "oil",
             "JPM": "banking", "GS": "banking", "BAC": "banking",
+            "USDU": "currency", "UUP": "currency", "DXY": "currency",
+            "UDN": "currency", "EURUSD": "currency", "GBPUSD": "currency",
+            "USDJPY": "currency", "FXE": "currency", "FXB": "currency",
+            "FXY": "currency", "FXF": "currency", "FXC": "currency",
+            "USD": "currency",
         }
         matched_topic = topic_map.get(body.ticker.upper())
         relevant = [i for i in insights if matched_topic and i.get("topic") == matched_topic][:6]
