@@ -118,7 +118,7 @@ FINNHUB_API_KEY     = os.getenv("FINNHUB_API_KEY", "")
 POLYGON_API_KEY     = os.getenv("POLYGON_API_KEY", "")
 
 # Astro API integration
-ASTRO_API_URL          = os.getenv("ASTRO_API_URL", "http://localhost:3001")
+ASTRO_API_URL          = os.getenv("ASTRO_API_URL", "https://api.starsignal.io")
 ASTRO_API_KEY_INTERNAL = os.getenv("ASTRO_API_KEY_INTERNAL", "")
 
 # Auth + monetization config
@@ -861,28 +861,53 @@ def test_error_log(
 # Astro service helpers
 # ---------------------------------------------------------------------------
 
+ASTRO_CACHE_TTL = 30 * 60  # 30 minutes
+
 def _fetch_astro_data() -> dict | None:
-    """Read insights from the local in-memory cache (populated by RSS ingestion)."""
+    """Fetch insights from the astro-api service (api.starsignal.io), cached for 30 minutes.
+    Returns stale cache on network error rather than an empty response."""
     from collections import Counter
-    insights = _insights_state["insights"]
+    now = time.time()
+    if _astro_cache["data"] is not None and now - _astro_cache["fetched_at"] < ASTRO_CACHE_TTL:
+        return _astro_cache["data"]
+
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/insights"
+    try:
+        resp = requests.get(url, headers={"x-api-key": ASTRO_API_KEY_INTERNAL}, timeout=15)
+        resp.raise_for_status()
+        payload = resp.json()
+    except Exception as e:
+        print(f"[astro] Failed to fetch from astro-api ({url}): {e}", flush=True)
+        return _astro_cache["data"]  # serve stale rather than nothing
+
+    insights = payload.get("insights", [])
     if not insights:
-        return None
-    counts = Counter(i.get("outlook", "neutral") for i in insights)
-    total  = len(insights)
+        return _astro_cache["data"]
+
+    counts   = Counter(i.get("outlook", "neutral") for i in insights)
+    total    = len(insights)
     bullish  = counts.get("bullish", 0)
     bearish  = counts.get("bearish", 0)
-    volatile = counts.get("volatile", 0)
-    cautious = counts.get("cautious", 0)
-    score = round((bullish - bearish) / max(total, 1), 4)
-    return {
+    score    = round((bullish - bearish) / max(total, 1), 4)
+
+    data = {
         "sentiment_score":  score,
-        "overall_summary":  _insights_state.get("summary", ""),
-        "topic_summaries":  _insights_state.get("topic_summaries", {}),
+        "overall_summary":  payload.get("overall_summary", ""),
+        "topic_summaries":  payload.get("topic_summaries", {}),
         "total_insights":   total,
         "breakdown":        dict(counts),
         "insights":         insights,
         "astro_signal":     round(score * ASTRO_SIGNAL_WEIGHT, 4),
     }
+
+    _astro_cache["data"]       = data
+    _astro_cache["fetched_at"] = now
+    # Keep _insights_state in sync so /astro/ticker-summary and /admin/* still work
+    with _insights_lock:
+        _insights_state["insights"]   = insights
+        _insights_state["last_fetch"] = datetime.now().isoformat()
+
+    return data
 
 
 class TickerSummaryRequest(BaseModel):
@@ -7133,10 +7158,8 @@ def _schedule_ingestion_loop():
     t.start()
 
 
-try:
-    _schedule_ingestion_loop()
-except Exception as _e:
-    print(f"[ingestion] Failed to start ingestion loop: {_e}", flush=True)
+# Ingestion loop disabled — insights are now sourced directly from api.starsignal.io
+# (see _fetch_astro_data). Run _schedule_ingestion_loop() here to re-enable local ingestion.
 
 
 # ── Admin: AstrologerContact CRUD ─────────────────────────────────────────────
