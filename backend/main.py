@@ -118,7 +118,7 @@ FINNHUB_API_KEY     = os.getenv("FINNHUB_API_KEY", "")
 POLYGON_API_KEY     = os.getenv("POLYGON_API_KEY", "")
 
 # Astro API integration
-ASTRO_API_URL          = os.getenv("ASTRO_API_URL", "http://localhost:3001")
+ASTRO_API_URL          = os.getenv("ASTRO_API_URL", "https://api.starsignal.io")
 ASTRO_API_KEY_INTERNAL = os.getenv("ASTRO_API_KEY_INTERNAL", "")
 
 # Auth + monetization config
@@ -861,28 +861,55 @@ def test_error_log(
 # Astro service helpers
 # ---------------------------------------------------------------------------
 
+ASTRO_CACHE_TTL = 30 * 60  # 30 minutes
+
 def _fetch_astro_data() -> dict | None:
-    """Read insights from the local in-memory cache (populated by RSS ingestion)."""
+    """Fetch insights from the astro-api service (api.starsignal.io), cached for 30 minutes.
+    Returns stale cache on network error rather than an empty response."""
     from collections import Counter
-    insights = _insights_state["insights"]
+    now = time.time()
+    if _astro_cache["data"] is not None and now - _astro_cache["fetched_at"] < ASTRO_CACHE_TTL:
+        return _astro_cache["data"]
+
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/insights-feed"
+    try:
+        resp = requests.get(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=15)
+        resp.raise_for_status()
+        payload = resp.json()
+    except Exception as e:
+        print(f"[astro] Failed to fetch from astro-api ({url}): {e}", flush=True)
+        return _astro_cache["data"]  # serve stale rather than nothing
+
+    insights = payload.get("insights", [])
     if not insights:
-        return None
-    counts = Counter(i.get("outlook", "neutral") for i in insights)
-    total  = len(insights)
+        return _astro_cache["data"]
+
+    counts   = Counter(i.get("outlook", "neutral") for i in insights)
+    total    = len(insights)
     bullish  = counts.get("bullish", 0)
     bearish  = counts.get("bearish", 0)
-    volatile = counts.get("volatile", 0)
-    cautious = counts.get("cautious", 0)
-    score = round((bullish - bearish) / max(total, 1), 4)
-    return {
+    score    = round((bullish - bearish) / max(total, 1), 4)
+
+    overall_summary = _generate_astro_summary(insights)
+
+    data = {
         "sentiment_score":  score,
-        "overall_summary":  _insights_state.get("summary", ""),
-        "topic_summaries":  _insights_state.get("topic_summaries", {}),
+        "overall_summary":  overall_summary,
+        "topic_summaries":  payload.get("topic_summaries", {}),
         "total_insights":   total,
         "breakdown":        dict(counts),
         "insights":         insights,
         "astro_signal":     round(score * ASTRO_SIGNAL_WEIGHT, 4),
     }
+
+    _astro_cache["data"]       = data
+    _astro_cache["fetched_at"] = now
+    # Keep _insights_state in sync so /astro/ticker-summary and /admin/* still work
+    with _insights_lock:
+        _insights_state["insights"]   = insights
+        _insights_state["last_fetch"] = datetime.now().isoformat()
+
+    return data
 
 
 class TickerSummaryRequest(BaseModel):
@@ -6720,6 +6747,73 @@ _RETROSPECTIVE = re.compile(
 )
 
 
+def _parse_json_array_from_text(text: str) -> list:
+    """Robustly extract the first JSON array from Claude's response, even if there's trailing text."""
+    # Strip markdown code fences
+    cleaned = re.sub(r"^```(?:json)?\s*", "", text.strip(), flags=re.I)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    # Try direct parse first
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, list):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    # Fall back: find the outermost [...] array in the text
+    match = re.search(r'\[.*?\]', cleaned, re.DOTALL)
+    if match:
+        try:
+            parsed = json.loads(match.group())
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    return []
+
+
+def _verify_insights_against_source(insights: list[dict], content: str, title: str) -> list[dict]:
+    """Second-pass Claude check: drop any insight not explicitly supported by the article text."""
+    if not insights:
+        return []
+    numbered = "\n".join(
+        f"{i+1}. {ins['outlook'].upper()} {ins['topic']} ({ins['timeframe']}): {ins['summary']}"
+        for i, ins in enumerate(insights)
+    )
+    try:
+        client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        resp = client_a.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=256,
+            system=(
+                "You are a strict fact-checker for financial market predictions. "
+                "Given an article and a numbered list of extracted predictions, return ONLY a JSON array "
+                "of 1-based indices for predictions that are EXPLICITLY stated in the article — "
+                "not inferred, not implied, not extrapolated. "
+                "If the article content is too short or paywalled to verify, return []. "
+                "Return nothing except the JSON array."
+            ),
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Article title: {title}\n\n"
+                    f"Article content:\n{content[:4000]}\n\n"
+                    f"Predictions to verify:\n{numbered}\n\n"
+                    "Return a JSON array of indices of predictions explicitly supported by the article."
+                ),
+            }],
+        )
+        text = resp.content[0].text.strip()
+        indices = _parse_json_array_from_text(text)
+        verified = [insights[i - 1] for i in indices if isinstance(i, int) and 1 <= i <= len(insights)]
+        dropped = len(insights) - len(verified)
+        if dropped:
+            print(f"[ingestion] Verification dropped {dropped}/{len(insights)} ungrounded insights from \"{title[:60]}\"", flush=True)
+        return verified
+    except Exception as e:
+        print(f"[ingestion] WARNING: verification failed for \"{title[:60]}\": {e} — keeping all insights", flush=True)
+        return insights  # On error keep originals rather than silently dropping everything
+
+
 def _extract_insights_from_article(title, content, source_url, source_name, pub_date) -> list[dict]:
     truncated = content[:8000]
     try:
@@ -6737,11 +6831,7 @@ def _extract_insights_from_article(title, content, source_url, source_name, pub_
             }],
         )
         text = resp.content[0].text.strip()
-        cleaned = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
-        parsed = json.loads(cleaned)
-        if not isinstance(parsed, list):
-            return []
+        parsed = _parse_json_array_from_text(text)
         result = []
         for item in parsed:
             if not isinstance(item, dict):
@@ -6760,7 +6850,8 @@ def _extract_insights_from_article(title, content, source_url, source_name, pub_
                 "source_url":     item.get("source_url", source_url),
                 "published_date": item.get("published_date", pub_date),
             })
-        return result
+        # Second-pass verification: drop anything not explicitly in the source text
+        return _verify_insights_against_source(result, truncated, title)
     except Exception as e:
         print(f"[ingestion] ERROR extracting from \"{title[:60]}\": {e}", flush=True)
         return []
@@ -6930,6 +7021,7 @@ def _run_ingestion():
         for article in articles:
             # 600 chars is roughly a teaser paragraph — not enough for grounded extraction
             if not article["content"] or len(article["content"]) < 600:
+                print(f"[ingestion] SKIPPED (too short, {len(article.get('content',''))} chars): \"{article['title'][:60]}\"", flush=True)
                 continue
             if article["link"] in known_urls:
                 continue
@@ -7068,10 +7160,8 @@ def _schedule_ingestion_loop():
     t.start()
 
 
-try:
-    _schedule_ingestion_loop()
-except Exception as _e:
-    print(f"[ingestion] Failed to start ingestion loop: {_e}", flush=True)
+# Ingestion loop disabled — insights are now sourced directly from api.starsignal.io
+# (see _fetch_astro_data). Run _schedule_ingestion_loop() here to re-enable local ingestion.
 
 
 # ── Admin: AstrologerContact CRUD ─────────────────────────────────────────────
@@ -7123,15 +7213,49 @@ def admin_ingest_now(
     x_admin_email: str = Header(default=""),
     x_admin_password: str = Header(default=""),
 ):
-    """Trigger a background ingestion run immediately. Returns straight away."""
+    """Force a fresh pull from the astro-api, bypassing the 30-minute cache."""
     _require_admin(x_admin_email, x_admin_password)
     def _run():
         try:
-            _run_ingestion()
+            _astro_cache["fetched_at"] = 0.0  # expire the cache
+            _fetch_astro_data()
         except Exception as e:
             print(f"[admin ingest-now] ERROR: {e}", flush=True)
     threading.Thread(target=_run, daemon=True).start()
-    return {"status": "ingestion started", "message": "Insights will appear in 2–5 minutes once feeds are processed."}
+    return {"status": "started", "message": "Fetching latest insights from astro-api. Reload in a few seconds."}
+
+
+@app.post("/admin/astro-reingest")
+def admin_astro_reingest(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Tell astro-api to re-crawl all RSS feeds and re-process articles with Claude."""
+    _require_admin(x_admin_email, x_admin_password)
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/ingest"
+    try:
+        resp = requests.post(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to trigger astro-api ingestion: {e}")
+
+
+@app.post("/admin/astro-reprocess-all")
+def admin_astro_reprocess_all(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Wipe all astro-api insights + processed URL history, then re-ingest everything from scratch."""
+    _require_admin(x_admin_email, x_admin_password)
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/reprocess-all"
+    try:
+        resp = requests.post(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=10)
+        resp.raise_for_status()
+        _astro_cache["fetched_at"] = 0.0
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to trigger reprocess: {e}")
 
 
 @app.get("/admin/astro-status")
@@ -7496,6 +7620,23 @@ def public_insights_summary():
     bearish  = counts.get("bearish", 0)
     score    = round((bullish - bearish) / max(total, 1), 4)
     return {"sentimentScore": score, "overallSummary": "", "totalInsights": total, "breakdown": counts}
+
+
+@app.get("/admin/insights")
+def admin_get_insights(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Return all currently cached insights for the admin panel."""
+    _require_admin(x_admin_email, x_admin_password)
+    _fetch_astro_data()  # populate cache on first call if empty
+    with _insights_lock:
+        items = list(_insights_state["insights"])
+    return {
+        "total":        len(items),
+        "last_fetch":   _insights_state.get("last_fetch"),
+        "insights":     items,
+    }
 
 
 @app.get("/admin/insights/topics")
