@@ -7655,6 +7655,36 @@ def admin_insights_topics(
     }
 
 
+class _AstrologerVerifyRequest(BaseModel):
+    email:    str
+    password: str
+    secret:   str  # shared secret so only astro-api can call this
+
+@app.post("/internal/verify-astrologer")
+def internal_verify_astrologer(req: _AstrologerVerifyRequest):
+    """Called by astro-api to verify astrologer login credentials. Internal use only."""
+    internal_secret = os.getenv("INTERNAL_API_SECRET", "")
+    if not internal_secret or req.secret != internal_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    with Session(_engine) as db:
+        user = db.query(User).filter(
+            User.email == req.email.lower(),
+            User.role  == "astrologer",
+        ).first()
+        if not user or not user.password_hash:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        if not _verify_password(req.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        return {
+            "id":        user.id,
+            "name":      f"{user.first_name} {user.last_name}".strip() or user.email,
+            "email":     user.email,
+            "rss_url":   "",
+            "website":   "",
+            "status":    "approved",
+        }
+
+
 @app.get("/api/v1/health")
 def astro_health():
     with _insights_lock:
