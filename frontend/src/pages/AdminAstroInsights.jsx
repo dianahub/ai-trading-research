@@ -302,7 +302,7 @@ export default function AdminAstroInsights() {
                 onClick={rerunIngestion}
                 disabled={reingesting || polling}
                 label={reingesting ? 'Starting…' : polling ? '♅ Ingestion Running…' : '♅ Re-run Ingestion'}
-                desc="Re-scrape all RSS feeds + re-process with Claude (2–5 min)"
+                desc="New articles only — skips articles already processed"
                 color="#1c1208"
                 textColor="#fbbf24"
                 border="#78350f"
@@ -311,7 +311,7 @@ export default function AdminAstroInsights() {
                 onClick={reprocessAll}
                 disabled={reprocessing || polling}
                 label={reprocessing ? 'Starting…' : '⚠ Reprocess All'}
-                desc="Wipe all insights + re-run Claude on every article from scratch"
+                desc="Re-runs ALL articles incl. already-processed — use this to backfill raw text or fix prompts"
                 color="#1a0a1a"
                 textColor="#e879f9"
                 border="#6b21a8"
