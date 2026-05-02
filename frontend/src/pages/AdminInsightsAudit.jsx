@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -31,6 +31,7 @@ const TOPIC_COLOR = {
 }
 
 export default function AdminInsightsAudit() {
+  const { slug } = useParams()  // e.g. "rowan" from /admin/insights-audit/rowan
   const [insights, setInsights]     = useState([])
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState(null)
@@ -46,10 +47,19 @@ export default function AdminInsightsAudit() {
       .catch(e => { setError(String(e)); setLoading(false) })
   }, [])
 
-  const topics  = ['all', ...Array.from(new Set(insights.map(i => i.topic))).sort()]
-  const outlooks = ['all', ...Array.from(new Set(insights.map(i => i.outlook))).sort()]
+  // When slug is present, pre-filter to that astrologer by source_name
+  const slugLower = slug?.toLowerCase() ?? null
+  const byAstrologer = slugLower
+    ? insights.filter(i => i.source_name?.toLowerCase().includes(slugLower))
+    : insights
 
-  const filtered = insights.filter(i => {
+  // Matched astrologer display name (first result's source_name)
+  const astrologerName = byAstrologer[0]?.source_name ?? slug
+
+  const topics  = ['all', ...Array.from(new Set(byAstrologer.map(i => i.topic))).sort()]
+  const outlooks = ['all', ...Array.from(new Set(byAstrologer.map(i => i.outlook))).sort()]
+
+  const filtered = byAstrologer.filter(i => {
     if (filterTopic !== 'all' && i.topic !== filterTopic) return false
     if (filterOutlook !== 'all' && i.outlook !== filterOutlook) return false
     if (search) {
@@ -71,10 +81,17 @@ export default function AdminInsightsAudit() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <Link to="/admin/astro-insights" className="text-xs" style={{ color: '#6366f1' }}>← Astro Controls</Link>
-            <h1 className="text-xl font-bold mt-1" style={{ color: '#f8fafc' }}>Insights Audit</h1>
+            <div className="flex items-center gap-3 text-xs mb-1">
+              <Link to="/admin/astro-insights" style={{ color: '#6366f1' }}>← Astro Controls</Link>
+              {slug && <Link to="/admin/insights-audit" style={{ color: '#475569' }}>All Astrologers</Link>}
+            </div>
+            <h1 className="text-xl font-bold" style={{ color: '#f8fafc' }}>
+              {slug ? `${astrologerName} — Insights` : 'Insights Audit'}
+            </h1>
             <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>
-              All {insights.length} persisted insights · source URL · article text used for extraction
+              {byAstrologer.length} insight{byAstrologer.length !== 1 ? 's' : ''}
+              {slug ? ` from ${astrologerName}` : ` across all astrologers`}
+              {' · source URL · article text used for extraction'}
             </p>
           </div>
           <div className="text-right text-xs" style={{ color: '#475569' }}>
