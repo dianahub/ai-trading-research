@@ -393,7 +393,20 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
       otherInsights   = insights.filter(i => !matchedTopics.includes(i.topic))
     } else {
       matchedInsights = hasTopicMatch ? insights.filter(i => matchedTopics.includes(i.topic)) : []
-      otherInsights   = hasTopicMatch ? insights.filter(i => !matchedTopics.includes(i.topic)) : insights
+      if (hasTopicMatch) {
+        otherInsights = insights.filter(i => !matchedTopics.includes(i.topic))
+      } else {
+        // No insights for this topic at all — show only broad market signals (not oil/crypto/gold/war)
+        const BROAD_TOPICS = ['stock market', 'tech stocks', 'banking', 'currency']
+        const relatedTopics = assetType === 'crypto'
+          ? ['crypto', 'stock market']
+          : assetType === 'commodity'
+            ? ['gold', 'oil', 'stock market']
+            : BROAD_TOPICS
+        otherInsights = insights.filter(i => relatedTopics.includes(i.topic))
+        // Final fallback: if still nothing, show all
+        if (otherInsights.length === 0) otherInsights = insights
+      }
     }
 
     const previewPool = hasDirectMatch ? matchedInsights : insights
@@ -547,15 +560,16 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
                   <span style={{ color: '#94a3b8', flexShrink: 0 }}>ℹ</span>
                   <p className="text-sm" style={{ color: '#94a3b8' }}>
-                    No particular information found about{' '}
-                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span> in posts.{' '}
-                    The following relates to the entire{' '}
-                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>
-                      {(matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
-                        ?.replace(/\b\w/g, c => c.toUpperCase())
-                        || (assetType === 'crypto' ? 'Crypto' : 'Stock Market'))
-                      + ' category'}
-                    </span>.
+                    No specific signals found for{' '}
+                    <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span>.{' '}
+                    {previewInsights.some(i => matchedTopics.includes(i.topic))
+                      ? <>The following relates to the <span className="font-semibold" style={{ color: '#e2e8f0' }}>
+                          {(matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
+                            ?.replace(/\b\w/g, c => c.toUpperCase())
+                            || (assetType === 'crypto' ? 'Crypto' : 'Stock Market'))
+                          + ' category'}</span>.</>
+                      : <>Showing the closest available <span className="font-semibold" style={{ color: '#e2e8f0' }}>general market signals</span>.</>
+                    }
                   </p>
                 </div>
               )}
