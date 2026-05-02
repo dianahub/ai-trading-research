@@ -915,6 +915,7 @@ def _fetch_astro_data() -> dict | None:
 class TickerSummaryRequest(BaseModel):
     ticker: str
     insights: list[dict] = []  # fallback if server-side state is empty
+    current_price: float | None = None
 
 
 @app.post("/astro/ticker-summary")
@@ -975,6 +976,11 @@ def get_astro_ticker_summary(body: TickerSummaryRequest):
         f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
         for i in insights
     )
+    price_context = (
+        f"The current live price of {ticker} is ${body.current_price:,.2f}. "
+        "Do NOT mention price levels that have already been surpassed — only reference targets and support/resistance levels that are still ahead. "
+        if body.current_price else ""
+    )
     try:
         client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         resp = client_a.messages.create(
@@ -984,6 +990,7 @@ def get_astro_ticker_summary(body: TickerSummaryRequest):
                 "You are StarSignal, an astrological market guide on Starsignal.io. "
                 "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
                 f"The user is researching {ticker}. "
+                f"{price_context}"
                 f"Only discuss {ticker} — do not mention or reference any other tickers, coins, or assets even if they appear in the signals. "
                 "Answer ONLY from an astrological perspective. Keep your reply to 2 sentences maximum. Be direct and specific about which planets and timeframes matter."
             ),
