@@ -19,6 +19,20 @@ const OUTLOOK_COLOR = {
   stable:   '#94a3b8',
 }
 
+function ActionButton({ onClick, disabled, label, desc, color, textColor, border }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-lg px-4 py-2 text-left"
+      style={{ background: color, border: `1px solid ${border}`, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1, minWidth: 160 }}
+    >
+      <div className="text-sm font-semibold" style={{ color: textColor }}>{label}</div>
+      <div className="text-xs mt-0.5" style={{ color: `${textColor}99` }}>{desc}</div>
+    </button>
+  )
+}
+
 function OutlookBadge({ outlook }) {
   const color = OUTLOOK_COLOR[outlook?.toLowerCase()] ?? '#94a3b8'
   return (
@@ -101,8 +115,9 @@ export default function AdminAstroInsights() {
   const [data, setData]         = useState(null)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
-  const [refreshing, setRefreshing] = useState(false)
-  const [refreshMsg, setRefreshMsg] = useState('')
+  const [refreshing, setRefreshing]   = useState(false)
+  const [reingesting, setReingesting] = useState(false)
+  const [actionMsg, setActionMsg]     = useState('')
 
   async function load() {
     setLoading(true)
@@ -120,17 +135,32 @@ export default function AdminAstroInsights() {
 
   useEffect(() => { load() }, [])
 
-  async function forceRefresh() {
+  async function syncCache() {
     setRefreshing(true)
-    setRefreshMsg('')
+    setActionMsg('')
     try {
       const r = await fetch(`${API}/admin/ingest-now`, { method: 'POST', headers: adminHeaders() })
       const j = await r.json()
-      setRefreshMsg(j.message ?? 'Ingestion started — check back in a few minutes.')
+      setActionMsg(j.message ?? 'Cache refreshed.')
+      setTimeout(load, 3000)
     } catch (e) {
-      setRefreshMsg(`Error: ${e.message}`)
+      setActionMsg(`Error: ${e.message}`)
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  async function rerunIngestion() {
+    setReingesting(true)
+    setActionMsg('')
+    try {
+      const r = await fetch(`${API}/admin/astro-reingest`, { method: 'POST', headers: adminHeaders() })
+      const j = await r.json()
+      setActionMsg(j.message ?? 'Ingestion started — takes 2–5 minutes. Reload when done.')
+    } catch (e) {
+      setActionMsg(`Error: ${e.message}`)
+    } finally {
+      setReingesting(false)
     }
   }
 
@@ -162,27 +192,38 @@ export default function AdminAstroInsights() {
               </p>
             )}
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex gap-2">
-              <button
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex flex-wrap gap-2 justify-end">
+              <ActionButton
                 onClick={load}
                 disabled={loading}
-                className="px-4 py-2 rounded-lg text-sm font-semibold"
-                style={{ background: '#1e2d45', color: '#e2e8f0', border: '1px solid #334155', cursor: loading ? 'default' : 'pointer' }}
-              >
-                {loading ? 'Loading…' : 'Reload'}
-              </button>
-              <button
-                onClick={forceRefresh}
+                label={loading ? 'Loading…' : 'Reload'}
+                desc="Show what's in cache now"
+                color="#1e2d45"
+                textColor="#e2e8f0"
+                border="#334155"
+              />
+              <ActionButton
+                onClick={syncCache}
                 disabled={refreshing}
-                className="px-4 py-2 rounded-lg text-sm font-semibold"
-                style={{ background: 'linear-gradient(135deg,#1e1b4b,#312e81)', color: '#a5b4fc', border: '1px solid #3730a3', cursor: refreshing ? 'default' : 'pointer' }}
-              >
-                {refreshing ? 'Starting…' : '♅ Force Refresh'}
-              </button>
+                label={refreshing ? 'Syncing…' : 'Sync Cache'}
+                desc="Pull latest from astro-api"
+                color="#0c2541"
+                textColor="#7dd3fc"
+                border="#1e4976"
+              />
+              <ActionButton
+                onClick={rerunIngestion}
+                disabled={reingesting}
+                label={reingesting ? 'Starting…' : '♅ Re-run Ingestion'}
+                desc="Re-scrape all RSS feeds + re-process with Claude (2–5 min)"
+                color="#1c1208"
+                textColor="#fbbf24"
+                border="#78350f"
+              />
             </div>
-            {refreshMsg && (
-              <p className="text-xs" style={{ color: '#94a3b8', maxWidth: 300, textAlign: 'right' }}>{refreshMsg}</p>
+            {actionMsg && (
+              <p className="text-xs" style={{ color: '#94a3b8', maxWidth: 360, textAlign: 'right' }}>{actionMsg}</p>
             )}
           </div>
         </div>
@@ -198,7 +239,7 @@ export default function AdminAstroInsights() {
         )}
 
         {!loading && grouped.length === 0 && !error && (
-          <p className="text-sm" style={{ color: '#94a3b8' }}>No insights cached yet. Try Force Refresh.</p>
+          <p className="text-sm" style={{ color: '#94a3b8' }}>No insights cached yet. Try Sync Cache to pull from astro-api, or Re-run Ingestion to re-scrape feeds.</p>
         )}
 
         {grouped.map(([name, insights]) => (

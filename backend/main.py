@@ -7225,6 +7225,22 @@ def admin_ingest_now(
     return {"status": "started", "message": "Fetching latest insights from astro-api. Reload in a few seconds."}
 
 
+@app.post("/admin/astro-reingest")
+def admin_astro_reingest(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Tell astro-api to re-crawl all RSS feeds and re-process articles with Claude."""
+    _require_admin(x_admin_email, x_admin_password)
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/ingest"
+    try:
+        resp = requests.post(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to trigger astro-api ingestion: {e}")
+
+
 @app.get("/admin/astro-status")
 def admin_astro_status(
     x_admin_email: str = Header(default=""),
