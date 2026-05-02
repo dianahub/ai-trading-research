@@ -84,6 +84,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/broadcast" element={<AdminBroadcast />} />
         <Route path="/admin/astro-insights" element={<AdminAstroInsights />} />
         <Route path="/admin/insights-audit" element={<AdminInsightsAudit />} />
+        <Route path="/admin/insights-audit/:slug" element={<AdminInsightsAudit />} />
         <Route path="/feedback" element={<FeedbackPage />} />
       </Routes>
     </BrowserRouter>
