@@ -7295,6 +7295,35 @@ def admin_astro_insights_db(
         raise HTTPException(status_code=500, detail=f"Failed to fetch insights from astro-api: {e}")
 
 
+@app.get("/partner-preview/{slug}")
+def partner_preview(slug: str):
+    """Public read-only insight feed for a specific astrologer by name slug.
+
+    No auth required — safe to share with the astrologer directly.
+    Strips raw_text so article content stays admin-only.
+    """
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/insights-db"
+    try:
+        resp = requests.get(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=30)
+        resp.raise_for_status()
+        all_insights = resp.json().get("insights", [])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not load insights: {e}")
+
+    slug_lower = slug.lower()
+    matched = [
+        {k: v for k, v in i.items() if k != "raw_text"}
+        for i in all_insights
+        if slug_lower in (i.get("source_name") or "").lower()
+    ]
+
+    if not matched:
+        raise HTTPException(status_code=404, detail=f"No insights found for '{slug}'")
+
+    astrologer_name = matched[0].get("source_name", slug)
+    return {"astrologer": astrologer_name, "insights": matched, "total": len(matched)}
+
+
 @app.get("/admin/astro-status")
 def admin_astro_status(
     x_admin_email: str = Header(default=""),
