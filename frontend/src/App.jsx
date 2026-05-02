@@ -45,54 +45,94 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 // ETFs whose underlying asset is directly covered by astro API topics
 const ETF_TOPIC_MAP = {
-  // Gold ETFs
+  // ── Gold bullion ETFs ──────────────────────────────────────────────────────
   GLD: 'gold', IAU: 'gold', SGOL: 'gold', GLDM: 'gold', BAR: 'gold',
-  OUNZ: 'gold', PHYS: 'gold', AAAU: 'gold',
+  OUNZ: 'gold', PHYS: 'gold', AAAU: 'gold', IGLD: 'gold', BGLD: 'gold',
+  GLDX: 'gold', FGLD: 'gold',
   // Gold miner ETFs
-  GDX: 'gold', GDXJ: 'gold', RING: 'gold', GOAU: 'gold',
+  GDX: 'gold', GDXJ: 'gold', RING: 'gold', GOAU: 'gold', GDXY: 'gold',
+  SGDM: 'gold', SGDJ: 'gold', MNGR: 'gold',
   // Gold mining stocks
   NEM: 'gold', GOLD: 'gold', AEM: 'gold', FNV: 'gold', WPM: 'gold',
   KGC: 'gold', BTG: 'gold', IAG: 'gold', EGO: 'gold', HMY: 'gold',
   AU: 'gold', DRD: 'gold', SSRM: 'gold', OR: 'gold', RGLD: 'gold',
-  SAND: 'gold', NGD: 'gold', AUMN: 'gold', MAI: 'gold',
-  // Silver ETFs (precious metals — same astro coverage as gold)
-  SLV: 'gold', SIVR: 'gold', PSLV: 'gold', AGQ: 'gold', ZSL: 'gold',
+  SAND: 'gold', NGD: 'gold', AUMN: 'gold', MAI: 'gold', AGI: 'gold',
+  // Silver ETFs
+  SLV: 'gold', SIVR: 'gold', PSLV: 'gold', AGQ: 'gold', ZSL: 'gold', SLVR: 'gold',
   // Silver miner ETFs
   SIL: 'gold', SILJ: 'gold',
   // Silver mining stocks
   AG: 'gold', HL: 'gold', PAAS: 'gold', CDE: 'gold', MAG: 'gold',
   EXK: 'gold', SVM: 'gold', SILV: 'gold', FSM: 'gold',
-  // Broad precious metals ETFs
-  GLTR: 'gold', PPLT: 'gold',
-  // Platinum / palladium (precious metals)
-  PALL: 'gold', SPPP: 'gold',
-  // Broad metals / mining ETFs
+  // Platinum / palladium / broad precious metals
+  PPLT: 'gold', PALL: 'gold', SPPP: 'gold', GLTR: 'gold',
+  // Metals / mining ETFs
   XME: 'gold', PICK: 'gold', COPX: 'gold',
-  // Oil / Energy ETFs
-  USO: 'oil', UCO: 'oil', SCO: 'oil', DBO: 'oil', BNO: 'oil',
+
+  // ── Oil / Energy ETFs ─────────────────────────────────────────────────────
+  USO: 'oil', UCO: 'oil', SCO: 'oil', DBO: 'oil', BNO: 'oil', OILU: 'oil',
   XLE: 'oil', XOP: 'oil', OIH: 'oil', DRIP: 'oil', GUSH: 'oil',
-  FENY: 'oil', VDE: 'oil', IYE: 'oil',
-  // Oil / Energy stocks
+  FENY: 'oil', VDE: 'oil', IYE: 'oil', ERX: 'oil', ERY: 'oil',
+  CRAK: 'oil', NRGU: 'oil', NRGD: 'oil', PSCE: 'oil', IEO: 'oil',
+  // Natural gas
+  UNG: 'oil', BOIL: 'oil', KOLD: 'oil', FCG: 'oil', GASL: 'oil',
+  // MLPs / energy infrastructure
+  MLPX: 'oil', MLPA: 'oil', AMLP: 'oil', AMJ: 'oil',
+  // Coal
+  KOL: 'oil', ARCH: 'oil', BTU: 'oil', HCC: 'oil',
+  // Oil / energy stocks
   XOM: 'oil', CVX: 'oil', COP: 'oil', EOG: 'oil', PXD: 'oil',
   OXY: 'oil', DVN: 'oil', HES: 'oil', APA: 'oil', FANG: 'oil',
   MPC: 'oil', VLO: 'oil', PSX: 'oil', PBF: 'oil', DK: 'oil',
   SLB: 'oil', HAL: 'oil', BKR: 'oil', NOV: 'oil', HP: 'oil',
   LNG: 'oil', CTRA: 'oil', RRC: 'oil', AR: 'oil', EQT: 'oil',
   BP: 'oil', SHEL: 'oil', TTE: 'oil', E: 'oil', EC: 'oil',
-  // Crypto ETFs
+  ORA: 'oil',
+
+  // ── Crypto ETFs ───────────────────────────────────────────────────────────
+  // Bitcoin spot & futures
   GBTC: 'crypto', IBIT: 'crypto', FBTC: 'crypto', BITB: 'crypto',
-  ETHA: 'crypto', EZBC: 'crypto', BTCO: 'crypto',
-  // Banking / Financials ETFs
-  XLF: 'banking', KBE: 'banking', KRE: 'banking', IAT: 'banking', FAZ: 'banking',
-  // Major bank stocks
+  EZBC: 'crypto', BTCO: 'crypto', HODL: 'crypto', BRRR: 'crypto',
+  DEFI: 'crypto', ARKB: 'crypto', BTC: 'crypto', BPI: 'crypto',
+  // Leveraged / inverse Bitcoin
+  BITU: 'crypto', BITX: 'crypto', SBIT: 'crypto', BTCZ: 'crypto',
+  MSTU: 'crypto', MSTX: 'crypto',
+  // Ethereum
+  ETHA: 'crypto', FETH: 'crypto', ETHE: 'crypto', ETHW: 'crypto',
+  CETH: 'crypto', QETH: 'crypto', ETHV: 'crypto',
+  // Multi-crypto / thematic
+  GDLC: 'crypto', BSOL: 'crypto', COIN: 'crypto',
+  BLOK: 'crypto', LEGR: 'crypto', DAPP: 'crypto', WGMI: 'crypto',
+  LMBO: 'crypto', REKT: 'crypto', BITQ: 'crypto',
+
+  // ── Banking / Financials ──────────────────────────────────────────────────
+  XLF: 'banking', KBE: 'banking', KRE: 'banking', IAT: 'banking',
+  FAZ: 'banking', FAS: 'banking', KBWB: 'banking', KBWR: 'banking',
+  KBWD: 'banking', KIE: 'banking', IAI: 'banking',
+  FINX: 'banking', ARKF: 'banking', IPAY: 'banking',
+  // Major bank & finance stocks
   BAC: 'banking', JPM: 'banking', WFC: 'banking', C: 'banking', GS: 'banking',
   MS: 'banking', USB: 'banking', PNC: 'banking', TFC: 'banking', COF: 'banking',
   SCHW: 'banking', BK: 'banking', STT: 'banking', FITB: 'banking', RF: 'banking',
   HBAN: 'banking', CFG: 'banking', MTB: 'banking', KEY: 'banking', ZION: 'banking',
   CMA: 'banking', FHN: 'banking', SNV: 'banking', ALLY: 'banking', SYF: 'banking',
   DFS: 'banking', AXP: 'banking', BX: 'banking', KKR: 'banking', APO: 'banking',
-  // Tech ETFs
-  QQQ: 'tech stocks', XLK: 'tech stocks', SMH: 'tech stocks', SOXX: 'tech stocks',
+  V: 'banking', MA: 'banking', PYPL: 'banking', SQ: 'banking',
+
+  // ── Tech stocks ───────────────────────────────────────────────────────────
+  // Broad tech ETFs
+  QQQ: 'tech stocks', QQQM: 'tech stocks', XLK: 'tech stocks',
+  VGT: 'tech stocks', FTEC: 'tech stocks', IYW: 'tech stocks', IGM: 'tech stocks',
+  // Semiconductors
+  SMH: 'tech stocks', SOXX: 'tech stocks', SOXL: 'tech stocks', SOXS: 'tech stocks',
+  USD: 'tech stocks',
+  // Cloud / SaaS
+  CLOU: 'tech stocks', SKYY: 'tech stocks', WCLD: 'tech stocks', IVES: 'tech stocks',
+  // AI / innovation
+  ARKK: 'tech stocks', ARKY: 'tech stocks', AIQ: 'tech stocks', BOTZ: 'tech stocks',
+  ROBO: 'tech stocks', IRBO: 'tech stocks', THNQ: 'tech stocks', CHAT: 'tech stocks',
+  // Cybersecurity
+  CIBR: 'tech stocks', BUG: 'tech stocks', HACK: 'tech stocks', IHAK: 'tech stocks',
   // Tech stocks
   AAPL: 'tech stocks', MSFT: 'tech stocks', NVDA: 'tech stocks', GOOGL: 'tech stocks',
   GOOG: 'tech stocks', META: 'tech stocks', AMZN: 'tech stocks', TSLA: 'tech stocks',
@@ -102,12 +142,45 @@ const ETF_TOPIC_MAP = {
   NOW: 'tech stocks', SNOW: 'tech stocks', PLTR: 'tech stocks', UBER: 'tech stocks',
   SHOP: 'tech stocks', NET: 'tech stocks', CRWD: 'tech stocks', PANW: 'tech stocks',
   ADBE: 'tech stocks', INTU: 'tech stocks', NFLX: 'tech stocks', SPOT: 'tech stocks',
-  // Currency / USD ETFs & forex
+  MSTR: 'tech stocks', COIN: 'crypto', ARM: 'tech stocks', SMCI: 'tech stocks',
+
+  // ── Broad stock market ────────────────────────────────────────────────────
+  // S&P 500
+  SPY: 'stock market', VOO: 'stock market', IVV: 'stock market',
+  SPLG: 'stock market', SPXL: 'stock market', SPXS: 'stock market',
+  UPRO: 'stock market', SPXU: 'stock market', SSO: 'stock market',
+  // Nasdaq / growth
+  TQQQ: 'stock market', SQQQ: 'stock market', QLD: 'stock market',
+  // Total market
+  VTI: 'stock market', ITOT: 'stock market', SPTM: 'stock market', SCHB: 'stock market',
+  // Large / mid / small cap
+  VO: 'stock market', VB: 'stock market', VUG: 'stock market', VTV: 'stock market',
+  IWM: 'stock market', IWB: 'stock market', IWV: 'stock market',
+  MDY: 'stock market', IJH: 'stock market', IJR: 'stock market',
+  AVUV: 'stock market', AVLV: 'stock market',
+  // Dividend / value
+  VYM: 'stock market', SCHD: 'stock market', DVY: 'stock market',
+  HDV: 'stock market', DGRO: 'stock market', SDY: 'stock market',
+  // International / emerging
+  VXUS: 'stock market', VEA: 'stock market', EFA: 'stock market', IEFA: 'stock market',
+  EEM: 'stock market', VWO: 'stock market', IEMG: 'stock market',
+  EWZ: 'stock market', FXI: 'stock market', EWJ: 'stock market', EWG: 'stock market',
+  EWU: 'stock market', EWC: 'stock market', MCHI: 'stock market',
+  // Sector ETFs (non-tech/energy/finance)
+  XLV: 'stock market', XLY: 'stock market', XLP: 'stock market',
+  XLI: 'stock market', XLB: 'stock market', XLU: 'stock market', XLRE: 'stock market',
+  XLC: 'stock market',
+  // Volatility
+  VXX: 'stock market', UVXY: 'stock market', SVXY: 'stock market',
+
+  // ── Currency / USD ETFs & forex ───────────────────────────────────────────
   UUP: 'currency', UDN: 'currency', USDU: 'currency', DXY: 'currency',
   FXE: 'currency', FXY: 'currency', FXB: 'currency', FXF: 'currency',
   FXC: 'currency', FXA: 'currency', FXS: 'currency', CEW: 'currency',
   DBV: 'currency', EUFX: 'currency', USDX: 'currency',
-  // Stablecoins (dollar-pegged crypto — currency insights most relevant)
+  EUO: 'currency', YCS: 'currency', FXP: 'currency',
+  LEMB: 'currency', EMLC: 'currency',
+  // Stablecoins
   USDC: 'currency', USDT: 'currency', BUSD: 'currency', DAI: 'currency',
   TUSD: 'currency', USDP: 'currency', FRAX: 'currency', LUSD: 'currency',
   GUSD: 'currency', PYUSD: 'currency',
