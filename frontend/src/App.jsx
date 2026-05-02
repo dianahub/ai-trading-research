@@ -305,8 +305,9 @@ export default function App() {
       .catch(() => null) // silent failure
   }, [])
 
-  // Fire ticker-specific astro summary whenever ticker or astroData changes.
-  // Sends whatever insights are available at the time; backend also checks server-side state.
+  // Fire ticker-specific astro summary whenever ticker, astroData, or the live price changes.
+  // Re-fires once price loads so Claude can skip already-surpassed levels.
+  const currentPrice = data?.price?.price_usd ?? null
   useEffect(() => {
     if (!ticker) return
     let cancelled = false
@@ -334,7 +335,7 @@ export default function App() {
     apiFetch('/astro/ticker-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker, insights }),
+      body: JSON.stringify({ ticker, insights, current_price: currentPrice }),
       signal: controller.signal,
     })
       .then(d => {
@@ -350,7 +351,8 @@ export default function App() {
       .finally(() => clearTimeout(timeout))
 
     return () => { cancelled = true; controller.abort(); clearTimeout(timeout) }
-  }, [ticker, astroData])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticker, astroData, currentPrice])
 
 const handleToggleAstro = () => setShowAstro(prev => !prev)
 
