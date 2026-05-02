@@ -118,8 +118,9 @@ export default function AdminAstroInsights() {
   const [refreshing, setRefreshing]   = useState(false)
   const [reingesting, setReingesting] = useState(false)
   const [actionMsg, setActionMsg]     = useState('')
-  const [polling, setPolling]         = useState(false)
-  const [pollStatus, setPollStatus]   = useState('')
+  const [polling, setPolling]           = useState(false)
+  const [pollStatus, setPollStatus]     = useState('')
+  const [reprocessing, setReprocessing] = useState(false)
 
   const pollRef          = useRef(null)
   const pollStartRef     = useRef(null)
@@ -198,6 +199,30 @@ export default function AdminAstroInsights() {
       setActionMsg(`Error: ${e.message}`)
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  async function reprocessAll() {
+    if (!window.confirm('This will delete all existing insights and re-run Claude extraction on every article. Continue?')) return
+    setReprocessing(true)
+    setActionMsg('')
+    setPollStatus('')
+    try {
+      const r = await fetch(`${API}/admin/astro-reprocess-all`, { method: 'POST', headers: adminHeaders() })
+      const j = await r.json()
+      if (r.ok) {
+        baselineCountRef.current = 0
+        pollStartRef.current     = Date.now()
+        elapsedRef.current       = 0
+        setPollStatus(`Reprocessing all articles — checking every 15s…`)
+        setPolling(true)
+      } else {
+        setActionMsg(j.detail ?? 'Failed to start reprocess.')
+      }
+    } catch (e) {
+      setActionMsg(`Error: ${e.message}`)
+    } finally {
+      setReprocessing(false)
     }
   }
 
@@ -280,6 +305,15 @@ export default function AdminAstroInsights() {
                 color="#1c1208"
                 textColor="#fbbf24"
                 border="#78350f"
+              />
+              <ActionButton
+                onClick={reprocessAll}
+                disabled={reprocessing || polling}
+                label={reprocessing ? 'Starting…' : '⚠ Reprocess All'}
+                desc="Wipe all insights + re-run Claude on every article from scratch"
+                color="#1a0a1a"
+                textColor="#e879f9"
+                border="#6b21a8"
               />
             </div>
 

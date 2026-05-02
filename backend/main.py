@@ -7241,6 +7241,23 @@ def admin_astro_reingest(
         raise HTTPException(status_code=500, detail=f"Failed to trigger astro-api ingestion: {e}")
 
 
+@app.post("/admin/astro-reprocess-all")
+def admin_astro_reprocess_all(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Wipe all astro-api insights + processed URL history, then re-ingest everything from scratch."""
+    _require_admin(x_admin_email, x_admin_password)
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/reprocess-all"
+    try:
+        resp = requests.post(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=10)
+        resp.raise_for_status()
+        _astro_cache["fetched_at"] = 0.0
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to trigger reprocess: {e}")
+
+
 @app.get("/admin/astro-status")
 def admin_astro_status(
     x_admin_email: str = Header(default=""),
