@@ -7295,6 +7295,80 @@ def admin_astro_insights_db(
         raise HTTPException(status_code=500, detail=f"Failed to fetch insights from astro-api: {e}")
 
 
+def _astro_social(method: str, path: str, **kwargs):
+    """Internal helper: call astro-api social admin routes."""
+    url = ASTRO_API_URL.rstrip("/") + f"/api/v1{path}"
+    hdrs = {"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}
+    if method == "GET":
+        return requests.get(url, headers=hdrs, timeout=30)
+    return requests.post(url, headers=hdrs, timeout=30, **kwargs)
+
+
+@app.get("/admin/social/posts")
+def admin_social_posts(
+    days: int = 30,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    resp = _astro_social("GET", f"/admin/social/posts?days={days}")
+    return resp.json()
+
+
+@app.get("/admin/social/preview-status")
+def admin_social_preview_status(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    return _astro_social("GET", "/admin/social/preview-status").json()
+
+
+@app.get("/admin/social/settings")
+def admin_social_settings(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    return _astro_social("GET", "/admin/social/settings").json()
+
+
+@app.post("/admin/social/generate-preview")
+def admin_social_generate_preview(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    return _astro_social("POST", "/admin/social/generate-preview").json()
+
+
+@app.post("/admin/social/post-preview")
+def admin_social_post_preview(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    return _astro_social("POST", "/admin/social/post-preview").json()
+
+
+@app.post("/admin/social/skip-today")
+def admin_social_skip_today(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    return _astro_social("POST", "/admin/social/skip-today").json()
+
+
+@app.post("/admin/social/run-now")
+def admin_social_run_now(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    return _astro_social("POST", "/admin/social/run-now").json()
+
+
 @app.get("/partner-preview/{slug}")
 def partner_preview(slug: str):
     """Public read-only insight feed for a specific astrologer by name slug.

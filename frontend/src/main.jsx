@@ -38,6 +38,7 @@ import AdminBroadcast from './pages/AdminBroadcast.jsx'
 import AdminAstroInsights from './pages/AdminAstroInsights.jsx'
 import AdminInsightsAudit from './pages/AdminInsightsAudit.jsx'
 import PartnerPreview from './pages/PartnerPreview.jsx'
+import AdminSocialContent from './pages/AdminSocialContent.jsx'
 import FeedbackPage from './pages/FeedbackPage.jsx'
 import ContactApiPage from './pages/ContactApiPage.jsx'
 
@@ -87,6 +88,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/astro-insights" element={<AdminAstroInsights />} />
         <Route path="/admin/insights-audit" element={<AdminInsightsAudit />} />
         <Route path="/admin/insights-audit/:slug" element={<AdminInsightsAudit />} />
+        <Route path="/admin/social-content" element={<AdminSocialContent />} />
         <Route path="/feedback" element={<FeedbackPage />} />
       </Routes>
     </BrowserRouter>
