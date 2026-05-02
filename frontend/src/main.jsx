@@ -37,6 +37,7 @@ import AdminFeedback from './pages/AdminFeedback.jsx'
 import AdminBroadcast from './pages/AdminBroadcast.jsx'
 import AdminAstroInsights from './pages/AdminAstroInsights.jsx'
 import AdminInsightsAudit from './pages/AdminInsightsAudit.jsx'
+import PartnerPreview from './pages/PartnerPreview.jsx'
 import FeedbackPage from './pages/FeedbackPage.jsx'
 import ContactApiPage from './pages/ContactApiPage.jsx'
 
@@ -45,6 +46,7 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />} />
+        <Route path="/partner-preview/:slug" element={<PartnerPreview />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
