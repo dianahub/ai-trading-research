@@ -890,9 +890,11 @@ def _fetch_astro_data() -> dict | None:
     bearish  = counts.get("bearish", 0)
     score    = round((bullish - bearish) / max(total, 1), 4)
 
+    overall_summary = _generate_astro_summary(insights)
+
     data = {
         "sentiment_score":  score,
-        "overall_summary":  payload.get("overall_summary", ""),
+        "overall_summary":  overall_summary,
         "topic_summaries":  payload.get("topic_summaries", {}),
         "total_insights":   total,
         "breakdown":        dict(counts),
