@@ -310,6 +310,7 @@ export default function App() {
   useEffect(() => {
     if (!ticker) return
     let cancelled = false
+    const controller = new AbortController()
 
     setAstroTickerLoading(true)
     setAstroTickerSummary('')
@@ -328,10 +329,13 @@ export default function App() {
       insights = relevant.slice(0, 10)
     }
 
+    const timeout = setTimeout(() => controller.abort(), 20000)
+
     apiFetch('/astro/ticker-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticker, insights }),
+      signal: controller.signal,
     })
       .then(d => {
         if (cancelled) return
@@ -343,8 +347,9 @@ export default function App() {
         setAstroTickerSummary('')
         setAstroTickerLoading(false)
       })
+      .finally(() => clearTimeout(timeout))
 
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort(); clearTimeout(timeout) }
   }, [ticker, astroData])
 
 const handleToggleAstro = () => setShowAstro(prev => !prev)
