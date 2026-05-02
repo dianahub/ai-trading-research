@@ -7279,6 +7279,22 @@ def admin_astro_reprocess_all(
         raise HTTPException(status_code=500, detail=f"Failed to trigger reprocess: {e}")
 
 
+@app.get("/admin/astro-insights-db")
+def admin_astro_insights_db(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Proxy all persisted insights from astro-api DB for the audit page."""
+    _require_admin(x_admin_email, x_admin_password)
+    url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/insights-db"
+    try:
+        resp = requests.get(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch insights from astro-api: {e}")
+
+
 @app.get("/admin/astro-status")
 def admin_astro_status(
     x_admin_email: str = Header(default=""),

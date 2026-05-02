@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-const ASTRO_API = 'https://api.starsignal.io/api/v1'
-const ASTRO_KEY  = 'BiscuitLove1234'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+function adminHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'x-admin-email':    'contact@starsignal.io',
+    'x-admin-password': 'BISCUITLOVE',
+  }
+}
 
 const OUTLOOK_COLOR = {
   bullish:  { bg: '#052e1a', border: '#10b981', text: '#34d399' },
@@ -33,9 +40,7 @@ export default function AdminInsightsAudit() {
   const [search, setSearch]         = useState('')
 
   useEffect(() => {
-    fetch(`${ASTRO_API}/admin/insights-db`, {
-      headers: { Authorization: `Bearer ${ASTRO_KEY}` },
-    })
+    fetch(`${API}/admin/astro-insights-db`, { headers: adminHeaders() })
       .then(r => r.json())
       .then(d => { setInsights(d.insights ?? []); setLoading(false) })
       .catch(e => { setError(String(e)); setLoading(false) })
