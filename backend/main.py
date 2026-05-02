@@ -7563,6 +7563,22 @@ def public_insights_summary():
     return {"sentimentScore": score, "overallSummary": "", "totalInsights": total, "breakdown": counts}
 
 
+@app.get("/admin/insights")
+def admin_get_insights(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Return all currently cached insights for the admin panel."""
+    _require_admin(x_admin_email, x_admin_password)
+    with _insights_lock:
+        items = list(_insights_state["insights"])
+    return {
+        "total":        len(items),
+        "last_fetch":   _insights_state.get("last_fetch"),
+        "insights":     items,
+    }
+
+
 @app.get("/admin/insights/topics")
 def admin_insights_topics(
     x_admin_email: str = Header(default=""),

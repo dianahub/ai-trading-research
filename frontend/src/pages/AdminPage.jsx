@@ -26,6 +26,12 @@ const PAGES = [
     icon:  '$',
   },
   {
+    path:  '/admin/astro-insights',
+    title: 'Astro Insights',
+    desc:  'View all cached insights per astrologer — summary, topic, symbol, and source link. Force refresh.',
+    icon:  '♅',
+  },
+  {
     path:  '/admin/astrologers',
     title: 'Astrologer Contacts',
     desc:  'Contact info for astrologers whose feeds are used in the API.',
