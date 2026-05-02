@@ -102,8 +102,11 @@ const ETF_TOPIC_MAP = {
   NOW: 'tech stocks', SNOW: 'tech stocks', PLTR: 'tech stocks', UBER: 'tech stocks',
   SHOP: 'tech stocks', NET: 'tech stocks', CRWD: 'tech stocks', PANW: 'tech stocks',
   ADBE: 'tech stocks', INTU: 'tech stocks', NFLX: 'tech stocks', SPOT: 'tech stocks',
-  // Currency
-  UUP: 'currency', FXE: 'currency', FXY: 'currency', FXB: 'currency', FXF: 'currency',
+  // Currency / USD ETFs & forex
+  UUP: 'currency', UDN: 'currency', USDU: 'currency', DXY: 'currency',
+  FXE: 'currency', FXY: 'currency', FXB: 'currency', FXF: 'currency',
+  FXC: 'currency', FXA: 'currency', FXS: 'currency', CEW: 'currency',
+  DBV: 'currency', EUFX: 'currency', USDX: 'currency',
 }
 
 async function apiFetch(path, opts = {}) {
