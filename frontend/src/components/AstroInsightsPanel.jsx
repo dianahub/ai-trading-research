@@ -513,8 +513,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                     {' '}The following relates to the entire{' '}
                     {(() => {
                       const specific = matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
-                      if (specific) return specific.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
-                      return assetType === 'crypto' ? 'crypto market' : 'stock market'
+                      return (specific?.replace(/\b\w/g, c => c.toUpperCase()) || (assetType === 'crypto' ? 'Crypto' : 'Stock Market')) + ' category'
                     })()}.
                   </p>
                 </div>
@@ -552,9 +551,10 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                     <span className="font-semibold" style={{ color: '#e2e8f0' }}>{ticker}</span> in posts.{' '}
                     The following relates to the entire{' '}
                     <span className="font-semibold" style={{ color: '#e2e8f0' }}>
-                      {matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
-                        ?.replace(/\b\w/g, c => c.toUpperCase()) + ' category'
-                        || (assetType === 'crypto' ? 'crypto market' : 'stock market')}
+                      {(matchedTopics.find(t => t !== 'stock market' && t !== 'financial markets')
+                        ?.replace(/\b\w/g, c => c.toUpperCase())
+                        || (assetType === 'crypto' ? 'Crypto' : 'Stock Market'))
+                      + ' category'}
                     </span>.
                   </p>
                 </div>
