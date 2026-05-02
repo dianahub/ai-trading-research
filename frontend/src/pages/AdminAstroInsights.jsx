@@ -264,9 +264,10 @@ export default function AdminAstroInsights() {
   return (
     <div className="min-h-screen" style={{ background: '#060a14', color: '#e2e8f0' }}>
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <Link to="/admin" className="text-xs mb-8 inline-block" style={{ color: '#94a3b8', textDecoration: 'none' }}>
-          ← Admin
-        </Link>
+        <div className="flex items-center gap-4 mb-8">
+          <Link to="/admin" className="text-xs" style={{ color: '#94a3b8', textDecoration: 'none' }}>← Admin</Link>
+          <Link to="/admin/insights-audit" className="text-xs" style={{ color: '#6366f1', textDecoration: 'none' }}>Audit all cards →</Link>
+        </div>
         <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-black mb-1" style={{ color: '#f1f5f9' }}>Astro Insights</h1>
