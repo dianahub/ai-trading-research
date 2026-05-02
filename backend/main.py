@@ -985,14 +985,14 @@ def get_astro_ticker_summary(body: TickerSummaryRequest):
         client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         resp = client_a.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=150,
+            max_tokens=250,
             system=(
                 "You are StarSignal, an astrological market guide on Starsignal.io. "
                 "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
                 f"The user is researching {ticker}. "
                 f"{price_context}"
                 f"Only discuss {ticker} — do not mention or reference any other tickers, coins, or assets even if they appear in the signals. "
-                "Answer ONLY from an astrological perspective. Keep your reply to 2 sentences maximum. Be direct and specific about which planets and timeframes matter."
+                "Answer ONLY from an astrological perspective. Write 2–3 complete sentences maximum. Always finish your last sentence — never cut off mid-thought."
             ),
             messages=[{"role": "user", "content": (
                 f"Current astrological signals:\n{context}\n\n"
