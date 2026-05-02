@@ -873,7 +873,7 @@ def _fetch_astro_data() -> dict | None:
 
     url = ASTRO_API_URL.rstrip("/") + "/api/v1/admin/insights-feed"
     try:
-        resp = requests.get(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=15)
+        resp = requests.get(url, headers={"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}, timeout=30)
         resp.raise_for_status()
         payload = resp.json()
     except Exception as e:
