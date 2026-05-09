@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BarChart2, Activity, TrendingUp, ChevronDown, Cpu } from 'lucide-react'
+import { BarChart2, Activity, TrendingUp, ChevronDown, Cpu, PieChart } from 'lucide-react'
 
 function AnalysisCard({ icon: Icon, title, accentColor, children }) {
   return (
@@ -122,6 +122,24 @@ export default function AnalysisCards({ analysis }) {
               </div>
               <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
                 {analysis.support_resistance_analysis}
+              </p>
+            </div>
+          )}
+
+          {analysis.fundamentals_analysis && (
+            <div className="rounded-xl p-5"
+              style={{ background: '#0a0e1a', border: '1px solid #1e2d45' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ background: '#8b5cf622' }}>
+                  <PieChart size={14} style={{ color: '#8b5cf6' }} />
+                </div>
+                <h3 className="text-xs uppercase tracking-widest font-semibold" style={{ color: '#94a3b8' }}>
+                  Fundamentals Analysis
+                </h3>
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>
+                {analysis.fundamentals_analysis}
               </p>
             </div>
           )}
