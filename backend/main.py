@@ -4811,7 +4811,7 @@ def oauth_google_callback(
                     password_hash=None,
                     first_name=first_name,
                     last_name=last_name,
-                    tier="free",
+                    tier="beta",
                     email_verified=True,
                     google_id=google_id,
                     referral_code=ref_code,
