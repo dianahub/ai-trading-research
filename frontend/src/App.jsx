@@ -455,6 +455,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ticker,
+                asset_type: isStock ? 'stock' : 'crypto',
                 price_data: price,
                 headlines: news.articles?.map(a => a.title) ?? [],
                 technical_data: technicals,
