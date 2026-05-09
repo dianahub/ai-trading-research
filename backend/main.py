@@ -7,6 +7,7 @@ import secrets
 import calendar
 import threading
 import traceback
+import urllib.parse
 import html as _html_module
 import resend
 import requests
@@ -18,7 +19,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Cookie, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Float, text
@@ -138,6 +139,9 @@ STRIPE_API_STARTER_PRICE_ID = os.getenv("STRIPE_API_STARTER_PRICE_ID", "")
 STRIPE_API_PRO_PRICE_ID   = os.getenv("STRIPE_API_PRO_PRICE_ID", "")
 STRIPE_CONNECT_CLIENT_ID  = os.getenv("STRIPE_CONNECT_CLIENT_ID", "")
 BETA_OPEN_ENV             = os.getenv("BETA_OPEN", "true").lower() == "true"
+GOOGLE_CLIENT_ID          = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET      = os.getenv("GOOGLE_CLIENT_SECRET", "")
+BACKEND_URL               = os.getenv("BACKEND_URL", "http://localhost:8000")
 if _stripe_available and STRIPE_SECRET_KEY:
     _stripe.api_key = STRIPE_SECRET_KEY
 
@@ -3880,6 +3884,7 @@ class User(_Base):
     beta_day25_sent             = Column(Boolean, default=False)
     role                        = Column(String, default="user")  # user|astrologer|influencer|admin
     api_key                     = Column(String, nullable=True)
+    google_id                   = Column(String, nullable=True, unique=True, index=True)
     created_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                                          onupdate=lambda: datetime.now(timezone.utc))
@@ -4057,6 +4062,14 @@ except Exception:
 try:
     with _engine.connect() as _conn:
         _conn.execute(text("ALTER TABLE persisted_insights ADD COLUMN symbol TEXT"))
+        _conn.commit()
+except Exception:
+    pass  # column already exists
+
+# Add google_id column to users table (idempotent)
+try:
+    with _engine.connect() as _conn:
+        _conn.execute(text("ALTER TABLE users ADD COLUMN google_id TEXT"))
         _conn.commit()
 except Exception:
     pass  # column already exists
@@ -4384,6 +4397,7 @@ def _user_dict(u: User) -> dict:
         "last_login": u.last_login.isoformat() if u.last_login else None,
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "role": u.role or "user",
+        "has_password": bool(u.password_hash),
     }
 
 
@@ -4553,6 +4567,119 @@ def auth_me(ss_session: Optional[str] = Cookie(None)):
         if not user:
             return {"user": None}
         return {"user": _user_dict(user)}
+
+
+# ── Google OAuth ────────────────────────────────────────────────────────────────
+
+@app.get("/auth/oauth/google")
+def oauth_google_start(redirect: str = "/"):
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(503, "Google OAuth not configured")
+    state = secrets.token_urlsafe(16)
+    state_data = f"{state}:{urllib.parse.quote(redirect, safe='/')}"
+    params = urllib.parse.urlencode({
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": f"{BACKEND_URL}/auth/oauth/google/callback",
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "online",
+        "prompt": "select_account",
+    })
+    resp = RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+    resp.set_cookie("oauth_state", state_data, httponly=True, samesite="lax",
+                    secure=True, max_age=600)
+    return resp
+
+
+@app.get("/auth/oauth/google/callback")
+def oauth_google_callback(
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    oauth_state: Optional[str] = Cookie(None),
+):
+    FURL = frontend_url or SITE_URL
+    fail_url = f"{FURL}/login?error=oauth_failed"
+
+    if error or not code:
+        return RedirectResponse(f"{FURL}/login?error=oauth_cancelled")
+    if not oauth_state or ":" not in oauth_state:
+        return RedirectResponse(fail_url)
+
+    stored_state, encoded_redirect = oauth_state.split(":", 1)
+    if stored_state != state:
+        return RedirectResponse(fail_url)
+
+    redirect_path = urllib.parse.unquote(encoded_redirect) or "/"
+
+    try:
+        import httpx as _httpx
+        token_resp = _httpx.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": f"{BACKEND_URL}/auth/oauth/google/callback",
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+        if not token_resp.is_success:
+            return RedirectResponse(fail_url)
+        access_token = token_resp.json().get("access_token")
+
+        userinfo_resp = _httpx.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        if not userinfo_resp.is_success:
+            return RedirectResponse(fail_url)
+        guser = userinfo_resp.json()
+    except Exception:
+        return RedirectResponse(fail_url)
+
+    google_id = guser.get("id")
+    email = guser.get("email", "").lower()
+    first_name = guser.get("given_name", "")
+    last_name = guser.get("family_name", "")
+
+    if not email or not google_id:
+        return RedirectResponse(fail_url)
+
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.google_id == google_id).first()
+        if not user:
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                user.google_id = google_id
+                user.email_verified = True
+            else:
+                ref_code = _unique_referral_code(db)
+                user = User(
+                    email=email,
+                    password_hash=None,
+                    first_name=first_name,
+                    last_name=last_name,
+                    tier="free",
+                    email_verified=True,
+                    google_id=google_id,
+                    referral_code=ref_code,
+                )
+                db.add(user)
+                db.flush()
+
+        user.last_login = datetime.now(timezone.utc)
+        db.commit()
+        raw_token = _create_session(db, user.id, remember=True)
+
+    final = RedirectResponse(f"{FURL}{redirect_path}")
+    final.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+                     secure=True, max_age=60 * 60 * 24 * 30)
+    final.delete_cookie("oauth_state")
+    return final
 
 
 # ── Email verification ─────────────────────────────────────────────────────────
