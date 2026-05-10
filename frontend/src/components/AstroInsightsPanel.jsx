@@ -546,7 +546,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
                   <div className="flex items-center gap-4 mb-3">
                     <MoodIllustration score={filteredScore ?? sentiment_score} />
                     <p className="text-sm font-bold tracking-wide" style={{ color: '#34d399' }}>
-                      ♅ {ticker} Astrological Outlook <span style={{ fontWeight: 400, fontSize: 11, color: '#6ee7b7', letterSpacing: 0 }}>(AI generated from all astrologers insights)</span>
+                      ♅ {ticker} Astrological Outlook <span style={{ fontWeight: 400, fontSize: 11, color: '#6ee7b7', letterSpacing: 0 }}>(AI generated from all astrologers insights and incorporation date)</span>
                     </p>
                   </div>
                   <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{tickerSummary}</p>
