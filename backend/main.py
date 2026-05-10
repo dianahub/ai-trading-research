@@ -1814,14 +1814,15 @@ Respond with this exact JSON structure:
 Rules:
 - overall_sentiment and news_sentiment must be exactly one of: bullish, bearish, neutral
 - confidence_score is an integer from 1 (very uncertain) to 10 (very certain)
-- key_opportunities and key_risks must each have exactly 4-5 items
-- technical_summary must be exactly 2 paragraphs
-- research_summary must be exactly 3 paragraphs: paragraph 1 covers technicals and price action, paragraph 2 covers fundamentals, news, insider activity, and options, paragraph 3 must explicitly address the astrological signal and overall market timing outlook if astro data was provided, otherwise synthesize all signals into a final outlook
-- fundamentals_analysis must assess the company's financial health — margins, revenue growth, debt load, cash flow, and whether valuation (P/E, earnings surprises) is compelling or stretched relative to fundamentals
-- insider_analysis must explain what the insider activity signals about management conviction
-- options_analysis must explain what the options market is pricing in (P/C ratio, max pain, unusual flow)
-- smart_money_summary must combine insider and options signals into one overall smart money assessment
-- Pay special attention to cluster buying and unusual options activity — these are historically significant
+- key_opportunities and key_risks must each have exactly 4-5 items, each item under 15 words
+- technical_summary must be exactly 2 short paragraphs (2-3 sentences each)
+- research_summary must be exactly 3 short paragraphs (2-3 sentences each): paragraph 1 covers technicals and price action, paragraph 2 covers fundamentals, news, insider activity, and options, paragraph 3 must explicitly address the astrological signal and overall market timing outlook if astro data was provided, otherwise synthesize all signals into a final outlook
+- fundamentals_analysis must be 2-3 sentences: assess margins, growth, debt, and whether valuation is compelling
+- insider_analysis must be 1-2 sentences on what insider activity signals about management conviction
+- options_analysis must be 1-2 sentences on what the options market is pricing in
+- smart_money_summary must be 1-2 sentences combining insider and options signals
+- support_resistance_analysis, macd_analysis, volume_analysis must each be 1-2 sentences
+- Be concise — prioritize insight over length
 - disclaimer must be exactly: "This is educational research only. Not financial advice."
 """
         required = {
@@ -1927,7 +1928,7 @@ Rules:
         client  = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=1500,
+            max_tokens=2500,
             system=system_prompt,
             messages=[{"role": "user", "content": prompt}],
         )
