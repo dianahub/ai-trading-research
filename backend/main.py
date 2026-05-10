@@ -1794,6 +1794,22 @@ def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypas
                 + f"Note: This signal is derived from financial astrology sources. "
                 f"Incorporate it meaningfully into the research_summary third paragraph.\n"
             )
+        try:
+            _ci = _lookup_company(upper)
+            if _ci.get("incorporation_date"):
+                from datetime import date as _date
+                _inc = datetime.strptime(_ci["incorporation_date"], "%Y-%m-%d").date()
+                _yrs = (_date.today() - _inc).days / 365.25
+                astro_block += (
+                    f"\n## Natal Chart Data\n"
+                    f"Incorporation date: {_ci['incorporation_date']} ({_ci['date_label']})\n"
+                    f"Years since incorporation: {_yrs:.1f}\n"
+                    f"Use this to compute active planetary cycles (Jupiter=11.9yr, Saturn=29.5yr, "
+                    f"Uranus opposition=42yr, Chiron return=50.7yr, Uranus return=84yr) and include "
+                    f"cycle timing in the research_summary third paragraph.\n"
+                )
+        except Exception:
+            pass
 
         prompt = f"""Analyze the following data for {upper} (Stock) and respond with a JSON object only — no markdown, no extra text.
 
@@ -1886,6 +1902,22 @@ Rules:
                 + f"Note: This signal is derived from financial astrology sources. "
                 f"Incorporate it meaningfully into the research_summary third paragraph.\n"
             )
+        try:
+            _ci = _lookup_company(upper)
+            if _ci.get("incorporation_date"):
+                from datetime import date as _date
+                _inc = datetime.strptime(_ci["incorporation_date"], "%Y-%m-%d").date()
+                _yrs = (_date.today() - _inc).days / 365.25
+                astro_block += (
+                    f"\n## Natal Chart Data\n"
+                    f"Genesis date: {_ci['incorporation_date']} ({_ci['date_label']})\n"
+                    f"Years since genesis: {_yrs:.1f}\n"
+                    f"Use this to compute active planetary cycles (Jupiter=11.9yr, Saturn=29.5yr, "
+                    f"Uranus opposition=42yr, Chiron return=50.7yr, Uranus return=84yr) and include "
+                    f"cycle timing in the research_summary third paragraph.\n"
+                )
+        except Exception:
+            pass
 
         prompt = f"""Analyze the following data for {upper} (Crypto) and respond with a JSON object only — no markdown, no extra text.
 
