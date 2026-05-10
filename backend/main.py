@@ -2880,9 +2880,9 @@ def get_fundamentals(ticker: str):
         "earnings_history": [
             {
                 "period":       e.get("report_period"),
-                "eps_actual":   e.get("actual_eps"),
-                "eps_estimate": e.get("estimated_eps"),
-                "surprise_pct": e.get("surprise_pct"),
+                "eps_actual":   (e.get("quarterly") or {}).get("earnings_per_share"),
+                "eps_estimate": (e.get("quarterly") or {}).get("estimated_earnings_per_share"),
+                "surprise_pct": (e.get("quarterly") or {}).get("eps_surprise_pct"),
             }
             for e in earnings
         ],
