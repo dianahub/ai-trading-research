@@ -977,6 +977,27 @@ def get_astro_ticker_summary(body: TickerSummaryRequest):
         "Do NOT mention price levels that have already been surpassed — only reference targets and support/resistance levels that are still ahead. "
         if body.current_price else ""
     )
+
+    # Auto-look up the incorporation / genesis date and compute active planetary cycles
+    natal_context = ""
+    try:
+        company = _lookup_company(ticker)
+        if company.get("incorporation_date"):
+            from datetime import date as _date
+            inc = datetime.strptime(company["incorporation_date"], "%Y-%m-%d").date()
+            years_elapsed = (_date.today() - inc).days / 365.25
+            name_label = f"{company['name']} ({ticker})" if company.get("name") else ticker
+            natal_context = (
+                f"Natal chart data for {name_label}: "
+                f"incorporated/launched {company['incorporation_date']} ({company['date_label']}), "
+                f"{years_elapsed:.1f} years ago. "
+                "Use this to identify active planetary cycles (Jupiter=11.9yr, Saturn=29.5yr, "
+                "Uranus opposition=42yr, Chiron return=50.7yr, Uranus return=84yr) and weave "
+                "the cycle timing naturally into your response. Do NOT ask for the date — you already have it."
+            )
+    except Exception as e:
+        print(f"[astro ticker summary] natal lookup failed for {ticker}: {e}", flush=True)
+
     try:
         client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         resp = client_a.messages.create(
@@ -987,6 +1008,7 @@ def get_astro_ticker_summary(body: TickerSummaryRequest):
                 "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
                 f"The user is researching {ticker}. "
                 f"{price_context}"
+                f"{natal_context} "
                 f"Only discuss {ticker} — do not mention or reference any other tickers, coins, or assets even if they appear in the signals. "
                 "Answer ONLY from an astrological perspective. Write 2–3 complete sentences maximum. Always finish your last sentence — never cut off mid-thought."
             ),
@@ -7009,8 +7031,11 @@ _ASTRO_CHAT_PROMPT_TEMPLATE = (
     "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
     "The user is researching {ticker}. "
     "{price_context}"
+    "{natal_context} "
     "Only discuss {ticker} — do not mention or reference any other tickers, coins, or assets even if they appear in the signals. "
     "Answer ONLY from an astrological perspective. Write 2–3 complete sentences maximum. Always finish your last sentence — never cut off mid-thought."
+    "\n\nNatal context placeholder: incorporation/genesis date, years elapsed, and active planetary cycle "
+    "reference are injected at runtime from SEC EDGAR or the crypto genesis date map."
 )
 
 _INSIGHT_SYSTEM_PROMPT = (
