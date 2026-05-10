@@ -7,6 +7,7 @@ import secrets
 import calendar
 import threading
 import traceback
+import urllib.parse
 import html as _html_module
 import resend
 import requests
@@ -18,7 +19,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Cookie, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Float, text
@@ -138,6 +139,11 @@ STRIPE_API_STARTER_PRICE_ID = os.getenv("STRIPE_API_STARTER_PRICE_ID", "")
 STRIPE_API_PRO_PRICE_ID   = os.getenv("STRIPE_API_PRO_PRICE_ID", "")
 STRIPE_CONNECT_CLIENT_ID  = os.getenv("STRIPE_CONNECT_CLIENT_ID", "")
 BETA_OPEN_ENV             = os.getenv("BETA_OPEN", "true").lower() == "true"
+GOOGLE_CLIENT_ID            = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET        = os.getenv("GOOGLE_CLIENT_SECRET", "")
+BACKEND_URL                 = os.getenv("BACKEND_URL", "http://localhost:8000")
+FINANCIAL_DATASETS_API_KEY  = os.getenv("FINANCIAL_DATASETS_API_KEY", "")
+FD_BASE                     = "https://api.financialdatasets.ai"
 if _stripe_available and STRIPE_SECRET_KEY:
     _stripe.api_key = STRIPE_SECRET_KEY
 
@@ -614,6 +620,7 @@ class AnalyzeRequest(BaseModel):
     whale_data: dict = {}            # crypto only
     insider_data: dict = {}          # stock only
     options_data: dict = {}          # stock only
+    fundamentals_data: dict = {}     # stock only — from /fundamentals/{ticker}
     astro_signal: float | None = None  # -1.0 to 1.0 from astro service, None if unavailable
 
 
@@ -632,6 +639,7 @@ class AnalyzeResponse(BaseModel):
     whale_sentiment_analysis: str = ""
     insider_analysis: str = ""
     options_analysis: str = ""
+    fundamentals_analysis: str = ""
     smart_money_summary: str = ""
     astro_signal: float | None = None
     disclaimer: str
@@ -1710,6 +1718,32 @@ def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypas
 
     # ── Asset-specific smart-money blocks + prompt ─────────────────────────────
     if asset_type == "stock":
+        # Fundamentals block
+        fd = req.fundamentals_data
+        if fd and fd.get("revenue"):
+            def _pct(v): return f"{v}%" if v is not None else "N/A"
+            def _score_label(s):
+                if s is None: return "N/A"
+                return "Strong" if s >= 7 else ("Moderate" if s >= 4 else "Weak")
+            earnings_lines = "\n".join(
+                f"  {e.get('period','?')}: EPS actual {e.get('eps_actual','N/A')} vs est {e.get('eps_estimate','N/A')} (surprise {_pct(e.get('surprise_pct'))})"
+                for e in fd.get("earnings_history", [])[:4]
+            )
+            fundamentals_block = (
+                f"Revenue (TTM):          {_fmt(fd.get('revenue'))}\n"
+                f"Gross Margin:           {_pct(fd.get('gross_margin_pct'))}\n"
+                f"Operating Margin:       {_pct(fd.get('operating_margin_pct'))}\n"
+                f"Net Margin:             {_pct(fd.get('net_margin_pct'))}\n"
+                f"Revenue Growth (YoY):   {_pct(fd.get('revenue_growth_yoy_pct'))}\n"
+                f"Free Cash Flow (TTM):   {_fmt(fd.get('free_cash_flow'))}\n"
+                f"Debt/Equity:            {fd.get('debt_to_equity', 'N/A')}\n"
+                f"Current Ratio:          {fd.get('current_ratio', 'N/A')}\n"
+                f"Fundamentals Score:     {fd.get('health_score', 'N/A')}/10 ({_score_label(fd.get('health_score'))})\n"
+                f"Recent Earnings (EPS):\n{earnings_lines or '  N/A'}"
+            )
+        else:
+            fundamentals_block = "Fundamental data not available for this ticker."
+
         # Insider block
         ins = req.insider_data
         if ins and not ins.get("error"):
@@ -1769,6 +1803,9 @@ def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypas
 ## Price Data
 {price_block}
 
+## Fundamental Data (TTM)
+{fundamentals_block}
+
 ## Technical Indicators
 {tech_block}
 
@@ -1793,6 +1830,7 @@ Respond with this exact JSON structure:
   "key_opportunities": ["<opp 1>", "<opp 2>", "<opp 3>", "<opp 4>", "<opp 5>"],
   "key_risks": ["<risk 1>", "<risk 2>", "<risk 3>", "<risk 4>", "<risk 5>"],
   "research_summary": "<paragraph 1>\\n\\n<paragraph 2>\\n\\n<paragraph 3>",
+  "fundamentals_analysis": "<one paragraph>",
   "insider_analysis": "<one paragraph>",
   "options_analysis": "<one paragraph>",
   "smart_money_summary": "<one paragraph>",
@@ -1805,7 +1843,8 @@ Rules:
 - confidence_score is an integer from 1 (very uncertain) to 10 (very certain)
 - key_opportunities and key_risks must each have exactly 4-5 items
 - technical_summary must be exactly 2 paragraphs
-- research_summary must be exactly 3 paragraphs: paragraph 1 covers technicals and price action, paragraph 2 covers news, insider activity, and options, paragraph 3 must explicitly address the astrological signal and overall market timing outlook if astro data was provided, otherwise synthesize all signals into a final outlook
+- research_summary must be exactly 3 paragraphs: paragraph 1 covers technicals and price action, paragraph 2 covers fundamentals, news, insider activity, and options, paragraph 3 must explicitly address the astrological signal and overall market timing outlook if astro data was provided, otherwise synthesize all signals into a final outlook
+- fundamentals_analysis must assess the company's financial health — margins, revenue growth, debt load, cash flow, and whether valuation (P/E, earnings surprises) is compelling or stretched relative to fundamentals
 - insider_analysis must explain what the insider activity signals about management conviction
 - options_analysis must explain what the options market is pricing in (P/C ratio, max pain, unusual flow)
 - smart_money_summary must combine insider and options signals into one overall smart money assessment
@@ -1816,8 +1855,8 @@ Rules:
             "overall_sentiment", "confidence_score", "technical_summary",
             "support_resistance_analysis", "macd_analysis", "volume_analysis",
             "news_sentiment", "key_opportunities", "key_risks",
-            "research_summary", "insider_analysis", "options_analysis",
-            "smart_money_summary", "asset_type", "disclaimer",
+            "research_summary", "fundamentals_analysis", "insider_analysis",
+            "options_analysis", "smart_money_summary", "asset_type", "disclaimer",
         }
 
     else:  # crypto
@@ -2752,6 +2791,119 @@ def get_stock_options(ticker: str):
         "errors":                  errors or None,
         "disclaimer":              "This is educational research only. Not financial advice.",
     }
+
+
+# ── Fundamentals endpoint ─────────────────────────────────────────────────────
+
+_fd_cache: dict = {}  # ticker -> {"data": ..., "ts": float}
+_FD_TTL = 6 * 60 * 60  # 6-hour cache — fundamentals update quarterly
+
+
+@app.get("/fundamentals/{ticker}")
+def get_fundamentals(ticker: str):
+    upper = ticker.upper()
+
+    cached = _fd_cache.get(upper)
+    if cached and (time.time() - cached["ts"]) < _FD_TTL:
+        return cached["data"]
+
+    if not FINANCIAL_DATASETS_API_KEY:
+        raise HTTPException(503, "Fundamental data not configured")
+
+    headers = {"X-API-KEY": FINANCIAL_DATASETS_API_KEY}
+
+    def _fd_get(path: str, params: dict) -> dict | list:
+        try:
+            r = requests.get(f"{FD_BASE}{path}", params=params, headers=headers, timeout=10)
+            return r.json() if r.ok else {}
+        except Exception:
+            return {}
+
+    income_ttm_data  = _fd_get("/financials/income-statements/", {"ticker": upper, "period": "ttm",    "limit": 1})
+    income_ann_data  = _fd_get("/financials/income-statements/", {"ticker": upper, "period": "annual",  "limit": 4})
+    balance_data     = _fd_get("/financials/balance-sheets/",    {"ticker": upper, "period": "annual",  "limit": 1})
+    cashflow_data    = _fd_get("/financials/cash-flow-statements/", {"ticker": upper, "period": "ttm",  "limit": 1})
+    earnings_data    = _fd_get("/earnings/",                     {"ticker": upper, "limit": 8})
+
+    income = (income_ttm_data.get("income_statements") or [{}])[0]
+    balance = (balance_data.get("balance_sheets") or [{}])[0]
+    cashflow = (cashflow_data.get("cash_flow_statements") or [{}])[0]
+    income_annual = income_ann_data.get("income_statements") or []
+    earnings = (earnings_data.get("earnings") or [])[:4]
+
+    revenue          = income.get("revenue") or 0
+    gross_profit     = income.get("gross_profit") or 0
+    operating_income = income.get("operating_income") or 0
+    net_income       = income.get("net_income") or 0
+    total_debt       = balance.get("total_debt") or 0
+    total_equity     = balance.get("total_equity") or 1
+    current_assets   = balance.get("current_assets") or 0
+    current_liab     = balance.get("current_liabilities") or 1
+    fcf              = cashflow.get("free_cash_flow") or 0
+
+    gross_margin     = round(gross_profit / revenue * 100, 1)     if revenue else None
+    operating_margin = round(operating_income / revenue * 100, 1) if revenue else None
+    net_margin       = round(net_income / revenue * 100, 1)       if revenue else None
+    debt_to_equity   = round(total_debt / total_equity, 2)        if total_equity else None
+    current_ratio    = round(current_assets / current_liab, 2)    if current_liab else None
+
+    # Revenue growth YoY (compare latest two annual periods)
+    rev_growth = None
+    if len(income_annual) >= 2:
+        r0 = income_annual[0].get("revenue") or 0
+        r1 = income_annual[1].get("revenue") or 0
+        if r1:
+            rev_growth = round((r0 - r1) / abs(r1) * 100, 1)
+
+    # Fundamentals health score 0-10
+    score = 0
+    if gross_margin     is not None: score += 2 if gross_margin     > 40  else (1 if gross_margin     > 20  else 0)
+    if operating_margin is not None: score += 2 if operating_margin > 15  else (1 if operating_margin > 5   else 0)
+    if debt_to_equity   is not None: score += 2 if debt_to_equity   < 0.5 else (1 if debt_to_equity   < 1.5 else 0)
+    if current_ratio    is not None: score += 2 if current_ratio    > 2.0 else (1 if current_ratio    > 1.0 else 0)
+    if fcf > 0: score += 2
+
+    result = {
+        "ticker":            upper,
+        "period":            income.get("report_period"),
+        "revenue":           income.get("revenue"),
+        "gross_profit":      income.get("gross_profit"),
+        "operating_income":  income.get("operating_income"),
+        "net_income":        income.get("net_income"),
+        "eps_diluted":       income.get("eps_diluted"),
+        "gross_margin_pct":  gross_margin,
+        "operating_margin_pct": operating_margin,
+        "net_margin_pct":    net_margin,
+        "revenue_growth_yoy_pct": rev_growth,
+        "total_debt":        balance.get("total_debt"),
+        "total_equity":      balance.get("total_equity"),
+        "cash":              balance.get("cash_and_equivalents"),
+        "debt_to_equity":    debt_to_equity,
+        "current_ratio":     current_ratio,
+        "free_cash_flow":    cashflow.get("free_cash_flow"),
+        "operating_cash_flow": cashflow.get("operating_cash_flow"),
+        "health_score":      min(10, score),
+        "revenue_trend": [
+            {
+                "period":     s.get("report_period"),
+                "revenue":    s.get("revenue"),
+                "net_income": s.get("net_income"),
+            }
+            for s in income_annual
+        ],
+        "earnings_history": [
+            {
+                "period":       e.get("report_period"),
+                "eps_actual":   e.get("actual_eps"),
+                "eps_estimate": e.get("estimated_eps"),
+                "surprise_pct": e.get("surprise_pct"),
+            }
+            for e in earnings
+        ],
+    }
+
+    _fd_cache[upper] = {"data": result, "ts": time.time()}
+    return result
 
 
 # ── Waitlist endpoints ─────────────────────────────────────────────────────────
@@ -3880,6 +4032,7 @@ class User(_Base):
     beta_day25_sent             = Column(Boolean, default=False)
     role                        = Column(String, default="user")  # user|astrologer|influencer|admin
     api_key                     = Column(String, nullable=True)
+    google_id                   = Column(String, nullable=True, unique=True, index=True)
     created_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at                  = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                                          onupdate=lambda: datetime.now(timezone.utc))
@@ -4057,6 +4210,14 @@ except Exception:
 try:
     with _engine.connect() as _conn:
         _conn.execute(text("ALTER TABLE persisted_insights ADD COLUMN symbol TEXT"))
+        _conn.commit()
+except Exception:
+    pass  # column already exists
+
+# Add google_id column to users table (idempotent)
+try:
+    with _engine.connect() as _conn:
+        _conn.execute(text("ALTER TABLE users ADD COLUMN google_id TEXT"))
         _conn.commit()
 except Exception:
     pass  # column already exists
@@ -4384,6 +4545,7 @@ def _user_dict(u: User) -> dict:
         "last_login": u.last_login.isoformat() if u.last_login else None,
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "role": u.role or "user",
+        "has_password": bool(u.password_hash),
     }
 
 
@@ -4553,6 +4715,122 @@ def auth_me(ss_session: Optional[str] = Cookie(None)):
         if not user:
             return {"user": None}
         return {"user": _user_dict(user)}
+
+
+# ── Google OAuth ────────────────────────────────────────────────────────────────
+
+@app.get("/auth/oauth/google")
+def oauth_google_start(redirect: str = "/"):
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(503, "Google OAuth not configured")
+    state = secrets.token_urlsafe(16)
+    state_data = f"{state}:{urllib.parse.quote(redirect, safe='/')}"
+    params = urllib.parse.urlencode({
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": f"{BACKEND_URL}/auth/oauth/google/callback",
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "online",
+        "prompt": "select_account",
+    })
+    resp = RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+    resp.set_cookie("oauth_state", state_data, httponly=True, samesite="lax",
+                    secure=True, max_age=600)
+    return resp
+
+
+@app.get("/auth/oauth/google/callback")
+def oauth_google_callback(
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    oauth_state: Optional[str] = Cookie(None),
+):
+    fail_url = f"{SITE_URL}/login?error=oauth_failed"
+
+    if error or not code:
+        return RedirectResponse(f"{SITE_URL}/login?error=oauth_cancelled")
+    if not oauth_state or ":" not in oauth_state:
+        return RedirectResponse(fail_url)
+
+    stored_state, encoded_redirect = oauth_state.split(":", 1)
+    if stored_state != state:
+        return RedirectResponse(fail_url)
+
+    redirect_path = urllib.parse.unquote(encoded_redirect) or "/"
+
+    try:
+        import httpx as _httpx
+        token_resp = _httpx.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": f"{BACKEND_URL}/auth/oauth/google/callback",
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+        if not token_resp.is_success:
+            return RedirectResponse(fail_url)
+        access_token = token_resp.json().get("access_token")
+
+        userinfo_resp = _httpx.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        if not userinfo_resp.is_success:
+            return RedirectResponse(fail_url)
+        guser = userinfo_resp.json()
+    except Exception:
+        return RedirectResponse(fail_url)
+
+    google_id = guser.get("id")
+    email = guser.get("email", "").lower()
+    first_name = guser.get("given_name", "")
+    last_name = guser.get("family_name", "")
+
+    if not email or not google_id:
+        return RedirectResponse(fail_url)
+
+    with Session(_engine) as db:
+        user = db.query(User).filter(User.google_id == google_id).first()
+        if not user:
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                user.google_id = google_id
+                user.email_verified = True
+                if not user.first_name and first_name:
+                    user.first_name = first_name
+                if not user.last_name and last_name:
+                    user.last_name = last_name
+            else:
+                ref_code = _unique_referral_code(db)
+                user = User(
+                    email=email,
+                    password_hash=None,
+                    first_name=first_name,
+                    last_name=last_name,
+                    tier="beta",
+                    email_verified=True,
+                    google_id=google_id,
+                    referral_code=ref_code,
+                )
+                db.add(user)
+                db.flush()
+
+        user.last_login = datetime.now(timezone.utc)
+        db.commit()
+        raw_token = _create_session(db, user.id, remember=True)
+
+    final = RedirectResponse(f"{SITE_URL}{redirect_path}")
+    final.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+                     secure=True, max_age=60 * 60 * 24 * 30)
+    final.delete_cookie("oauth_state")
+    return final
 
 
 # ── Email verification ─────────────────────────────────────────────────────────

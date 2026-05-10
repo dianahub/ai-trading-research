@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+export const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const PUBLIC_DOMAINS = ['ai-trading-research.vercel.app']
 

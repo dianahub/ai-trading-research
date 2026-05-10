@@ -15,6 +15,7 @@ import AnalysisCards from './components/AnalysisCards'
 import NewsSection from './components/NewsSection'
 import ResearchSummary from './components/ResearchSummary'
 import WhaleSection from './components/WhaleSection'
+import FundamentalsCard from './components/FundamentalsCard'
 import AstroInsightsPanel from './components/AstroInsightsPanel'
 import ChatWidget from './components/ChatWidget'
 
@@ -387,7 +388,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       if (!detected) detected = { asset_type: 'crypto', name: ticker.toUpperCase() }
       const isStock = detected.asset_type === 'stock'
 
-      const [price, news, technicals, smartMoney] = await Promise.all([
+      const [price, news, technicals, smartMoney, fundamentals] = await Promise.all([
         apiFetch(isStock ? `/stock/price/${ticker}` : `/price/${ticker}`)
           .catch(() => ({ _unavailable: true, ticker: ticker.toUpperCase() })),
         apiFetch(isStock ? `/stock/news/${ticker}` : `/news/${ticker}`)
@@ -400,6 +401,9 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               apiFetch(`/stock/options/${ticker}`).catch(() => null),
             ])
           : apiFetch(`/whales/${ticker}`).catch(() => null),
+        isStock
+          ? apiFetch(`/fundamentals/${ticker}`).catch(() => null)
+          : Promise.resolve(null),
       ])
 
       const [insiders, options] = isStock ? smartMoney : [null, null]
@@ -423,6 +427,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         whales,
         insiders,
         options,
+        fundamentals: fundamentals?.revenue ? fundamentals : null,
         analysis: null,
         assetType: detected?.asset_type || (isStock ? 'stock' : 'crypto'),
         name
@@ -450,12 +455,14 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ticker,
+                asset_type: isStock ? 'stock' : 'crypto',
                 price_data: price,
                 headlines: news.articles?.map(a => a.title) ?? [],
                 technical_data: technicals,
                 whale_data: whales ?? {},
                 insider_data: insiders ?? {},
                 options_data: options ?? {},
+                fundamentals_data: fundamentals ?? {},
                 astro_signal: astroData?.astro_signal ?? null,
               }),
             })
@@ -558,13 +565,14 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             {/* Section nav — hamburger on mobile, pill row on desktop */}
             {(() => {
               const navLinks = [
-                { href: '#ai-summary',  label: '🤖 AI Summary',  show: !!data.analysis },
-                { href: '#price',       label: '💰 Price',        show: true },
-                { href: '#technicals',  label: '📈 Technicals',   show: true },
-                { href: '#ai-analysis', label: '🔍 AI Analysis',  show: !!data.analysis },
-                { href: '#smart-money', label: '🐋 Whales', show: !!data.whales },
-                { href: '#astro',       label: '♅ Astro',         show: true },
-                { href: '#news',        label: '📰 News',         show: true },
+                { href: '#ai-summary',    label: '🤖 AI Summary',    show: !!data.analysis },
+                { href: '#price',         label: '💰 Price',          show: true },
+                { href: '#fundamentals',  label: '📊 Fundamentals',   show: !!data.fundamentals },
+                { href: '#technicals',    label: '📈 Technicals',     show: true },
+                { href: '#ai-analysis',   label: '🔍 AI Analysis',    show: !!data.analysis },
+                { href: '#smart-money',   label: '🐋 Whales',         show: !!data.whales },
+                { href: '#astro',         label: '♅ Astro',           show: true },
+                { href: '#news',          label: '📰 News',           show: true },
               ].filter(s => s.show)
 
               return (
@@ -810,6 +818,13 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             {data.analysis && (
               <div className="fade-in">
                 <OpportunitiesRisks analysis={data.analysis} />
+              </div>
+            )}
+
+            {/* Fundamentals — stocks only */}
+            {data.fundamentals && (
+              <div id="fundamentals" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
+                <FundamentalsCard fundamentals={data.fundamentals} />
               </div>
             )}
 
