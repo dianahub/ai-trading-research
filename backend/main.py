@@ -128,6 +128,8 @@ BETA_OPEN_ENV             = os.getenv("BETA_OPEN", "true").lower() == "true"
 GOOGLE_CLIENT_ID            = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET        = os.getenv("GOOGLE_CLIENT_SECRET", "")
 BACKEND_URL                 = os.getenv("BACKEND_URL", "http://localhost:8000")
+# Override just the OAuth callback URL without changing BACKEND_URL (useful for staging)
+GOOGLE_OAUTH_REDIRECT_URI   = os.getenv("GOOGLE_OAUTH_REDIRECT_URI") or f"{BACKEND_URL}/auth/oauth/google/callback"
 FINANCIAL_DATASETS_API_KEY  = os.getenv("FINANCIAL_DATASETS_API_KEY", "")
 FD_BASE                     = "https://api.financialdatasets.ai"
 if _stripe_available and STRIPE_SECRET_KEY:
@@ -4701,7 +4703,7 @@ def oauth_google_start(redirect: str = "/"):
     state_data = f"{state}:{urllib.parse.quote(redirect, safe='/')}"
     params = urllib.parse.urlencode({
         "client_id": GOOGLE_CLIENT_ID,
-        "redirect_uri": f"{BACKEND_URL}/auth/oauth/google/callback",
+        "redirect_uri": GOOGLE_OAUTH_REDIRECT_URI,
         "response_type": "code",
         "scope": "openid email profile",
         "state": state,
@@ -4744,7 +4746,7 @@ def oauth_google_callback(
                 "code": code,
                 "client_id": GOOGLE_CLIENT_ID,
                 "client_secret": GOOGLE_CLIENT_SECRET,
-                "redirect_uri": f"{BACKEND_URL}/auth/oauth/google/callback",
+                "redirect_uri": GOOGLE_OAUTH_REDIRECT_URI,
                 "grant_type": "authorization_code",
             },
             timeout=10,
