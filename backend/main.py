@@ -130,6 +130,7 @@ GOOGLE_CLIENT_SECRET        = os.getenv("GOOGLE_CLIENT_SECRET", "")
 BACKEND_URL                 = os.getenv("BACKEND_URL", "http://localhost:8000")
 # Override just the OAuth callback URL without changing BACKEND_URL (useful for staging)
 GOOGLE_OAUTH_REDIRECT_URI   = os.getenv("GOOGLE_OAUTH_REDIRECT_URI") or f"{BACKEND_URL}/auth/oauth/google/callback"
+COOKIE_SAMESITE             = os.getenv("COOKIE_SAMESITE", "lax")  # set "none" on staging for cross-origin cookies
 FINANCIAL_DATASETS_API_KEY  = os.getenv("FINANCIAL_DATASETS_API_KEY", "")
 FD_BASE                     = "https://api.financialdatasets.ai"
 if _stripe_available and STRIPE_SECRET_KEY:
@@ -4663,7 +4664,7 @@ def auth_signup(req: AuthSignupRequest, response: Response):
         )
 
         raw_token = _create_session(db, user.id)
-        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite=COOKIE_SAMESITE,
                             secure=True, max_age=60*60*24*7)
         return {"user": _user_dict(user), "message": "Account created. Please verify your email."}
 
@@ -4707,7 +4708,7 @@ def auth_login(req: AuthLoginRequest, response: Response):
 
         raw_token = _create_session(db, user.id, req.remember_me)
         max_age = 60*60*24*30 if req.remember_me else 60*60*24*7
-        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite=COOKIE_SAMESITE,
                             secure=True, max_age=max_age)
 
         beta_expired = (user.tier == "beta" and user.beta_expires_at and
@@ -4862,7 +4863,7 @@ def oauth_google_callback(
         raw_token = _create_session(db, user.id, remember=True)
 
     final = RedirectResponse(f"{SITE_URL}{redirect_path}")
-    final.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+    final.set_cookie("ss_session", raw_token, httponly=True, samesite=COOKIE_SAMESITE,
                      secure=True, max_age=60 * 60 * 24 * 30)
     final.delete_cookie("oauth_state")
     return final
@@ -5081,7 +5082,7 @@ def beta_apply(req: BetaApplyRequest, response: Response):
 
         # Create session for immediate login
         raw_token = _create_session(db, user.id, remember=True)
-        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite=COOKIE_SAMESITE,
                             secure=True, max_age=60 * 60 * 24 * 30)
 
         # Notify admin
@@ -5300,7 +5301,7 @@ def magic_login(body: dict, response: Response):
         user.email_verification_expires = None
         db.commit()
         raw_token = _create_session(db, user.id)
-        response.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
+        response.set_cookie("ss_session", raw_token, httponly=True, samesite=COOKIE_SAMESITE,
                             secure=True, max_age=60*60*24*7)
         return {"user": _user_dict(user)}
 
