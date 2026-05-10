@@ -1708,24 +1708,11 @@ def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypas
         fd = req.fundamentals_data
         if fd and fd.get("revenue"):
             def _pct(v): return f"{v}%" if v is not None else "N/A"
-            def _score_label(s):
-                if s is None: return "N/A"
-                return "Strong" if s >= 7 else ("Moderate" if s >= 4 else "Weak")
-            earnings_lines = "\n".join(
-                f"  {e.get('period','?')}: EPS actual {e.get('eps_actual','N/A')} vs est {e.get('eps_estimate','N/A')} (surprise {_pct(e.get('surprise_pct'))})"
-                for e in fd.get("earnings_history", [])[:4]
-            )
+            last_eps = fd.get("earnings_history", [{}])[0] if fd.get("earnings_history") else {}
             fundamentals_block = (
-                f"Revenue (TTM):          {_fmt(fd.get('revenue'))}\n"
-                f"Gross Margin:           {_pct(fd.get('gross_margin_pct'))}\n"
-                f"Operating Margin:       {_pct(fd.get('operating_margin_pct'))}\n"
-                f"Net Margin:             {_pct(fd.get('net_margin_pct'))}\n"
-                f"Revenue Growth (YoY):   {_pct(fd.get('revenue_growth_yoy_pct'))}\n"
-                f"Free Cash Flow (TTM):   {_fmt(fd.get('free_cash_flow'))}\n"
-                f"Debt/Equity:            {fd.get('debt_to_equity', 'N/A')}\n"
-                f"Current Ratio:          {fd.get('current_ratio', 'N/A')}\n"
-                f"Fundamentals Score:     {fd.get('health_score', 'N/A')}/10 ({_score_label(fd.get('health_score'))})\n"
-                f"Recent Earnings (EPS):\n{earnings_lines or '  N/A'}"
+                f"Revenue (TTM): {_fmt(fd.get('revenue'))} | Gross Margin: {_pct(fd.get('gross_margin_pct'))} | Op Margin: {_pct(fd.get('operating_margin_pct'))} | Net Margin: {_pct(fd.get('net_margin_pct'))}\n"
+                f"Rev Growth YoY: {_pct(fd.get('revenue_growth_yoy_pct'))} | FCF: {_fmt(fd.get('free_cash_flow'))} | D/E: {fd.get('debt_to_equity','N/A')} | Current Ratio: {fd.get('current_ratio','N/A')}\n"
+                f"Health Score: {fd.get('health_score','N/A')}/10 | Latest EPS: actual {last_eps.get('eps_actual','N/A')} vs est {last_eps.get('eps_estimate','N/A')} (surprise {_pct(last_eps.get('surprise_pct'))})"
             )
         else:
             fundamentals_block = "Fundamental data not available for this ticker."
@@ -1738,7 +1725,7 @@ def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypas
                 f"  {t.get('name','?')} {t.get('transaction_type','?')} "
                 f"{t.get('shares', 0):,} shares @ {_fmt(t.get('price_per_share'))} "
                 f"= {_fmt(t.get('value_usd'))} on {t.get('transaction_date','?')}"
-                for t in ins.get("transactions", [])[:5]
+                for t in ins.get("transactions", [])[:3]
             )
             insider_block = (
                 f"Insider Sentiment: {ins.get('insider_sentiment', 'N/A')}\n"
@@ -1940,7 +1927,7 @@ Rules:
         client  = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=2048,
+            max_tokens=1500,
             system=system_prompt,
             messages=[{"role": "user", "content": prompt}],
         )

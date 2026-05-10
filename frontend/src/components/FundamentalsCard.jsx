@@ -29,11 +29,19 @@ function HealthBadge({ score }) {
   if (score == null) return null
   const color = score >= 7 ? '#22c55e' : score >= 4 ? '#f59e0b' : '#ef4444'
   const label = score >= 7 ? 'Strong' : score >= 4 ? 'Moderate' : 'Weak'
+  const desc  = score >= 7
+    ? 'Healthy across margins, debt, and cash flow'
+    : score >= 4
+    ? 'Mixed — strong in some areas, weak in others'
+    : 'Concerns across margins, leverage, or cash flow'
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-      style={{ background: `${color}22`, border: `1px solid ${color}44`, color }}>
-      {label} · {score}/10
-    </span>
+    <div className="flex flex-col gap-0.5">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold self-start"
+        style={{ background: `${color}22`, border: `1px solid ${color}44`, color }}>
+        {label} · {score}/10
+      </span>
+      <span className="text-xs" style={{ color: '#64748b' }}>{desc}</span>
+    </div>
   )
 }
 
@@ -174,7 +182,7 @@ export default function FundamentalsCard({ fundamentals }) {
           )}
 
           <p className="text-xs" style={{ color: '#475569' }}>
-            Source: Financial Datasets · TTM = trailing twelve months · Health score based on margins, leverage, and cash flow
+            Source: Financial Datasets · TTM = trailing twelve months · Health score (0–10): 2 pts each for gross margin &gt;40%, operating margin &gt;15%, debt/equity &lt;0.5, current ratio &gt;2, and positive free cash flow
           </p>
         </div>
       )}

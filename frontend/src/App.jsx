@@ -244,8 +244,9 @@ function dismissUntilMidnight() {
 
 export default function App() {
   const [loading, setLoading]     = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [error, setError]         = useState(null)
+  const [analyzing, setAnalyzing]       = useState(false)
+  const [analysisError, setAnalysisError] = useState(null)
+  const [error, setError]               = useState(null)
   const [data, setData]           = useState(null)
   const [ticker, setTicker]       = useState(null)
   const [astroData, setAstroData] = useState(null)
@@ -370,6 +371,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
     setLoading(true)
     setAnalyzing(false)
     setError(null)
+    setAnalysisError(null)
     setData(null)
     setAstroTickerSummary(null)
     setAstroTickerLoading(true)
@@ -479,9 +481,32 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             }
             setData(prev => ({ ...prev, analysis }))
           } catch (analysisErr) {
-            // Check if it's a rate limit error
             if (analysisErr.message?.includes('daily_limit') || analysisErr.message?.includes('429')) {
               fetchUsage()
+            } else {
+              // Retry once automatically
+              try {
+                const retry = await apiFetch('/analyze', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ticker,
+                    asset_type: isStock ? 'stock' : 'crypto',
+                    price_data: price,
+                    headlines: news.articles?.map(a => a.title) ?? [],
+                    technical_data: technicals,
+                    whale_data: whales ?? {},
+                    insider_data: insiders ?? {},
+                    options_data: options ?? {},
+                    fundamentals_data: fundamentals ?? {},
+                    astro_signal: astroData?.astro_signal ?? null,
+                  }),
+                })
+                setCachedAnalysis(ticker, retry)
+                setData(prev => ({ ...prev, analysis: retry }))
+              } catch {
+                setAnalysisError('AI analysis is temporarily unavailable.')
+              }
             }
           } finally {
             setAnalyzing(false)
@@ -798,6 +823,16 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                   <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
                   <span className="text-sm" style={{ color: '#94a3b8' }}>
                     Claude AI is analyzing price data, technicals, news and astrological signals — please wait…
+                  </span>
+                </div>
+              )}
+
+              {/* Analysis error */}
+              {analysisError && !data.analysis && !analyzing && (
+                <div className="rounded-xl p-4 fade-in"
+                  style={{ background: '#1a0a0a', border: '1px solid #ef444444' }}>
+                  <span className="text-sm" style={{ color: '#f87171' }}>
+                    AI analysis unavailable: {analysisError}
                   </span>
                 </div>
               )}
