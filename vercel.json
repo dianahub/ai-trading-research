@@ -3,7 +3,7 @@
   "outputDirectory": "frontend/dist",
   "installCommand": "echo skip",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://starsignal.io/:path*" },
+    { "source": "/api/:path*", "destination": "https://aitrading.starsignal.io/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
