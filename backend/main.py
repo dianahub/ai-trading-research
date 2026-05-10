@@ -4738,10 +4738,12 @@ def oauth_google_callback(
     if error or not code:
         return RedirectResponse(f"{SITE_URL}/login?error=oauth_cancelled")
     if not oauth_state or ":" not in oauth_state:
+        print(f"[oauth] FAIL: no cookie. oauth_state={oauth_state!r}", flush=True)
         return RedirectResponse(fail_url)
 
     stored_state, encoded_redirect = oauth_state.split(":", 1)
     if stored_state != state:
+        print(f"[oauth] FAIL: state mismatch stored={stored_state!r} got={state!r}", flush=True)
         return RedirectResponse(fail_url)
 
     redirect_path = urllib.parse.unquote(encoded_redirect) or "/"
@@ -4760,6 +4762,7 @@ def oauth_google_callback(
             timeout=10,
         )
         if not token_resp.is_success:
+            print(f"[oauth] FAIL: token exchange {token_resp.status_code} {token_resp.text}", flush=True)
             return RedirectResponse(fail_url)
         access_token = token_resp.json().get("access_token")
 
@@ -4769,9 +4772,11 @@ def oauth_google_callback(
             timeout=10,
         )
         if not userinfo_resp.is_success:
+            print(f"[oauth] FAIL: userinfo {userinfo_resp.status_code}", flush=True)
             return RedirectResponse(fail_url)
         guser = userinfo_resp.json()
-    except Exception:
+    except Exception as e:
+        print(f"[oauth] FAIL: exception {e}", flush=True)
         return RedirectResponse(fail_url)
 
     google_id = guser.get("id")
