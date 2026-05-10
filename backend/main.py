@@ -6995,6 +6995,24 @@ def _fetch_rss_feed(url: str, source_name: str) -> list[dict]:
         return []
 
 
+_INSIGHT_VERIFY_PROMPT = (
+    "You are a strict fact-checker for financial market predictions. "
+    "Given an article and a numbered list of extracted predictions, return ONLY a JSON array "
+    "of 1-based indices for predictions that are EXPLICITLY stated in the article — "
+    "not inferred, not implied, not extrapolated. "
+    "If the article content is too short or paywalled to verify, return []. "
+    "Return nothing except the JSON array."
+)
+
+_ASTRO_CHAT_PROMPT_TEMPLATE = (
+    "You are StarSignal, an astrological market guide on Starsignal.io. "
+    "You cover ALL financial markets — stocks, crypto, commodities, ETFs, indices — through the lens of planetary cycles and transits. "
+    "The user is researching {ticker}. "
+    "{price_context}"
+    "Only discuss {ticker} — do not mention or reference any other tickers, coins, or assets even if they appear in the signals. "
+    "Answer ONLY from an astrological perspective. Write 2–3 complete sentences maximum. Always finish your last sentence — never cut off mid-thought."
+)
+
 _INSIGHT_SYSTEM_PROMPT = (
     "You are a financial intelligence extractor. Given an astrology article, extract only forward-looking "
     "conclusions relevant to financial markets or geopolitics. Return ONLY a valid JSON array — no preamble, "
@@ -7064,14 +7082,7 @@ def _verify_insights_against_source(insights: list[dict], content: str, title: s
         resp = client_a.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=256,
-            system=(
-                "You are a strict fact-checker for financial market predictions. "
-                "Given an article and a numbered list of extracted predictions, return ONLY a JSON array "
-                "of 1-based indices for predictions that are EXPLICITLY stated in the article — "
-                "not inferred, not implied, not extrapolated. "
-                "If the article content is too short or paywalled to verify, return []. "
-                "Return nothing except the JSON array."
-            ),
+            system=_INSIGHT_VERIFY_PROMPT,
             messages=[{
                 "role": "user",
                 "content": (
@@ -8283,3 +8294,277 @@ def admin_broadcast_email(
         except Exception as e:
             errors.append({"email": user.email, "error": str(e)})
     return {"sent": sent, "total": len(users), "errors": errors}
+
+
+# ── Company incorporation / genesis date lookup ───────────────────────────────
+
+_CRYPTO_GENESIS = {
+    "BTC":   {"date": "2009-01-03", "label": "Bitcoin genesis block"},
+    "ETH":   {"date": "2015-07-30", "label": "Ethereum mainnet launch"},
+    "XRP":   {"date": "2013-01-01", "label": "XRP Ledger genesis"},
+    "SOL":   {"date": "2020-03-16", "label": "Solana mainnet beta launch"},
+    "ADA":   {"date": "2017-09-29", "label": "Cardano mainnet launch"},
+    "DOT":   {"date": "2020-08-18", "label": "Polkadot mainnet launch"},
+    "DOGE":  {"date": "2013-12-06", "label": "Dogecoin genesis block"},
+    "AVAX":  {"date": "2020-09-21", "label": "Avalanche mainnet launch"},
+    "MATIC": {"date": "2020-05-31", "label": "Polygon mainnet launch"},
+    "LINK":  {"date": "2017-09-19", "label": "Chainlink mainnet launch"},
+    "LTC":   {"date": "2011-10-07", "label": "Litecoin genesis block"},
+    "UNI":   {"date": "2020-09-16", "label": "Uniswap V2 launch"},
+    "ATOM":  {"date": "2019-03-14", "label": "Cosmos Hub mainnet launch"},
+    "XLM":   {"date": "2014-07-31", "label": "Stellar mainnet launch"},
+    "BCH":   {"date": "2017-08-01", "label": "Bitcoin Cash genesis block"},
+    "TRX":   {"date": "2018-06-25", "label": "TRON mainnet launch"},
+}
+
+_EDGAR_UA = "StarSignalAPI/1.0 dianahelene@gmail.com"
+_company_cache: dict = {}
+_ticker_map_cache: dict = {}
+_ticker_map_fetched_at: float = 0.0
+
+def _get_ticker_map() -> dict:
+    global _ticker_map_cache, _ticker_map_fetched_at
+    if _ticker_map_cache and (time.time() - _ticker_map_fetched_at) < 86400:
+        return _ticker_map_cache
+    r = requests.get(
+        "https://www.sec.gov/files/company_tickers.json",
+        headers={"User-Agent": _EDGAR_UA},
+        timeout=15,
+    )
+    r.raise_for_status()
+    raw = r.json()
+    result = {}
+    for entry in raw.values():
+        result[entry["ticker"].upper()] = {
+            "cik": str(entry["cik_str"]).zfill(10),
+            "name": entry["title"],
+        }
+    _ticker_map_cache = result
+    _ticker_map_fetched_at = time.time()
+    return result
+
+def _lookup_company(symbol: str) -> dict:
+    sym = symbol.upper()
+    if sym in _company_cache:
+        return _company_cache[sym]
+
+    # Crypto — static genesis dates
+    if sym in _CRYPTO_GENESIS:
+        info = {
+            "symbol": sym, "name": None,
+            "incorporation_date": _CRYPTO_GENESIS[sym]["date"],
+            "date_label": _CRYPTO_GENESIS[sym]["label"],
+            "state_of_incorporation": None, "sic_description": None,
+            "source": "crypto-genesis", "cik": None,
+        }
+        _company_cache[sym] = info
+        return info
+
+    # Equities — EDGAR
+    try:
+        tmap = _get_ticker_map()
+        entry = tmap.get(sym)
+        if not entry:
+            info = {"symbol": sym, "name": None, "incorporation_date": None,
+                    "date_label": "Symbol not found in EDGAR", "state_of_incorporation": None,
+                    "sic_description": None, "source": "not-found", "cik": None}
+            _company_cache[sym] = info
+            return info
+
+        r = requests.get(
+            f"https://data.sec.gov/submissions/CIK{entry['cik']}.json",
+            headers={"User-Agent": _EDGAR_UA},
+            timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json()
+
+        # Filings are newest-first; last entry is earliest on record
+        dates = (data.get("filings") or {}).get("recent", {}).get("filingDate") or []
+        earliest = dates[-1] if dates else None
+
+        inc_date  = data.get("incorporationDate") or earliest
+        date_label = (
+            "SEC-recorded incorporation date" if data.get("incorporationDate")
+            else "Earliest EDGAR filing date (proxy; company may predate this)" if earliest
+            else "Date unavailable in EDGAR"
+        )
+        info = {
+            "symbol": sym,
+            "name": data.get("name") or entry["name"],
+            "incorporation_date": inc_date,
+            "date_label": date_label,
+            "state_of_incorporation": data.get("stateOfIncorporation"),
+            "sic_description": data.get("sicDescription"),
+            "source": "edgar",
+            "cik": entry["cik"],
+        }
+        _company_cache[sym] = info
+        return info
+    except Exception as e:
+        print(f"[company-lookup] {sym}: {e}", flush=True)
+        return {"symbol": sym, "name": None, "incorporation_date": None,
+                "date_label": "EDGAR lookup failed", "state_of_incorporation": None,
+                "sic_description": None, "source": "not-found", "cik": None}
+
+
+_NATAL_SYSTEM_PROMPT = (
+    "You are a financial astrology timing analyst. Your job is to identify which major planetary "
+    "cycles a company is currently in based purely on elapsed time from its incorporation date, "
+    "then explain what that means for the current market outlook in plain English. "
+    "Planetary cycle reference (years per cycle): "
+    "Jupiter return = 11.9 (expansion, growth, opportunity); "
+    "Saturn return = 29.5 (consolidation, accountability, structural change); "
+    "Chiron return = 50.7 (vulnerability, pivoting, healing); "
+    "Uranus opposition = 42 (disruption, reinvention — mid-point of Uranus cycle); "
+    "Uranus return = 84 (radical transformation); "
+    "Neptune opposition = 82 (idealism meets reality). "
+    "Rules: (1) Compute elapsed years from the incorporation date to today. "
+    "(2) Divide by each cycle duration to find the cycle count and phase (0–1 within the current cycle). "
+    "(3) Flag cycles where the remainder is within 1 year of a return or opposition. "
+    "(4) Write exactly 2–3 sentences in plain English — no astrological jargon — describing "
+    "the timing context and how the active cycles relate to the current market insight. "
+    "Use language like 'entering its third Jupiter expansion cycle', "
+    "'approaching Saturn return (restructuring)', 'mid-point of its first Uranus cycle'. "
+    "Connect the cycle context to the outlook in the insight."
+)
+
+def _generate_natal_analysis(symbol: str, name: str | None, incorporation_date: str,
+                              date_label: str, topic: str, outlook: str,
+                              timeframe: str, summary: str) -> str:
+    from datetime import date as _date
+    inc = datetime.strptime(incorporation_date, "%Y-%m-%d").date()
+    today = _date.today()
+    years_elapsed = (today - inc).days / 365.25
+
+    label = f"{name} ({symbol})" if name else symbol
+    prompt = (
+        f"Company: {label}\n"
+        f"Incorporation / genesis date: {incorporation_date} — {date_label}\n"
+        f"Today's date: {today.isoformat()}\n"
+        f"Years since incorporation: {years_elapsed:.2f}\n\n"
+        f"Current market insight:\n"
+        f"  Topic: {topic}\n"
+        f"  Outlook: {outlook}\n"
+        f"  Timeframe: {timeframe}\n"
+        f"  Summary: {summary}\n\n"
+        f"Using the elapsed years and the planetary cycle reference, identify which cycles are "
+        f"active or approaching a return/opposition, then write 2–3 plain-English sentences "
+        f"describing the natal timing context for this insight."
+    )
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    msg = client.messages.create(
+        model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+        max_tokens=256,
+        system=_NATAL_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return msg.content[0].text.strip() if msg.content else ""
+
+
+# GET /admin/company-info?symbol=AAPL
+@app.get("/admin/company-info")
+def company_info(symbol: str,
+                 x_admin_email: str = Header(default=""),
+                 x_admin_password: str = Header(default="")):
+    _require_admin(x_admin_email, x_admin_password)
+    return _lookup_company(symbol)
+
+
+class BatchSymbolsRequest(BaseModel):
+    symbols: list[str]
+
+# POST /admin/company-info/batch
+@app.post("/admin/company-info/batch")
+def company_info_batch(payload: BatchSymbolsRequest,
+                       x_admin_email: str = Header(default=""),
+                       x_admin_password: str = Header(default="")):
+    _require_admin(x_admin_email, x_admin_password)
+    if not payload.symbols:
+        raise HTTPException(400, "symbols list is required")
+    return [_lookup_company(s) for s in payload.symbols]
+
+
+# DELETE /admin/company-info/cache
+@app.delete("/admin/company-info/cache")
+def company_cache_clear(x_admin_email: str = Header(default=""),
+                        x_admin_password: str = Header(default="")):
+    _require_admin(x_admin_email, x_admin_password)
+    _company_cache.clear()
+    global _ticker_map_cache, _ticker_map_fetched_at
+    _ticker_map_cache = {}
+    _ticker_map_fetched_at = 0.0
+    return {"cleared": True}
+
+
+class NatalAnalysisRequest(BaseModel):
+    symbol: str
+    topic: str
+    outlook: str
+    timeframe: str = "unspecified"
+    summary: str
+
+# POST /admin/natal-analysis
+@app.post("/admin/natal-analysis")
+def natal_analysis(payload: NatalAnalysisRequest,
+                   x_admin_email: str = Header(default=""),
+                   x_admin_password: str = Header(default="")):
+    _require_admin(x_admin_email, x_admin_password)
+    info = _lookup_company(payload.symbol)
+    if not info.get("incorporation_date"):
+        raise HTTPException(422, {"error": "No incorporation date available", "company_info": info})
+    natal_context = _generate_natal_analysis(
+        symbol=info["symbol"], name=info.get("name"),
+        incorporation_date=info["incorporation_date"],
+        date_label=info["date_label"],
+        topic=payload.topic, outlook=payload.outlook,
+        timeframe=payload.timeframe, summary=payload.summary,
+    )
+    return {"company_info": info, "natal_context": natal_context}
+
+
+# GET /admin/prompts — view all Claude prompts used in the pipeline
+@app.get("/admin/prompts")
+def admin_prompts(x_admin_email: str = Header(default=""),
+                  x_admin_password: str = Header(default="")):
+    _require_admin(x_admin_email, x_admin_password)
+
+    # Collect prompts inline from the module-level constants where possible;
+    # inline ones are quoted directly so the viewer always reflects live code.
+    return {
+        "model": os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+        "prompts": [
+            {
+                "id": "insight-extraction",
+                "label": "Insight Extraction",
+                "description": "System prompt for extracting forward-looking market signals from astrology articles as a JSON array.",
+                "role": "system",
+                "used_in": ["_extract_insights_from_article()"],
+                "text": _INSIGHT_SYSTEM_PROMPT,
+            },
+            {
+                "id": "insight-verification",
+                "label": "Insight Verification",
+                "description": "Second-pass fact-checker that drops insights not explicitly supported by the source article.",
+                "role": "system",
+                "used_in": ["_verify_insights_against_source()"],
+                "text": _INSIGHT_VERIFY_PROMPT,
+            },
+            {
+                "id": "astro-chat",
+                "label": "Astro Chat (Ticker Q&A)",
+                "description": "System prompt for the per-ticker astrological market guide chat. {ticker} and {price_context} are filled at runtime.",
+                "role": "system (template)",
+                "used_in": ["/astro-chat endpoint"],
+                "text": _ASTRO_CHAT_PROMPT_TEMPLATE,
+            },
+            {
+                "id": "natal-analysis",
+                "label": "Natal / Cycle Analysis",
+                "description": "Computes planetary cycle phases from elapsed years since incorporation and generates a 2-3 sentence plain-English timing note per insight.",
+                "role": "system",
+                "used_in": ["POST /admin/natal-analysis → _generate_natal_analysis()"],
+                "text": _NATAL_SYSTEM_PROMPT,
+            },
+        ],
+    }

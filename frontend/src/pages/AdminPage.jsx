@@ -85,6 +85,12 @@ const PAGES = [
     desc:  'Write and send an email to all users in a given role. Includes a test-send to your inbox.',
     icon:  '📨',
   },
+  {
+    path:  '/admin/prompts',
+    title: 'Claude Prompts',
+    desc:  'View all Claude system and user prompts used in the pipeline — extraction, verification, chat, natal analysis.',
+    icon:  '🤖',
+  },
 ]
 
 export default function AdminPage() {
