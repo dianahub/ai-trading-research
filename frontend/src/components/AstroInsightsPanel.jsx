@@ -409,7 +409,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
       }
     }
 
-    const previewPool = hasDirectMatch ? matchedInsights : insights
+    const previewPool = hasDirectMatch ? matchedInsights : otherInsights
     const preview     = pickOnePerAstrologer(deduplicateSimilar(previewPool), 3)
     const previewIds  = new Set(preview.map(i => i.id ?? i.summary))
     const expandedRaw = [
@@ -418,7 +418,7 @@ export default function AstroInsightsPanel({ astroData, visible, onToggle, ticke
     ]
     const viewAll = hasDirectMatch
       ? deduplicateSimilar(expandedRaw)
-      : deduplicateSimilar(insights.filter(i => !previewIds.has(i.id ?? i.summary)))
+      : deduplicateSimilar(otherInsights.filter(i => !previewIds.has(i.id ?? i.summary)))
 
     // Sentiment score derived from the relevant pool for this search
     const scorePool     = hasDirectMatch ? matchedInsights : insights

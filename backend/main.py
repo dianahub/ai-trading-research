@@ -4747,11 +4747,10 @@ def oauth_google_callback(
     error: Optional[str] = None,
     oauth_state: Optional[str] = Cookie(None),
 ):
-    FURL = frontend_url or SITE_URL
-    fail_url = f"{FURL}/login?error=oauth_failed"
+    fail_url = f"{SITE_URL}/login?error=oauth_failed"
 
     if error or not code:
-        return RedirectResponse(f"{FURL}/login?error=oauth_cancelled")
+        return RedirectResponse(f"{SITE_URL}/login?error=oauth_cancelled")
     if not oauth_state or ":" not in oauth_state:
         return RedirectResponse(fail_url)
 
@@ -4804,6 +4803,10 @@ def oauth_google_callback(
             if user:
                 user.google_id = google_id
                 user.email_verified = True
+                if not user.first_name and first_name:
+                    user.first_name = first_name
+                if not user.last_name and last_name:
+                    user.last_name = last_name
             else:
                 ref_code = _unique_referral_code(db)
                 user = User(
@@ -4823,7 +4826,7 @@ def oauth_google_callback(
         db.commit()
         raw_token = _create_session(db, user.id, remember=True)
 
-    final = RedirectResponse(f"{FURL}{redirect_path}")
+    final = RedirectResponse(f"{SITE_URL}{redirect_path}")
     final.set_cookie("ss_session", raw_token, httponly=True, samesite="lax",
                      secure=True, max_age=60 * 60 * 24 * 30)
     final.delete_cookie("oauth_state")
