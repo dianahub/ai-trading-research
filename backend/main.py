@@ -78,7 +78,7 @@ _ADMIN_ALLOWED_IPS = {
 
 @app.middleware("http")
 async def _ip_restrict_admin(request: Request, call_next):
-    if request.url.path.startswith("/admin") and _ADMIN_ALLOWED_IPS:
+    if request.method != "OPTIONS" and request.url.path.startswith("/admin") and _ADMIN_ALLOWED_IPS:
         forwarded_for = request.headers.get("x-forwarded-for", "")
         client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (
             request.client.host if request.client else ""
