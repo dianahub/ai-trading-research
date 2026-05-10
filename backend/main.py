@@ -4721,7 +4721,7 @@ def oauth_google_start(redirect: str = "/"):
         "prompt": "select_account",
     })
     resp = RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
-    resp.set_cookie("oauth_state", state_data, httponly=True, samesite="lax",
+    resp.set_cookie("oauth_state", state_data, httponly=True, samesite="none",
                     secure=True, max_age=600)
     return resp
 
