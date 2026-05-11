@@ -26,6 +26,14 @@ A new admin page at `/admin/prompts` shows all Claude system and user prompts us
 
 Backend: `GET /admin/prompts` (requires admin email + password headers).
 
+## UI Changes
+
+### Astro Outlook Label
+The subtitle under the `♅ {ticker} Astrological Outlook` heading in `AstroInsightsPanel` now reads:
+> *(AI generated from all astrologers insights and incorporation date)*
+
+File: `frontend/src/components/AstroInsightsPanel.jsx` line 549.
+
 ## Bug Fixes
 
 ### Google OAuth — Staging Cross-Origin Session Cookie
