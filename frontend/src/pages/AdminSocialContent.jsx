@@ -141,7 +141,7 @@ export default function AdminSocialContent() {
           <Link to="/admin" className="text-xs" style={{ color: '#94a3b8' }}>← Admin</Link>
           <h1 className="text-2xl font-black mt-2 mb-1" style={{ color: '#f8fafc' }}>Social Content</h1>
           <p className="text-sm" style={{ color: '#64748b' }}>
-            Daily Instagram Reel automation · Higgsfield video · Meta Graph API
+            Daily Instagram Reel automation · HeyGen twin video · Meta Graph API
           </p>
         </div>
 
@@ -169,9 +169,9 @@ export default function AdminSocialContent() {
               </div>
             </div>
             <div>
-              <span style={{ color: '#475569' }}>Higgsfield</span>
-              <div className="font-semibold mt-0.5" style={{ color: settings.higgsfield_configured ? '#34d399' : '#f87171' }}>
-                {settings.higgsfield_configured ? '● Configured' : '● Not configured'}
+              <span style={{ color: '#475569' }}>HeyGen</span>
+              <div className="font-semibold mt-0.5" style={{ color: settings.heygen_configured ? '#34d399' : '#f87171' }}>
+                {settings.heygen_configured ? '● Configured' : '● Not configured'}
               </div>
             </div>
             <div>
@@ -179,7 +179,7 @@ export default function AdminSocialContent() {
               <div className="font-semibold mt-0.5" style={{ color: '#e2e8f0' }}>8:00 UTC daily</div>
             </div>
             <div className="ml-auto text-xs self-center" style={{ color: '#475569' }}>
-              Set AUTO_POST_ENABLED, HIGGSFIELD_*, INSTAGRAM_* in Railway env vars
+              Set AUTO_POST_ENABLED, HEYGEN_*, INSTAGRAM_* in Railway env vars
             </div>
           </div>
         )}

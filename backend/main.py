@@ -133,6 +133,18 @@ GOOGLE_OAUTH_REDIRECT_URI   = os.getenv("GOOGLE_OAUTH_REDIRECT_URI") or f"{BACKE
 COOKIE_SAMESITE             = os.getenv("COOKIE_SAMESITE", "lax")  # set "none" on staging for cross-origin cookies
 FINANCIAL_DATASETS_API_KEY  = os.getenv("FINANCIAL_DATASETS_API_KEY", "")
 FD_BASE                     = "https://api.financialdatasets.ai"
+
+# HeyGen twin video generation
+HEYGEN_API_KEY   = os.getenv("HEYGEN_API_KEY", "")
+HEYGEN_AVATAR_ID = os.getenv("HEYGEN_AVATAR_ID", "")
+
+# Instagram posting
+INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
+INSTAGRAM_ACCOUNT_ID   = os.getenv("INSTAGRAM_ACCOUNT_ID", "")
+
+# Social pipeline
+AUTO_POST_ENABLED  = os.getenv("AUTO_POST_ENABLED", "false").lower() == "true"
+ADMIN_EMAIL_SOCIAL = os.getenv("ADMIN_EMAIL", "")
 if _stripe_available and STRIPE_SECRET_KEY:
     _stripe.api_key = STRIPE_SECRET_KEY
 
@@ -4227,6 +4239,25 @@ class PersistedInsight(_Base):
     updated_at     = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class SocialPost(_Base):
+    __tablename__       = "social_posts"
+    id                  = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    date                = Column(String, nullable=False, unique=True)   # YYYY-MM-DD
+    status              = Column(String, default="pending")             # pending/posted/failed/skipped
+    content_type        = Column(String, default="video")               # video/image
+    insight_id          = Column(String, nullable=True)
+    script_text         = Column(String, nullable=True)
+    caption             = Column(String, nullable=True)
+    video_url           = Column(String, nullable=True)
+    image_url           = Column(String, nullable=True)
+    public_url          = Column(String, nullable=True)
+    instagram_media_id  = Column(String, nullable=True)
+    instagram_url       = Column(String, nullable=True)
+    error_message       = Column(String, nullable=True)
+    created_at          = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    posted_at           = Column(DateTime, nullable=True)
+
+
 _Base.metadata.create_all(_engine)
 
 # Add contact_type column to existing astrologer_contacts table (idempotent)
@@ -7623,13 +7654,242 @@ def admin_astro_insights_db(
         raise HTTPException(status_code=500, detail=f"Failed to fetch insights from astro-api: {e}")
 
 
-def _astro_social(method: str, path: str, **kwargs):
-    """Internal helper: call astro-api social admin routes."""
-    url = ASTRO_API_URL.rstrip("/") + f"/api/v1{path}"
-    hdrs = {"Authorization": f"Bearer {ASTRO_API_KEY_INTERNAL}"}
-    if method == "GET":
-        return requests.get(url, headers=hdrs, timeout=30)
-    return requests.post(url, headers=hdrs, timeout=30, **kwargs)
+# ── Social pipeline ────────────────────────────────────────────────────────────
+# Imports are local to avoid startup cost when these services aren't configured.
+
+def _social_score_insight(i: PersistedInsight) -> float:
+    conf    = {"high": 3, "medium": 2}.get(i.confidence, 1)
+    outlook = {"volatile": 4, "bearish": 3, "bullish": 2}.get(i.outlook, 1)
+    try:
+        days_ago = (datetime.now(timezone.utc) - datetime.fromisoformat(
+            i.published_date.replace("Z", "+00:00") if i.published_date else "1970-01-01+00:00"
+        )).days
+    except Exception:
+        days_ago = 999
+    return conf * 2 + outlook * 3 + max(0, 30 - days_ago)
+
+
+def _social_select_insight(db: Session) -> Optional[PersistedInsight]:
+    used_ids = {r[0] for r in db.query(SocialPost.insight_id).all() if r[0]}
+    candidates = (
+        db.query(PersistedInsight)
+        .filter(PersistedInsight.confidence.in_(["medium", "high"]))
+        .filter(PersistedInsight.outlook.in_(["bullish", "bearish"]))
+        .all()
+    )
+    candidates = [c for c in candidates if c.id not in used_ids]
+    if not candidates:
+        return None
+    return max(candidates, key=_social_score_insight)
+
+
+_SOCIAL_SCRIPT_PROMPT = """\
+Write a 30-second Instagram Reel script for this financial astrology signal: {insight_json}
+
+Spoken by Diana, founder of Star Signal, directly to camera.
+She is NOT the astrologer — she is sharing what the astrologer is forecasting.
+
+Rules:
+- Start with "According to [source_name]..." or "Astrologers at [source_name] say..."
+- 2-3 sentences maximum, plain English, no jargon
+- Mention the timeframe (e.g. "this week", "through May 8th")
+- End with "Link in bio to read the full forecast and see all signals"
+- Return ONLY the spoken words, no stage directions"""
+
+_SOCIAL_CAPTION_PROMPT = """\
+Write an Instagram Reel caption for this financial astrology signal.
+Signal: {summary}  Source: {source_name}  Timeframe: {timeframe}
+
+Rules:
+- 1-2 sentences, cosmic theme with emojis
+- Credit: "via @{source_handle} 🔗 link in bio"
+- End with "Full forecast + all signals: link in bio"
+- Add 8-12 hashtags: #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
+- Return ONLY the caption text"""
+
+
+def _social_generate_script(insight: PersistedInsight) -> str:
+    import json as _json
+    _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    msg = _ac.messages.create(
+        model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+        max_tokens=200,
+        messages=[{"role": "user", "content": _SOCIAL_SCRIPT_PROMPT.format(
+            insight_json=_json.dumps({
+                "topic": insight.topic, "outlook": insight.outlook,
+                "timeframe": insight.timeframe, "summary": insight.summary,
+                "source_name": insight.source_name,
+            })
+        )}],
+    )
+    return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
+
+
+def _social_generate_caption(insight: PersistedInsight) -> str:
+    _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    msg = _ac.messages.create(
+        model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+        max_tokens=200,
+        messages=[{"role": "user", "content": _SOCIAL_CAPTION_PROMPT.format(
+            summary=insight.summary,
+            source_name=insight.source_name,
+            timeframe=insight.timeframe or "",
+            source_handle=(insight.source_name or "").replace(" ", "").lower(),
+        )}],
+    )
+    return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
+
+
+def _social_notify(subject: str, body: str):
+    if not ADMIN_EMAIL_SOCIAL or not RESEND_API_KEY:
+        return
+    try:
+        resend.Emails.send({
+            "from":    "Star Signal <onboarding@resend.dev>",
+            "to":      [ADMIN_EMAIL_SOCIAL],
+            "subject": subject,
+            "text":    body,
+        })
+    except Exception as e:
+        print(f"[social] notify failed: {e}", flush=True)
+
+
+# In-memory preview store — single instance only
+_social_preview: dict = {"result": None, "at": None}
+
+
+def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict:
+    """
+    Full social pipeline:
+      1. Pick best unused insight
+      2. Generate script via Claude
+      3. Generate HeyGen twin video
+      4. Generate caption via Claude
+      5. Post Reel to Instagram (unless preview=True)
+    Returns a result dict with status/content_type/post keys.
+    """
+    from heygen import generate_twin_video
+    from instagram import post_reel, post_image
+
+    today = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    log = lambda *a: print(f"[social {today}]", *a, flush=True)
+
+    with Session(_engine) as db:
+        # Idempotency guard
+        if not preview:
+            existing = db.query(SocialPost).filter(SocialPost.date == today).first()
+            if existing and existing.status == "posted":
+                log("Already posted today — skipping")
+                return {"status": "skipped", "content_type": "video"}
+            if not AUTO_POST_ENABLED:
+                log("AUTO_POST_ENABLED is not true — skipping")
+                return {"status": "skipped", "content_type": "video"}
+
+        row = None
+        if not preview:
+            existing = db.query(SocialPost).filter(SocialPost.date == today).first()
+            if existing:
+                existing.status = "pending"
+                existing.error_message = None
+                db.commit()
+                row = existing
+            else:
+                row = SocialPost(date=today, status="pending")
+                db.add(row)
+                db.commit()
+
+        try:
+            log("Selecting best insight...")
+            insight = _social_select_insight(db)
+            if not insight:
+                log("No unused insights — skipping")
+                if row:
+                    row.status = "skipped"
+                    row.error_message = "No unused insights"
+                    db.commit()
+                return {"status": "skipped", "content_type": "video"}
+            log(f"Selected: [{insight.topic}] {insight.outlook} — {insight.summary[:60]}...")
+
+            log("Generating script...")
+            script = _social_generate_script(insight)
+            log(f"Script: {script[:80]}...")
+
+            log("Generating caption...")
+            caption = _social_generate_caption(insight)
+
+            if row:
+                row.insight_id = insight.id
+                row.script_text = script
+                row.caption = caption
+                db.commit()
+
+            # ── Video via HeyGen ───────────────────────────────────────────────
+            content_type = "video"
+            media_url    = ""
+            try:
+                log("Generating HeyGen twin video...")
+                media_url = generate_twin_video(script)
+                log(f"Video ready: {media_url}")
+                if row:
+                    row.video_url = media_url
+                    row.public_url = media_url
+                    db.commit()
+            except Exception as video_err:
+                err_msg = str(video_err)
+                log(f"Video generation failed, falling back to skip: {err_msg}")
+                _social_notify(
+                    "Star Signal: HeyGen video failed",
+                    f"Date: {today}\nInsight: {insight.summary}\nError: {err_msg}",
+                )
+                content_type = "image"
+                # No image fallback without a generator — mark as failed
+                if row:
+                    row.status = "failed"
+                    row.error_message = f"Video failed: {err_msg}"
+                    db.commit()
+                return {"status": "failed", "content_type": "image", "error": err_msg}
+
+            # Return preview without posting
+            if preview:
+                return {
+                    "status": "posted",
+                    "content_type": content_type,
+                    "post": {
+                        "insight":      {"id": insight.id, "topic": insight.topic, "summary": insight.summary},
+                        "script":       script,
+                        "caption":      caption,
+                        "media_url":    media_url,
+                        "content_type": content_type,
+                    },
+                }
+
+            # ── Post to Instagram ──────────────────────────────────────────────
+            log("Posting Reel to Instagram...")
+            ig = post_reel(media_url, caption)
+            log(f"Posted! ID: {ig['media_id']}  URL: {ig['permalink']}")
+
+            row.status             = "posted"
+            row.instagram_media_id = ig["media_id"]
+            row.instagram_url      = ig["permalink"]
+            row.content_type       = content_type
+            row.posted_at          = datetime.now(timezone.utc)
+            db.commit()
+
+            _social_notify(
+                f"Star Signal: Posted to Instagram — {today}",
+                f"Video posted!\n\nInsight: {insight.summary}\nScript: {script}\nCaption: {caption}\n\nURL: {ig['permalink']}",
+            )
+            return {"status": "posted", "content_type": content_type, "post": {"permalink": ig["permalink"]}}
+
+        except Exception as err:
+            msg = str(err)
+            log(f"Pipeline failed: {msg}")
+            if row:
+                row.status = "failed"
+                row.error_message = msg
+                db.commit()
+            _social_notify(f"Star Signal: Daily Instagram post FAILED — {today}", f"Error: {msg}")
+            return {"status": "failed", "content_type": "video", "error": msg}
 
 
 @app.get("/admin/social/posts")
@@ -7639,8 +7899,32 @@ def admin_social_posts(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    resp = _astro_social("GET", f"/admin/social/posts?days={days}")
-    return resp.json()
+    with Session(_engine) as db:
+        posts = (
+            db.query(SocialPost)
+            .order_by(SocialPost.created_at.desc())
+            .limit(days)
+            .all()
+        )
+        return {
+            "posts": [
+                {
+                    "id":               p.id,
+                    "date":             p.date,
+                    "status":           p.status,
+                    "content_type":     p.content_type,
+                    "script_text":      p.script_text,
+                    "caption":          p.caption,
+                    "public_url":       p.public_url,
+                    "instagram_url":    p.instagram_url,
+                    "error_message":    p.error_message,
+                    "created_at":       p.created_at.isoformat() if p.created_at else None,
+                    "posted_at":        p.posted_at.isoformat() if p.posted_at else None,
+                }
+                for p in posts
+            ],
+            "total": len(posts),
+        }
 
 
 @app.get("/admin/social/preview-status")
@@ -7649,7 +7933,9 @@ def admin_social_preview_status(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    return _astro_social("GET", "/admin/social/preview-status").json()
+    if not _social_preview["result"] or not _social_preview["at"]:
+        return {"ready": False}
+    return {"ready": True, "generated_at": _social_preview["at"].isoformat(), **_social_preview["result"]}
 
 
 @app.get("/admin/social/settings")
@@ -7658,7 +7944,12 @@ def admin_social_settings(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    return _astro_social("GET", "/admin/social/settings").json()
+    return {
+        "auto_post_enabled":    AUTO_POST_ENABLED,
+        "instagram_configured": bool(INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_ACCOUNT_ID),
+        "heygen_configured":    bool(HEYGEN_API_KEY and HEYGEN_AVATAR_ID),
+        "post_time_utc":        "08:00",
+    }
 
 
 @app.post("/admin/social/generate-preview")
@@ -7667,7 +7958,17 @@ def admin_social_generate_preview(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    return _astro_social("POST", "/admin/social/generate-preview").json()
+    _social_preview["result"] = None
+    _social_preview["at"]     = None
+
+    def _run():
+        result = _social_run_pipeline(preview=True)
+        _social_preview["result"] = result
+        _social_preview["at"]     = datetime.now(timezone.utc)
+        print(f"[social-admin] preview complete: {result.get('status')}", flush=True)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"started": True, "message": "Preview generation started — poll GET /admin/social/preview-status for progress."}
 
 
 @app.post("/admin/social/post-preview")
@@ -7676,7 +7977,43 @@ def admin_social_post_preview(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    return _astro_social("POST", "/admin/social/post-preview").json()
+    preview = _social_preview.get("result")
+    if not preview or not preview.get("post"):
+        raise HTTPException(status_code=400, detail="No preview available — generate one first")
+
+    from instagram import post_reel, post_image
+    p            = preview["post"]
+    media_url    = p.get("media_url", "")
+    caption      = p.get("caption", "")
+    content_type = p.get("content_type", "video")
+
+    try:
+        ig = post_reel(media_url, caption) if content_type == "video" else post_image(media_url, caption)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with Session(_engine) as db:
+        existing = db.query(SocialPost).filter(SocialPost.date == today).first()
+        insight_id = (p.get("insight") or {}).get("id")
+        if existing:
+            existing.status             = "posted"
+            existing.instagram_media_id = ig["media_id"]
+            existing.instagram_url      = ig["permalink"]
+            existing.posted_at          = datetime.now(timezone.utc)
+            db.commit()
+        else:
+            db.add(SocialPost(
+                date=today, status="posted", content_type=content_type,
+                insight_id=insight_id, script_text=p.get("script"), caption=caption,
+                public_url=media_url, instagram_media_id=ig["media_id"],
+                instagram_url=ig["permalink"], posted_at=datetime.now(timezone.utc),
+            ))
+            db.commit()
+
+    _social_preview["result"] = None
+    _social_preview["at"]     = None
+    return {"posted": True, "permalink": ig["permalink"]}
 
 
 @app.post("/admin/social/skip-today")
@@ -7685,7 +8022,19 @@ def admin_social_skip_today(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    return _astro_social("POST", "/admin/social/skip-today").json()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with Session(_engine) as db:
+        existing = db.query(SocialPost).filter(SocialPost.date == today).first()
+        if existing:
+            existing.status = "skipped"
+            existing.error_message = "Manually skipped"
+            db.commit()
+            post = existing
+        else:
+            post = SocialPost(date=today, status="skipped", error_message="Manually skipped")
+            db.add(post)
+            db.commit()
+        return {"id": post.id, "date": post.date, "status": post.status}
 
 
 @app.post("/admin/social/run-now")
@@ -7694,7 +8043,11 @@ def admin_social_run_now(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    return _astro_social("POST", "/admin/social/run-now").json()
+    threading.Thread(
+        target=lambda: _social_run_pipeline(),
+        daemon=True,
+    ).start()
+    return {"started": True, "message": "Daily job triggered — will post if AUTO_POST_ENABLED=true."}
 
 
 @app.get("/partner-preview/{slug}")
