@@ -91,6 +91,12 @@ const PAGES = [
     desc:  'View all Claude system and user prompts used in the pipeline — extraction, verification, chat, natal analysis.',
     icon:  '🤖',
   },
+  {
+    path:  '/admin/social-content',
+    title: 'Social Content',
+    desc:  'Daily Instagram Reel automation — HeyGen twin video, preview, manual post controls, and post history.',
+    icon:  '📸',
+  },
 ]
 
 export default function AdminPage() {

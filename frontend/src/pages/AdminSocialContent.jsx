@@ -85,7 +85,11 @@ export default function AdminSocialContent() {
         setPollTimer(null)
         setGenerating(false)
         setPreview(d)
-        setStatusMsg(d.status === 'failed' ? `Preview failed: ${d.error}` : 'Preview ready — review below.')
+        setStatusMsg(
+          d.status === 'failed'  ? `Preview failed: ${d.error}` :
+          d.status === 'skipped' ? `Skipped: ${d.error ?? 'no unused insights available'}` :
+          'Preview ready — review below.'
+        )
       }
     }, 8000)
     setPollTimer(timer)
@@ -95,7 +99,19 @@ export default function AdminSocialContent() {
     setGenerating(true)
     setPreview(null)
     setStatusMsg('Generating preview — this takes 2–5 minutes...')
-    await fetch(`${API}/admin/social/generate-preview`, { method: 'POST', headers: adminHeaders() })
+    try {
+      const r = await fetch(`${API}/admin/social/generate-preview`, { method: 'POST', headers: adminHeaders() })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        setStatusMsg(`Failed to start: ${d.detail ?? r.status}`)
+        setGenerating(false)
+        return
+      }
+    } catch (e) {
+      setStatusMsg(`Network error: ${e}`)
+      setGenerating(false)
+      return
+    }
     startPolling()
   }
 
