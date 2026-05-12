@@ -64,7 +64,7 @@ def generate_twin_video(script: str) -> str:
 def _poll_video(video_id: str) -> str:
     deadline = time.time() + _MAX_WAIT
     while time.time() < deadline:
-        resp = requests.get(f"{_BASE}/v2/video/{video_id}", headers=_headers(), timeout=15)
+        resp = requests.get(f"{_BASE}/v1/video_status.get", params={"video_id": video_id}, headers=_headers(), timeout=15)
         resp.raise_for_status()
         data   = resp.json().get("data", {})
         status = data.get("status")
