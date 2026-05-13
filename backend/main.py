@@ -7706,7 +7706,7 @@ Signal: {summary}  Source: {source_name}  Timeframe: {timeframe}
 Rules:
 - 1-2 sentences, cosmic theme with emojis
 - Credit: "via @{source_handle} 🔗 link in bio"
-- End with "Full forecast + all signals: link in bio"
+- End with "Login free to starsignal.io for more financial information like this 🔗 starsignal.io"
 - Add 8-12 hashtags: #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
 - Return ONLY the caption text"""
 

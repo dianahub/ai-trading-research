@@ -6,7 +6,8 @@ Env vars:
   HEYGEN_AVATAR_ID      — trained avatar/twin ID
   HEYGEN_VOICE_ID       — voice ID for the avatar (optional, uses avatar default if unset)
   HEYGEN_AVATAR_TYPE    — "talking_photo" (default) or "avatar" for video twins
-  HEYGEN_BACKGROUND     — hex color (e.g. #0a0e1a) or public image URL; defaults to Star Signal dark navy
+  HEYGEN_BACKGROUND     — hex color (e.g. #0a0e1a) or public image URL; defaults to Star Signal homepage screenshot
+  HEYGEN_CAPTIONS       — set to "true" to burn auto-generated captions into the video (default: true)
 """
 
 import os
@@ -43,9 +44,11 @@ def generate_twin_video(script: str) -> str:
     else:
         character = {"type": "avatar", "avatar_id": avatar_id, "avatar_style": "normal"}
 
-    bg_value = os.getenv("HEYGEN_BACKGROUND", "#0a0e1a")
+    bg_value = os.getenv("HEYGEN_BACKGROUND", "https://starsignal.io/starsignal-bg.png")
     bg_type  = "image" if bg_value.startswith("http") else "color"
     background = {"type": bg_type, "value": bg_value}
+
+    captions_enabled = os.getenv("HEYGEN_CAPTIONS", "true").lower() != "false"
 
     payload = {
         "video_inputs": [{
@@ -55,6 +58,7 @@ def generate_twin_video(script: str) -> str:
         }],
         "dimension":    {"width": 720, "height": 1280},
         "aspect_ratio": "9:16",
+        "caption":      captions_enabled,
     }
 
     resp = requests.post(f"{_BASE}/v2/video/generate", headers=_headers(), json=payload, timeout=30)
