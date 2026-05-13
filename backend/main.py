@@ -7669,12 +7669,15 @@ def _social_score_insight(i: PersistedInsight) -> float:
     return conf * 2 + outlook * 3 + max(0, 30 - days_ago)
 
 
+_SOCIAL_EXCLUDED_SOURCES = {"Rowans Financial Astrology"}
+
 def _social_select_insight(db: Session) -> Optional[PersistedInsight]:
     used_ids = {r[0] for r in db.query(SocialPost.insight_id).all() if r[0]}
     candidates = (
         db.query(PersistedInsight)
         .filter(PersistedInsight.confidence.in_(["medium", "high"]))
         .filter(PersistedInsight.outlook.in_(["bullish", "bearish"]))
+        .filter(PersistedInsight.source_name.notin_(_SOCIAL_EXCLUDED_SOURCES))
         .all()
     )
     candidates = [c for c in candidates if c.id not in used_ids]

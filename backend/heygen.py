@@ -2,9 +2,11 @@
 HeyGen avatar video generation (twin videos).
 
 Env vars:
-  HEYGEN_API_KEY   — HeyGen API key
-  HEYGEN_AVATAR_ID — trained avatar/twin ID
-  HEYGEN_VOICE_ID  — voice ID for the avatar (optional, uses avatar default if unset)
+  HEYGEN_API_KEY        — HeyGen API key
+  HEYGEN_AVATAR_ID      — trained avatar/twin ID
+  HEYGEN_VOICE_ID       — voice ID for the avatar (optional, uses avatar default if unset)
+  HEYGEN_AVATAR_TYPE    — "talking_photo" (default) or "avatar" for video twins
+  HEYGEN_BACKGROUND     — hex color (e.g. #0a0e1a) or public image URL; defaults to Star Signal dark navy
 """
 
 import os
@@ -41,10 +43,15 @@ def generate_twin_video(script: str) -> str:
     else:
         character = {"type": "avatar", "avatar_id": avatar_id, "avatar_style": "normal"}
 
+    bg_value = os.getenv("HEYGEN_BACKGROUND", "#0a0e1a")
+    bg_type  = "image" if bg_value.startswith("http") else "color"
+    background = {"type": bg_type, "value": bg_value}
+
     payload = {
         "video_inputs": [{
-            "character": character,
-            "voice":     voice_block,
+            "character":  character,
+            "voice":      voice_block,
+            "background": background,
         }],
         "dimension":    {"width": 720, "height": 1280},
         "aspect_ratio": "9:16",
