@@ -7673,11 +7673,13 @@ _SOCIAL_EXCLUDED_SOURCES = {"Rowans Financial Astrology"}
 
 def _social_select_insight(db: Session) -> Optional[PersistedInsight]:
     used_ids = {r[0] for r in db.query(SocialPost.insight_id).all() if r[0]}
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
     candidates = (
         db.query(PersistedInsight)
         .filter(PersistedInsight.confidence.in_(["medium", "high"]))
         .filter(PersistedInsight.outlook.in_(["bullish", "bearish"]))
         .filter(PersistedInsight.source_name.notin_(_SOCIAL_EXCLUDED_SOURCES))
+        .filter(PersistedInsight.published_date >= cutoff)
         .all()
     )
     candidates = [c for c in candidates if c.id not in used_ids]
@@ -7687,13 +7689,14 @@ def _social_select_insight(db: Session) -> Optional[PersistedInsight]:
 
 
 _SOCIAL_SCRIPT_PROMPT = """\
-Write a 30-second Instagram Reel script for this financial astrology signal: {insight_json}
+Write a 30-second Instagram Reel script for this recent financial astrology signal: {insight_json}
 
 Spoken by Diana, founder of Star Signal, directly to camera.
 She is NOT the astrologer — she is sharing what the astrologer is forecasting.
 
 Rules:
 - Start with "According to [source_name] on [published_date]..." or "Astrologers at [source_name] said on [published_date]..."
+- Frame this as a fresh, current forecast — use language like "just dropped", "this week's forecast", "the latest reading"
 - 2-3 sentences maximum, plain English, no jargon
 - Mention the timeframe (e.g. "this week", "through May 8th")
 - End with "Link in bio to read the full forecast and see all signals"
@@ -7707,7 +7710,7 @@ Rules:
 - 1-2 sentences, cosmic theme with emojis
 - Credit: "via @{source_handle} 🔗 link in bio"
 - End with "Login free to starsignal.io for more financial information like this 🔗 starsignal.io"
-- Add 8-12 hashtags: #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
+- Add 8-12 hashtags including #{source_tag} (the astrologer's name as a hashtag): #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
 - Return ONLY the caption text"""
 
 
@@ -7739,6 +7742,7 @@ def _social_generate_caption(insight: PersistedInsight) -> str:
             source_name=insight.source_name,
             timeframe=insight.timeframe or "",
             source_handle=(insight.source_name or "").replace(" ", "").lower(),
+            source_tag=re.sub(r"[^a-zA-Z0-9]", "", insight.source_name or ""),
         )}],
     )
     return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
