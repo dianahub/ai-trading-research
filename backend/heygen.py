@@ -44,7 +44,7 @@ def generate_twin_video(script: str) -> str:
     else:
         character = {"type": "avatar", "avatar_id": avatar_id, "avatar_style": "normal"}
 
-    bg_value = os.getenv("HEYGEN_BACKGROUND", "https://starsignal.io/starsignal-bg.png")
+    bg_value = os.getenv("HEYGEN_BACKGROUND", "https://www.starsignal.io/starsignal-bg.png")
     bg_type  = "image" if bg_value.startswith("http") else "color"
     background = {"type": bg_type, "value": bg_value}
 
@@ -62,6 +62,8 @@ def generate_twin_video(script: str) -> str:
     }
 
     resp = requests.post(f"{_BASE}/v2/video/generate", headers=_headers(), json=payload, timeout=30)
+    if not resp.ok:
+        print(f"[heygen] generate error {resp.status_code}: {resp.text}", flush=True)
     resp.raise_for_status()
     data = resp.json()
     video_id = (data.get("data") or {}).get("video_id") or data.get("video_id")
