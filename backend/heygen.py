@@ -103,6 +103,30 @@ def _poll_video(video_id: str) -> tuple[str, str | None]:
     raise RuntimeError(f"HeyGen video {video_id} timed out after {_MAX_WAIT}s")
 
 
+def _find_fonts_dir() -> str | None:
+    """Return a directory containing TTF fonts for libass, or None if not found."""
+    candidates = [
+        "/usr/share/fonts/truetype",
+        "/usr/share/fonts",
+        "/usr/local/share/fonts",
+        "/root/.fonts",
+    ]
+    for d in candidates:
+        if os.path.isdir(d) and any(f.endswith(".ttf") for f in os.listdir(d)):
+            return d
+    # Nix store search (Railway nixpkgs — dejavu_fonts installs here)
+    try:
+        result = subprocess.run(
+            ["find", "/nix/store", "-name", "DejaVuSans*.ttf", "-type", "f"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return os.path.dirname(result.stdout.strip().splitlines()[0])
+    except Exception:
+        pass
+    return None
+
+
 def burn_captions(video_url: str, caption_url: str | None, script: str) -> str | None:
     """
     Download the HeyGen video, burn captions at the bottom (below the face),
@@ -141,7 +165,13 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
             "Alignment=2,"
             "MarginV=160"
         )
-        subtitle_filter = f"subtitles={sub_path}:force_style='{style}'"
+        fonts_dir = _find_fonts_dir()
+        if fonts_dir:
+            print(f"[heygen] Using fonts from: {fonts_dir}", flush=True)
+            subtitle_filter = f"subtitles={sub_path}:fontsdir={fonts_dir}:force_style='{style}'"
+        else:
+            print("[heygen] No fonts dir found — libass will use built-in fallback", flush=True)
+            subtitle_filter = f"subtitles={sub_path}:force_style='{style}'"
         cmd = [
             "ffmpeg", "-y",
             "-i", raw_path,
@@ -153,7 +183,8 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
         print(f"[heygen] Burning captions with FFmpeg...", flush=True)
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if result.returncode != 0:
-            print(f"[heygen] FFmpeg stderr: {result.stderr[-600:]}", flush=True)
+            print(f"[heygen] FFmpeg failed (exit {result.returncode})", flush=True)
+            print(f"[heygen] FFmpeg stderr:\n{result.stderr}", flush=True)
             return None
 
         print(f"[heygen] Captions burned → {out_path}", flush=True)
