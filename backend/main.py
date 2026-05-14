@@ -7693,7 +7693,7 @@ Spoken by Diana, founder of Star Signal, directly to camera.
 She is NOT the astrologer — she is sharing what the astrologer is forecasting.
 
 Rules:
-- Start with "According to [source_name]..." or "Astrologers at [source_name] say..."
+- Start with "According to [source_name] on [published_date]..." or "Astrologers at [source_name] said on [published_date]..."
 - 2-3 sentences maximum, plain English, no jargon
 - Mention the timeframe (e.g. "this week", "through May 8th")
 - End with "Link in bio to read the full forecast and see all signals"
@@ -7722,6 +7722,7 @@ def _social_generate_script(insight: PersistedInsight) -> str:
                 "topic": insight.topic, "outlook": insight.outlook,
                 "timeframe": insight.timeframe, "summary": insight.summary,
                 "source_name": insight.source_name,
+                "published_date": insight.published_date,
             })
         )}],
     )
