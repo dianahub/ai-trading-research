@@ -46,7 +46,7 @@ def generate_twin_video(script: str) -> str:
 
     bg_value = os.getenv("HEYGEN_BACKGROUND", "https://www.starsignal.io/starsignal-bg.png")
     bg_type  = "image" if bg_value.startswith("http") else "color"
-    background = {"type": bg_type, "value": bg_value}
+    background = {"type": bg_type, "url": bg_value} if bg_type == "image" else {"type": bg_type, "value": bg_value}
 
     captions_enabled = os.getenv("HEYGEN_CAPTIONS", "true").lower() != "false"
 
