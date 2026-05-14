@@ -19,7 +19,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Cookie, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Float, text
@@ -7771,7 +7771,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
       5. Post Reel to Instagram (unless preview=True)
     Returns a result dict with status/content_type/post keys.
     """
-    from heygen import generate_twin_video
+    from heygen import generate_twin_video, burn_captions
     from instagram import post_reel, post_image
 
     today = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -7831,8 +7831,21 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             media_url    = ""
             try:
                 log("Generating HeyGen twin video...")
-                media_url = generate_twin_video(script)
-                log(f"Video ready: {media_url}")
+                raw_video_url, caption_url = generate_twin_video(script)
+                log(f"Video ready: {raw_video_url} | caption_url: {caption_url}")
+
+                # Burn captions at the bottom of the frame (below the face)
+                media_url = raw_video_url
+                if os.getenv("HEYGEN_CAPTIONS", "true").lower() != "false":
+                    log("Burning captions into video...")
+                    captioned_path = burn_captions(raw_video_url, caption_url, script)
+                    if captioned_path:
+                        file_id   = os.path.basename(captioned_path)
+                        media_url = f"{BACKEND_URL}/media/temp/{file_id}"
+                        log(f"Captioned video: {media_url}")
+                    else:
+                        log("Caption burn failed — using original video")
+
                 if row:
                     row.video_url = media_url
                     row.public_url = media_url
@@ -7893,6 +7906,17 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 db.commit()
             _social_notify(f"Star Signal: Daily Instagram post FAILED — {today}", f"Error: {msg}")
             return {"status": "failed", "content_type": "video", "error": msg}
+
+
+@app.get("/media/temp/{file_id}")
+def serve_temp_video(file_id: str):
+    """Serve a captioned video file from the temp directory for Instagram upload."""
+    if not re.match(r'^[a-f0-9\-]+\.mp4$', file_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    path = f"/tmp/social_videos/{file_id}"
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(path, media_type="video/mp4")
 
 
 @app.get("/admin/social/posts")
