@@ -7721,14 +7721,17 @@ Rules:
 
 
 def _fetch_top_financial_news() -> list[dict]:
-    """Fetch today's top 5 financial/crypto headlines from NewsAPI. Returns [] on failure."""
+    """Fetch today's top financial/crypto/macro headlines from NewsAPI. Returns [] on failure."""
     if not NEWS_API_KEY or NEWS_API_KEY == "your_news_api_key_here":
         return []
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     try:
         resp = requests.get(
-            f"{NEWSAPI_BASE}/top-headlines",
+            f"{NEWSAPI_BASE}/everything",
             params={
-                "category": "business",
+                "q": "bitcoin OR ethereum OR crypto OR oil OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR \"S&P 500\" OR gold OR inflation",
+                "from": today,
+                "sortBy": "publishedAt",
                 "language": "en",
                 "pageSize": 5,
                 "apiKey": NEWS_API_KEY,
