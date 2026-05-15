@@ -7689,38 +7689,74 @@ def _social_select_insight(db: Session) -> Optional[PersistedInsight]:
 
 
 _SOCIAL_SCRIPT_PROMPT = """\
-Write a 30-second Instagram Reel script for this recent financial astrology signal: {insight_json}
+You are writing a 30-second Instagram Reel script for Diana, founder of Star Signal.
+Diana speaks directly to camera. She is NOT an astrologer — she shares what astrologers forecast.
 
-Spoken by Diana, founder of Star Signal, directly to camera.
-She is NOT the astrologer — she is sharing what the astrologer is forecasting.
+Today's biggest financial news:
+{news_str}
+
+Astrology signal to reference: {insight_json}
 
 Rules:
-- Start with "According to [source_name] on [published_date]..." or "Astrologers at [source_name] said on [published_date]..."
-- Frame this as a fresh, current forecast — use language like "just dropped", "this week's forecast", "the latest reading"
-- 2-3 sentences maximum, plain English, no jargon
-- Mention the timeframe (e.g. "this week", "through May 8th")
-- End with "Link in bio to read the full forecast and see all signals"
+- Open with the most relevant news headline: "Today in markets, [headline]..." or "Breaking: [headline]..."
+- Second sentence bridges to the forward-looking astrology forecast: "According to [source_name], [future prediction from the signal]..."
+- The astrology content must be future-tense — what is expected to happen, not what already happened
+- 3-4 sentences maximum, plain English, no jargon
+- Mention the timeframe from the signal (e.g. "through May 20th", "this week")
+- End with "Link in bio to see all the signals before they happen"
 - Return ONLY the spoken words, no stage directions"""
 
 _SOCIAL_CAPTION_PROMPT = """\
-Write an Instagram Reel caption for this financial astrology signal.
-Signal: {summary}  Source: {source_name}  Timeframe: {timeframe}
+Write an Instagram Reel caption for this financial astrology content.
+Top news headline: {top_headline}
+Astrology signal: {summary}  Source: {source_name}  Timeframe: {timeframe}
 
 Rules:
-- 1-2 sentences, cosmic theme with emojis
-- Credit: "via @{source_handle} 🔗 link in bio"
+- Lead with the news in quotes with a breaking-news emoji: 🚨 "[headline]"
+- Bridge line using future tense: "✨ According to astrologers, [what is expected to happen next]"
+- Credit: "via @{source_handle}"
 - End with "Link in bio → starsignal.io for free financial astrology signals 🔗"
-- Add 8-12 hashtags including #{source_tag} (the astrologer's name as a hashtag): #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
+- Add 8-12 hashtags including #{source_tag}: #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
 - Return ONLY the caption text"""
 
 
-def _social_generate_script(insight: PersistedInsight) -> str:
+def _fetch_top_financial_news() -> list[dict]:
+    """Fetch today's top 5 financial/crypto headlines from NewsAPI. Returns [] on failure."""
+    if not NEWS_API_KEY or NEWS_API_KEY == "your_news_api_key_here":
+        return []
+    try:
+        resp = requests.get(
+            f"{NEWSAPI_BASE}/top-headlines",
+            params={
+                "category": "business",
+                "language": "en",
+                "pageSize": 5,
+                "apiKey": NEWS_API_KEY,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        body = resp.json()
+        if body.get("status") != "ok":
+            return []
+        return [
+            {"title": a["title"], "source": a["source"]["name"]}
+            for a in body.get("articles", [])
+            if a.get("title") and "[Removed]" not in a["title"]
+        ]
+    except Exception:
+        return []
+
+
+def _social_generate_script(insight: PersistedInsight, news: list[dict]) -> str:
     import json as _json
+    news_str = "\n".join(f"- {a['title']} ({a['source']})" for a in news) if news else "No major headlines available today."
     _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     msg = _ac.messages.create(
         model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
-        max_tokens=200,
+        max_tokens=250,
         messages=[{"role": "user", "content": _SOCIAL_SCRIPT_PROMPT.format(
+            news_str=news_str,
             insight_json=_json.dumps({
                 "topic": insight.topic, "outlook": insight.outlook,
                 "timeframe": insight.timeframe, "summary": insight.summary,
@@ -7732,12 +7768,13 @@ def _social_generate_script(insight: PersistedInsight) -> str:
     return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
 
 
-def _social_generate_caption(insight: PersistedInsight) -> str:
+def _social_generate_caption(insight: PersistedInsight, top_headline: str) -> str:
     _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     msg = _ac.messages.create(
         model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
-        max_tokens=200,
+        max_tokens=250,
         messages=[{"role": "user", "content": _SOCIAL_CAPTION_PROMPT.format(
+            top_headline=top_headline or "Markets on the move today",
             summary=insight.summary,
             source_name=insight.source_name,
             timeframe=insight.timeframe or "",
@@ -7818,12 +7855,17 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 return {"status": "skipped", "content_type": "video"}
             log(f"Selected: [{insight.topic}] {insight.outlook} — {insight.summary[:60]}...")
 
+            log("Fetching top financial news...")
+            top_news = _fetch_top_financial_news()
+            top_headline = top_news[0]["title"] if top_news else ""
+            log(f"Top headline: {top_headline or '(none)'}")
+
             log("Generating script...")
-            script = _social_generate_script(insight)
+            script = _social_generate_script(insight, top_news)
             log(f"Script: {script[:80]}...")
 
             log("Generating caption...")
-            caption = _social_generate_caption(insight)
+            caption = _social_generate_caption(insight, top_headline)
 
             if row:
                 row.insight_id = insight.id
