@@ -7713,9 +7713,9 @@ Astrology signal: {summary}  Source: {source_name}  Timeframe: {timeframe}
 Source prediction URL: {source_url}
 
 Rules:
-- Lead with the news in quotes with a breaking-news emoji: 🚨 "[headline]"
-- Bridge line using future tense: "✨ According to astrologers, [what is expected to happen next]"
-- Credit line: "📖 Read the full prediction: {source_url}"
+- Lead with the top news headline in quotes with a breaking-news emoji, like: 🚨 "Oil surges as tensions rise"
+- Bridge line using future tense, like: "✨ According to astrologers, [what is expected to happen next]"
+- Credit line using the exact source URL provided above: "📖 Read the full prediction: [source URL]"
 - End with "Link in bio → starsignal.io for free financial astrology signals 🔗"
 - Add 8-12 hashtags including #{source_tag}: #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
 - Return ONLY the caption text"""
