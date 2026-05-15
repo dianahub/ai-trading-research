@@ -7698,7 +7698,7 @@ Today's biggest financial news:
 Astrology signal to reference: {insight_json}
 
 Rules:
-- Open with the most relevant news headline: "Today in markets, [headline]..." or "Breaking: [headline]..."
+- Open with exactly: "In today's financial news, [headline]..."
 - Second sentence bridges to the forward-looking astrology forecast: "According to [source_name], [future prediction from the signal]..."
 - The astrology content must be future-tense — what is expected to happen, not what already happened
 - 3-4 sentences maximum, plain English, no jargon
