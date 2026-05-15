@@ -7710,11 +7710,12 @@ _SOCIAL_CAPTION_PROMPT = """\
 Write an Instagram Reel caption for this financial astrology content.
 Top news headline: {top_headline}
 Astrology signal: {summary}  Source: {source_name}  Timeframe: {timeframe}
+Source prediction URL: {source_url}
 
 Rules:
 - Lead with the news in quotes with a breaking-news emoji: 🚨 "[headline]"
 - Bridge line using future tense: "✨ According to astrologers, [what is expected to happen next]"
-- Credit: "via @{source_handle}"
+- Credit line: "📖 Read the full prediction: {source_url}"
 - End with "Link in bio → starsignal.io for free financial astrology signals 🔗"
 - Add 8-12 hashtags including #{source_tag}: #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
 - Return ONLY the caption text"""
@@ -7781,6 +7782,7 @@ def _social_generate_caption(insight: PersistedInsight, top_headline: str) -> st
             summary=insight.summary,
             source_name=insight.source_name,
             timeframe=insight.timeframe or "",
+            source_url=insight.source_url or "",
             source_handle=(insight.source_name or "").replace(" ", "").lower(),
             source_tag=re.sub(r"[^a-zA-Z0-9]", "", insight.source_name or ""),
         )}],
