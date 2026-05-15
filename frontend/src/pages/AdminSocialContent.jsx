@@ -52,6 +52,12 @@ export default function AdminSocialContent() {
   const [statusMsg, setStatusMsg]   = useState('')
   const [pollTimer, setPollTimer]   = useState(null)
 
+  // Upload & post your own video
+  const [uploadFile, setUploadFile]       = useState(null)
+  const [uploading, setUploading]         = useState(false)
+  const [uploadResult, setUploadResult]   = useState(null)
+  const [uploadMsg, setUploadMsg]         = useState('')
+
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true)
     try {
@@ -148,6 +154,34 @@ export default function AdminSocialContent() {
     setTimeout(() => { loadPosts(); setRunning(false) }, 5000)
   }
 
+  const handleUploadAndPost = async () => {
+    if (!uploadFile) return
+    setUploading(true)
+    setUploadResult(null)
+    setUploadMsg('Uploading video and generating caption…')
+    try {
+      const form = new FormData()
+      form.append('file', uploadFile)
+      const headers = {
+        'x-admin-email':    'contact@starsignal.io',
+        'x-admin-password': 'BISCUITLOVE',
+      }
+      const r = await fetch(`${API}/admin/social/post-custom-video`, { method: 'POST', headers, body: form })
+      const d = await r.json()
+      if (!r.ok) {
+        setUploadMsg(`Failed: ${d.detail ?? JSON.stringify(d)}`)
+      } else {
+        setUploadResult(d)
+        setUploadMsg(`Posted! ${d.permalink}`)
+        setUploadFile(null)
+        loadPosts()
+      }
+    } catch (e) {
+      setUploadMsg(`Error: ${e}`)
+    }
+    setUploading(false)
+  }
+
   return (
     <div className="min-h-screen" style={{ background: '#060d18', color: '#e2e8f0', fontFamily: 'Inter, sans-serif' }}>
       <div className="max-w-5xl mx-auto px-4 py-8">
@@ -226,6 +260,53 @@ export default function AdminSocialContent() {
               color="#1c1208" textColor="#fbbf24" border="#78350f"
             />
           </div>
+        </div>
+
+        {/* Upload your own video */}
+        <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
+          <h2 className="text-sm font-bold mb-1" style={{ color: '#94a3b8' }}>POST YOUR OWN VIDEO</h2>
+          <p className="text-xs mb-4" style={{ color: '#475569' }}>
+            Upload a video you recorded. A caption with today's news + astrology tags is generated automatically and posted to Instagram.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="rounded-lg px-4 py-2 text-sm font-semibold cursor-pointer"
+              style={{ background: '#0c1e38', border: '1px solid #1e4976', color: '#93c5fd' }}>
+              {uploadFile ? uploadFile.name : 'Choose Video…'}
+              <input type="file" accept="video/*" className="hidden"
+                onChange={e => { setUploadFile(e.target.files[0] ?? null); setUploadResult(null); setUploadMsg('') }} />
+            </label>
+
+            <ActionButton
+              onClick={handleUploadAndPost}
+              loading={uploading}
+              disabled={!uploadFile}
+              label="Post to Instagram"
+              loadingLabel="Uploading & Posting…"
+              color="#052e1a" textColor="#34d399" border="#10b981"
+            />
+
+            {uploadFile && !uploading && (
+              <button onClick={() => { setUploadFile(null); setUploadResult(null); setUploadMsg('') }}
+                className="text-xs" style={{ color: '#64748b' }}>
+                Clear
+              </button>
+            )}
+          </div>
+
+          {uploadMsg && (
+            <div className="mt-3 rounded-lg px-3 py-2 text-sm"
+              style={{ background: '#060d18', border: '1px solid #1e3a5f', color: uploadResult?.posted ? '#34d399' : '#93c5fd' }}>
+              {uploadMsg}
+            </div>
+          )}
+
+          {uploadResult?.caption && (
+            <div className="mt-3">
+              <div className="text-xs mb-1" style={{ color: '#475569' }}>GENERATED CAPTION</div>
+              <p className="text-sm whitespace-pre-wrap" style={{ color: '#94a3b8' }}>{uploadResult.caption}</p>
+            </div>
+          )}
         </div>
 
         {/* Preview result */}

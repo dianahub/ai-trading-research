@@ -17,7 +17,7 @@ import pandas as pd
 import pandas_ta as ta
 from datetime import datetime, timezone, timedelta
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Header, Cookie, Response, Request
+from fastapi import FastAPI, HTTPException, Header, Cookie, Response, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from pydantic import BaseModel, EmailStr
@@ -7969,6 +7969,55 @@ def serve_temp_video(file_id: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Not found")
     return FileResponse(path, media_type="video/mp4")
+
+
+@app.post("/admin/social/post-custom-video")
+async def admin_social_post_custom_video(
+    file: UploadFile = File(...),
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Upload a custom video, auto-generate a caption from today's news + best insight, and post to Instagram."""
+    _require_admin(x_admin_email, x_admin_password)
+    from instagram import post_reel
+
+    if not file.content_type or not file.content_type.startswith("video/"):
+        raise HTTPException(status_code=400, detail="File must be a video")
+
+    # Save uploaded file to temp dir
+    os.makedirs("/tmp/social_videos", exist_ok=True)
+    file_id = f"{uuid.uuid4()}.mp4"
+    save_path = f"/tmp/social_videos/{file_id}"
+    content = await file.read()
+    with open(save_path, "wb") as f:
+        f.write(content)
+
+    video_url = f"{BACKEND_URL}/media/temp/{file_id}"
+
+    # Generate caption: fetch news + pick best unused insight
+    top_news = _fetch_top_financial_news()
+    top_headline = top_news[0]["title"] if top_news else ""
+
+    with Session(_engine) as db:
+        insight = _social_select_insight(db)
+
+    if not insight:
+        # No insight available — still post with a news-only caption
+        caption = (
+            f'🚨 "{top_headline}"\n\n'
+            f'✨ According to astrologers, the stars signal major market moves ahead — check the link in bio for the full forecast.\n\n'
+            f'Link in bio → starsignal.io for free financial astrology signals 🔗\n\n'
+            f'#financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology'
+        ) if top_headline else "Link in bio → starsignal.io 🔗"
+    else:
+        caption = _social_generate_caption(insight, top_headline)
+
+    try:
+        ig = post_reel(video_url, caption)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Instagram post failed: {e}")
+
+    return {"posted": True, "permalink": ig.get("permalink", ""), "caption": caption, "media_id": ig.get("media_id", "")}
 
 
 @app.get("/admin/social/posts")
