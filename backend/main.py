@@ -8080,6 +8080,36 @@ def admin_social_settings(
     }
 
 
+@app.get("/admin/heygen/avatars")
+def admin_heygen_avatars(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """List all HeyGen avatars and talking photos with their IDs."""
+    _require_admin(x_admin_email, x_admin_password)
+    if not HEYGEN_API_KEY:
+        raise HTTPException(status_code=400, detail="HEYGEN_API_KEY not set")
+    headers = {"X-Api-Key": HEYGEN_API_KEY, "Content-Type": "application/json"}
+    results = []
+    # Regular avatars
+    try:
+        r = requests.get("https://api.heygen.com/v2/avatars", headers=headers, timeout=15)
+        if r.ok:
+            for a in (r.json().get("data") or {}).get("avatars", []):
+                results.append({"id": a.get("avatar_id"), "name": a.get("avatar_name"), "type": "avatar", "preview": a.get("preview_image_url")})
+    except Exception:
+        pass
+    # Talking photos (custom photo avatars)
+    try:
+        r = requests.get("https://api.heygen.com/v2/talking_photo", headers=headers, timeout=15)
+        if r.ok:
+            for a in (r.json().get("data") or {}).get("talking_photos", []):
+                results.append({"id": a.get("talking_photo_id"), "name": a.get("talking_photo_name"), "type": "talking_photo", "preview": a.get("preview_image_url")})
+    except Exception:
+        pass
+    return {"avatars": results}
+
+
 @app.post("/admin/social/generate-preview")
 def admin_social_generate_preview(
     x_admin_email: str = Header(default=""),
