@@ -7729,7 +7729,7 @@ def _fetch_top_financial_news() -> list[dict]:
         resp = requests.get(
             f"{NEWSAPI_BASE}/everything",
             params={
-                "q": "bitcoin OR ethereum OR crypto OR oil OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR \"S&P 500\" OR gold OR inflation OR bonds OR \"treasury\" OR \"US dollar\" OR \"dollar index\"",
+                "q": "bitcoin OR ethereum OR crypto OR oil OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR \"S&P 500\" OR gold OR inflation OR bonds OR \"treasury\" OR \"US dollar\" OR \"dollar index\" OR war",
                 "from": today,
                 "sortBy": "publishedAt",
                 "language": "en",
