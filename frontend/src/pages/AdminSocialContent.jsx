@@ -162,14 +162,20 @@ export default function AdminSocialContent() {
     setConfirmDeleteId(null)
     try {
       const r = await fetch(`${API}/admin/social/posts/${postId}`, { method: 'DELETE', headers: adminHeaders() })
+      const body = await r.json().catch(() => ({}))
+      console.log('[delete]', r.status, body)
       if (r.ok) {
         setExpanded(null)
         await loadPosts()
       } else {
-        const d = await r.json().catch(() => ({}))
-        setStatusMsg(`Delete failed: ${d.detail ?? r.status}`)
+        setStatusMsg(`Delete failed (${r.status}): ${body.detail ?? JSON.stringify(body)}`)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       }
-    } catch (e) { setStatusMsg(`Error: ${e}`) }
+    } catch (e) {
+      console.error('[delete error]', e)
+      setStatusMsg(`Delete error: ${e}`)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
     setDeletingId(null)
   }
 
