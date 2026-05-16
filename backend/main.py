@@ -7734,21 +7734,23 @@ def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[d
 
 _SOCIAL_SCRIPT_PROMPT = """\
 You are writing a 30-second Instagram Reel script for Diana, founder of Star Signal.
-Diana speaks directly to camera. She is NOT an astrologer — she shares what astrologers forecast.
+Diana speaks directly to camera. The script has two parts: Diana presenting the news, then reading the Star Signal chatbot's answer out loud as if she just asked it.
 
 Today's biggest financial and war news:
 {news_str}
 
-What astrologers are saying about it: {insight_json}
+Astrology signal the chatbot will reference: {insight_json}
+
+Script structure — write it exactly like this:
+1. "In today's financial news, [the most important or alarming headline in one sentence]."
+2. "So I asked Star Signal — what do you think will happen with this?"
+3. [Chatbot answer, prefixed with "Star Signal says:"] — 2 sentences, future tense only, based on the astrology signal. Sound like a smart AI giving a confident market outlook, not an astrologer. Reference what astrologers are forecasting without using jargon. Mention the timeframe.
+4. "Link in bio to ask it yourself."
 
 Rules:
-- Open with exactly: "In today's financial news, [use the most important or alarming headline]..."
-- Second sentence: "According to [source_name], [what astrologers say will happen next — future tense only]..."
-- Frame it as the astrologers responding to or having predicted this exact news
-- 3-4 sentences maximum, plain English, no jargon
-- Mention the timeframe from the signal (e.g. "through October 2026", "this week")
-- End with "Link in bio to see all the signals before they happen"
-- Return ONLY the spoken words, no stage directions"""
+- Plain English, no astrological jargon
+- The chatbot answer must be future-tense — what will happen, not what already happened
+- Return ONLY the spoken words, no stage directions or labels"""
 
 _SOCIAL_CAPTION_PROMPT = """\
 Write an Instagram Reel caption for this financial astrology content.
