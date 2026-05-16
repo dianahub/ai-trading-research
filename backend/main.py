@@ -6914,7 +6914,6 @@ _LEGACY_FEEDS = [
     {"name": "LunaticTrader",                  "url": "https://blog.lunatictrader.com/feed/"},
     {"name": "Financial Astrology by Rajeev",  "url": "https://rajeevprakash.com/feed/"},
     {"name": "The Weekly Stars",               "url": "https://theweeklystars.substack.com/feed"},
-    {"name": "Tres Mancias Consultoria",       "url": "https://tresmanciasconsultoria.substack.com/feed", "language": "es"},
 ]
 
 _insights_state: dict = {"insights": [], "last_fetch": None, "summary": "", "topic_summaries": {}}
@@ -7686,12 +7685,13 @@ def admin_astro_insights_db(
 # ── Social pipeline ────────────────────────────────────────────────────────────
 # Imports are local to avoid startup cost when these services aren't configured.
 
-def _social_score_insight(i: PersistedInsight) -> float:
-    conf    = {"high": 3, "medium": 2}.get(i.confidence, 1)
-    outlook = {"volatile": 4, "bearish": 3, "bullish": 2}.get(i.outlook, 1)
+def _social_score_insight(i: dict) -> float:
+    conf    = {"high": 3, "medium": 2}.get(i.get("confidence", ""), 1)
+    outlook = {"volatile": 4, "bearish": 3, "bullish": 2}.get(i.get("outlook", ""), 1)
     try:
+        pub = i.get("published_date") or ""
         days_ago = (datetime.now(timezone.utc) - datetime.fromisoformat(
-            i.published_date.replace("Z", "+00:00") if i.published_date else "1970-01-01+00:00"
+            pub.replace("Z", "+00:00") if pub else "1970-01-01+00:00"
         )).days
     except Exception:
         days_ago = 999
@@ -7700,18 +7700,24 @@ def _social_score_insight(i: PersistedInsight) -> float:
 
 _SOCIAL_EXCLUDED_SOURCES = {"Rowans Financial Astrology"}
 
-def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[PersistedInsight]:
+def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[dict]:
+    """Pick the best insight from api.starsignal.io — single source of truth."""
     used_ids = set() if ignore_used else {r[0] for r in db.query(SocialPost.insight_id).all() if r[0]}
     cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
-    candidates = (
-        db.query(PersistedInsight)
-        .filter(PersistedInsight.confidence.in_(["medium", "high"]))
-        .filter(PersistedInsight.outlook.in_(["bullish", "bearish"]))
-        .filter(PersistedInsight.source_name.notin_(_SOCIAL_EXCLUDED_SOURCES))
-        .filter(PersistedInsight.published_date >= cutoff)
-        .all()
-    )
-    candidates = [c for c in candidates if c.id not in used_ids]
+
+    api_data = _fetch_astro_data()
+    all_insights = (api_data or {}).get("insights", [])
+    if not all_insights:
+        all_insights = _insights_state.get("insights", [])
+
+    candidates = [
+        i for i in all_insights
+        if i.get("confidence") in ("medium", "high")
+        and i.get("outlook") in ("bullish", "bearish")
+        and i.get("source_name") not in _SOCIAL_EXCLUDED_SOURCES
+        and (i.get("published_date") or "") >= cutoff
+        and i.get("id") not in used_ids
+    ]
     if not candidates:
         return None
     return max(candidates, key=_social_score_insight)
@@ -7781,7 +7787,7 @@ def _fetch_top_financial_news() -> list[dict]:
         return []
 
 
-def _social_generate_script(insight: PersistedInsight, news: list[dict]) -> str:
+def _social_generate_script(insight: dict, news: list[dict]) -> str:
     import json as _json
     news_str = "\n".join(f"- {a['title']} ({a['source']})" for a in news) if news else "No major headlines available today."
     _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -7791,29 +7797,32 @@ def _social_generate_script(insight: PersistedInsight, news: list[dict]) -> str:
         messages=[{"role": "user", "content": _SOCIAL_SCRIPT_PROMPT.format(
             news_str=news_str,
             insight_json=_json.dumps({
-                "topic": insight.topic, "outlook": insight.outlook,
-                "timeframe": insight.timeframe, "summary": insight.summary,
-                "source_name": insight.source_name,
-                "published_date": insight.published_date,
+                "topic":          insight.get("topic"),
+                "outlook":        insight.get("outlook"),
+                "timeframe":      insight.get("timeframe"),
+                "summary":        insight.get("summary"),
+                "source_name":    insight.get("source_name"),
+                "published_date": insight.get("published_date"),
             })
         )}],
     )
     return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
 
 
-def _social_generate_caption(insight: PersistedInsight, top_headline: str) -> str:
+def _social_generate_caption(insight: dict, top_headline: str) -> str:
     _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    source_name = insight.get("source_name") or ""
     msg = _ac.messages.create(
         model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
         max_tokens=250,
         messages=[{"role": "user", "content": _SOCIAL_CAPTION_PROMPT.format(
             top_headline=top_headline or "Markets on the move today",
-            summary=insight.summary,
-            source_name=insight.source_name,
-            timeframe=insight.timeframe or "",
-            source_url=insight.source_url or "",
-            source_handle=(insight.source_name or "").replace(" ", "").lower(),
-            source_tag=re.sub(r"[^a-zA-Z0-9]", "", insight.source_name or ""),
+            summary=insight.get("summary") or "",
+            source_name=source_name,
+            timeframe=insight.get("timeframe") or "",
+            source_url=insight.get("source_url") or "",
+            source_handle=source_name.replace(" ", "").lower(),
+            source_tag=re.sub(r"[^a-zA-Z0-9]", "", source_name),
         )}],
     )
     return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
@@ -7887,7 +7896,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                     row.error_message = "No unused insights"
                     db.commit()
                 return {"status": "skipped", "content_type": "video"}
-            log(f"Selected: [{insight.topic}] {insight.outlook} — {insight.summary[:60]}...")
+            log(f"Selected: [{insight.get('topic')}] {insight.get('outlook')} — {insight.get('summary','')[:60]}...")
 
             log("Fetching top financial news...")
             top_news = _fetch_top_financial_news()
@@ -7902,7 +7911,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             caption = _social_generate_caption(insight, top_headline)
 
             if row:
-                row.insight_id = insight.id
+                row.insight_id = insight.get('id','')
                 row.script_text = script
                 row.caption = caption
                 db.commit()
@@ -7936,7 +7945,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 log(f"Video generation failed, falling back to skip: {err_msg}")
                 _social_notify(
                     "Star Signal: HeyGen video failed",
-                    f"Date: {today}\nInsight: {insight.summary}\nError: {err_msg}",
+                    f"Date: {today}\nInsight: {insight.get('summary','')}\nError: {err_msg}",
                 )
                 content_type = "image"
                 # No image fallback without a generator — mark as failed
@@ -7952,7 +7961,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                     "status": "posted",
                     "content_type": content_type,
                     "post": {
-                        "insight":      {"id": insight.id, "topic": insight.topic, "summary": insight.summary},
+                        "insight":      {"id": insight.get('id',''), "topic": insight.get('topic'), "summary": insight.get('summary','')},
                         "script":       script,
                         "caption":      caption,
                         "media_url":    media_url,
@@ -7974,7 +7983,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
 
             _social_notify(
                 f"Star Signal: Posted to Instagram — {today}",
-                f"Video posted!\n\nInsight: {insight.summary}\nScript: {script}\nCaption: {caption}\n\nURL: {ig['permalink']}",
+                f"Video posted!\n\nInsight: {insight.get('summary','')}\nScript: {script}\nCaption: {caption}\n\nURL: {ig['permalink']}",
             )
             return {"status": "posted", "content_type": content_type, "post": {"permalink": ig["permalink"]}}
 
