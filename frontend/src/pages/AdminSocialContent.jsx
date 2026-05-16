@@ -50,6 +50,7 @@ export default function AdminSocialContent() {
   const [running, setRunning]       = useState(false)
   const [expanded, setExpanded]     = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [statusMsg, setStatusMsg]   = useState('')
   const [pollTimer, setPollTimer]   = useState(null)
 
@@ -157,8 +158,8 @@ export default function AdminSocialContent() {
 
 
   const handleDeletePost = async (postId) => {
-    if (!window.confirm('Remove this post record? This only deletes it from the dashboard — it will NOT delete it from Instagram.')) return
     setDeletingId(postId)
+    setConfirmDeleteId(null)
     try {
       const r = await fetch(`${API}/admin/social/posts/${postId}`, { method: 'DELETE', headers: adminHeaders() })
       if (r.ok) {
@@ -424,13 +425,27 @@ export default function AdminSocialContent() {
                           {post.posted_at && ` · Posted: ${new Date(post.posted_at).toLocaleString()}`}
                         </div>
                         {post.status === 'posted' && (
-                          <button
-                            onClick={() => handleDeletePost(post.id)}
-                            disabled={deletingId === post.id}
-                            className="text-xs rounded px-2 py-1"
-                            style={{ background: '#2d0a0a', color: '#f87171', border: '1px solid #7f1d1d', opacity: deletingId === post.id ? 0.5 : 1 }}>
-                            {deletingId === post.id ? 'Removing…' : 'Deleted from Instagram'}
-                          </button>
+                          deletingId === post.id
+                            ? <span className="text-xs" style={{ color: '#f87171' }}>Removing…</span>
+                            : confirmDeleteId === post.id
+                              ? <span className="flex items-center gap-2">
+                                  <span className="text-xs" style={{ color: '#94a3b8' }}>Remove from dashboard?</span>
+                                  <button onClick={() => handleDeletePost(post.id)}
+                                    className="text-xs rounded px-2 py-1"
+                                    style={{ background: '#7f1d1d', color: '#fca5a5', border: '1px solid #ef4444' }}>
+                                    Yes, remove
+                                  </button>
+                                  <button onClick={() => setConfirmDeleteId(null)}
+                                    className="text-xs rounded px-2 py-1"
+                                    style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #334155' }}>
+                                    Cancel
+                                  </button>
+                                </span>
+                              : <button onClick={() => setConfirmDeleteId(post.id)}
+                                  className="text-xs rounded px-2 py-1"
+                                  style={{ background: '#2d0a0a', color: '#f87171', border: '1px solid #7f1d1d' }}>
+                                  Deleted from Instagram
+                                </button>
                         )}
                       </div>
                     </div>
