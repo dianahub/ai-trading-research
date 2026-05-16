@@ -127,14 +127,42 @@ def _find_fonts_dir() -> str | None:
     return None
 
 
+def _find_ffmpeg() -> str | None:
+    """Find the ffmpeg binary, including nix store locations Railway uses."""
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    candidates = [
+        "/root/.nix-profile/bin/ffmpeg",
+        "/nix/var/nix/profiles/default/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "/usr/bin/ffmpeg",
+    ]
+    for p in candidates:
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    try:
+        result = subprocess.run(
+            ["find", "/nix/store", "-name", "ffmpeg", "-type", "f", "-not", "-path", "*/share/*"],
+            capture_output=True, text=True, timeout=20,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip().splitlines()[0]
+    except Exception:
+        pass
+    return None
+
+
 def burn_captions(video_url: str, caption_url: str | None, script: str) -> str | None:
     """
     Download the HeyGen video, burn captions at the bottom (below the face),
     and save to a temp file. Returns local path or None if ffmpeg unavailable/failed.
     """
-    if not shutil.which("ffmpeg"):
+    ffmpeg_bin = _find_ffmpeg()
+    if not ffmpeg_bin:
         print("[heygen] ffmpeg not found — skipping caption burn", flush=True)
         return None
+    print(f"[heygen] Using ffmpeg at: {ffmpeg_bin}", flush=True)
 
     _ensure_temp_dir()
     _cleanup_old_temp_files()
@@ -173,7 +201,7 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
             print("[heygen] No fonts dir found — libass will use built-in fallback", flush=True)
             subtitle_filter = f"subtitles={sub_path}:force_style='{style}'"
         cmd = [
-            "ffmpeg", "-y",
+            ffmpeg_bin, "-y",
             "-i", raw_path,
             "-vf", subtitle_filter,
             "-c:a", "copy",

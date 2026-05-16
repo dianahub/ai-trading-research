@@ -7764,7 +7764,7 @@ Astrology signal the chatbot will reference: {insight_json}
 
 Script structure — write it exactly like this:
 1. "In today's financial news, [the most important or alarming headline in one sentence]."
-2. "So I asked Star Signal — what do you think will happen with this?"
+2. "So I asked Star Signal — [a specific question that names the exact market, asset, or topic from the headline — NEVER say 'this' or 'that', always name it explicitly, e.g. 'what's going to happen with Bitcoin?' or 'where is oil headed?']"
 3. [Chatbot answer, prefixed with "Star Signal says:"] — 2-3 sentences, future tense only, based on the astrology signal. State the market prediction first, then explain WHY by citing the astrological reasoning. If `astro_reasoning` is provided in the signal, use ONLY those exact terms — do not invent or add planetary reasoning of your own. If no `astro_reasoning` is provided, explain the prediction using only the timeframe and outlook without inventing planetary causes. Mention the timeframe.
 4. "Link in bio to ask it yourself."
 
@@ -7799,7 +7799,6 @@ def _fetch_top_financial_news() -> list[dict]:
             f"{NEWSAPI_BASE}/everything",
             params={
                 "q": "bitcoin OR ethereum OR crypto OR oil OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR \"S&P 500\" OR gold OR inflation OR bonds OR \"treasury\" OR \"US dollar\" OR \"dollar index\" OR war",
-                "from": today,
                 "sortBy": "publishedAt",
                 "language": "en",
                 "pageSize": 5,
