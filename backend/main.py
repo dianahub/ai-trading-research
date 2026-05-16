@@ -7711,14 +7711,22 @@ def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[d
     if not all_insights:
         all_insights = _insights_state.get("insights", [])
 
-    candidates = [
-        i for i in all_insights
-        if i.get("confidence") in ("medium", "high")
-        and i.get("outlook") in ("bullish", "bearish")
-        and i.get("source_name") not in _SOCIAL_EXCLUDED_SOURCES
-        and (i.get("published_date") or "") >= cutoff
-        and i.get("id") not in used_ids
-    ]
+    def _filter(confidence_levels, outlooks):
+        return [
+            i for i in all_insights
+            if i.get("confidence") in confidence_levels
+            and i.get("outlook") in outlooks
+            and i.get("source_name") not in _SOCIAL_EXCLUDED_SOURCES
+            and (i.get("published_date") or "") >= cutoff
+            and i.get("id") not in used_ids
+        ]
+
+    # Try strict first, then progressively loosen
+    candidates = (
+        _filter(("high", "medium"), ("bullish", "bearish")) or
+        _filter(("high", "medium", "low"), ("bullish", "bearish")) or
+        _filter(("high", "medium", "low"), ("bullish", "bearish", "volatile", "cautious"))
+    )
     if not candidates:
         return None
     return max(candidates, key=_social_score_insight)
@@ -7728,17 +7736,17 @@ _SOCIAL_SCRIPT_PROMPT = """\
 You are writing a 30-second Instagram Reel script for Diana, founder of Star Signal.
 Diana speaks directly to camera. She is NOT an astrologer — she shares what astrologers forecast.
 
-Today's biggest financial news:
+Today's biggest financial and war news:
 {news_str}
 
-Astrology signal to reference: {insight_json}
+What astrologers are saying about it: {insight_json}
 
 Rules:
-- Open with exactly: "In today's financial news, [headline]..."
-- Second sentence bridges to the forward-looking astrology forecast: "According to [source_name], [future prediction from the signal]..."
-- The astrology content must be future-tense — what is expected to happen, not what already happened
+- Open with exactly: "In today's financial news, [use the most important or alarming headline]..."
+- Second sentence: "According to [source_name], [what astrologers say will happen next — future tense only]..."
+- Frame it as the astrologers responding to or having predicted this exact news
 - 3-4 sentences maximum, plain English, no jargon
-- Mention the timeframe from the signal (e.g. "through May 20th", "this week")
+- Mention the timeframe from the signal (e.g. "through October 2026", "this week")
 - End with "Link in bio to see all the signals before they happen"
 - Return ONLY the spoken words, no stage directions"""
 
