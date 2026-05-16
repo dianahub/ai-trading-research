@@ -7776,12 +7776,15 @@ Rules:
 
 _SOCIAL_CAPTION_PROMPT = """\
 Write an Instagram Reel caption for this financial astrology content.
-Top news headline: {top_headline}
+
+Reel script (use the EXACT news topic Diana mentions in the first sentence for the caption headline — do not use a different headline):
+{script}
+
 Astrology signal: {summary}  Source: {source_name}  Timeframe: {timeframe}
 Source prediction URL: {source_url}
 
 Rules:
-- Lead with the top news headline in quotes with a breaking-news emoji, like: 🚨 "Oil surges as tensions rise"
+- Lead with the news topic Diana mentions in the script, in quotes with a breaking-news emoji, like: 🚨 "Oil surges as tensions rise"
 - Bridge line using future tense, like: "✨ According to astrologers, [what is expected to happen next]"
 - Credit line using the exact source URL provided above: "📖 Read the full prediction: [source URL]"
 - End with "Link in bio → starsignal.io for free financial astrology signals 🔗"
@@ -7789,34 +7792,42 @@ Rules:
 - Return ONLY the caption text"""
 
 
-def _fetch_top_financial_news() -> list[dict]:
-    """Fetch today's top financial/crypto/macro headlines from NewsAPI. Returns [] on failure."""
+def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
+    """Fetch recent headlines relevant to the given topic. Falls back to broad financial news."""
     if not NEWS_API_KEY or NEWS_API_KEY == "your_news_api_key_here":
         return []
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    try:
-        resp = requests.get(
-            f"{NEWSAPI_BASE}/everything",
-            params={
-                "q": "(bitcoin OR ethereum OR crypto OR \"S&P 500\" OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR gold OR inflation OR \"oil prices\" OR \"US dollar\" OR \"bond market\" OR \"wall street\") AND NOT (game OR gaming OR sports OR entertainment OR film OR movie OR TV OR Ford OR Tesla OR Toyota OR Apple OR Microsoft OR Amazon OR Google OR Meta)",
-                "sortBy": "publishedAt",
-                "language": "en",
-                "pageSize": 5,
-                "apiKey": NEWS_API_KEY,
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
-        body = resp.json()
-        if body.get("status") != "ok":
+
+    def _query(q: str) -> list[dict]:
+        try:
+            resp = requests.get(
+                f"{NEWSAPI_BASE}/everything",
+                params={"q": q, "sortBy": "publishedAt", "language": "en", "pageSize": 5, "apiKey": NEWS_API_KEY},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            if body.get("status") != "ok":
+                return []
+            return [
+                {"title": a["title"], "source": a["source"]["name"]}
+                for a in body.get("articles", [])
+                if a.get("title") and "[Removed]" not in a["title"]
+            ]
+        except Exception:
             return []
-        return [
-            {"title": a["title"], "source": a["source"]["name"]}
-            for a in body.get("articles", [])
-            if a.get("title") and "[Removed]" not in a["title"]
-        ]
-    except Exception:
-        return []
+
+    # Search for news specifically about the insight topic first
+    if topic:
+        results = _query(topic)
+        if results:
+            return results
+
+    # Fallback: broad financial/crypto/macro news
+    return _query(
+        "bitcoin OR ethereum OR crypto OR \"S&P 500\" OR \"stock market\" OR "
+        "\"federal reserve\" OR \"interest rates\" OR gold OR inflation OR "
+        "\"oil prices\" OR \"US dollar\" OR \"bond market\" OR \"wall street\""
+    )
 
 
 def _social_generate_script(insight: dict, news: list[dict]) -> str:
@@ -7842,14 +7853,14 @@ def _social_generate_script(insight: dict, news: list[dict]) -> str:
     return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
 
 
-def _social_generate_caption(insight: dict, top_headline: str) -> str:
+def _social_generate_caption(insight: dict, script: str) -> str:
     _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=30.0)
     source_name = insight.get("source_name") or ""
     msg = _ac.messages.create(
         model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
         max_tokens=250,
         messages=[{"role": "user", "content": _SOCIAL_CAPTION_PROMPT.format(
-            top_headline=top_headline or "Markets on the move today",
+            script=script,
             summary=insight.get("summary") or "",
             source_name=source_name,
             timeframe=insight.get("timeframe") or "",
@@ -7932,7 +7943,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             log(f"Selected: [{insight.get('topic')}] {insight.get('outlook')} — {insight.get('summary','')[:60]}...")
 
             log("Fetching top financial news...")
-            top_news = _fetch_top_financial_news()
+            top_news = _fetch_top_financial_news(topic=insight.get("topic"))
             top_headline = top_news[0]["title"] if top_news else ""
             log(f"Top headline: {top_headline or '(none)'}")
 
@@ -7941,7 +7952,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             log(f"Script: {script[:80]}...")
 
             log("Generating caption...")
-            caption = _social_generate_caption(insight, top_headline)
+            caption = _social_generate_caption(insight, script)
 
             if row:
                 row.insight_id = insight.get('id','')
