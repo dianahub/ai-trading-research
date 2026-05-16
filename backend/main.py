@@ -1110,16 +1110,18 @@ def chat_celeste(body: ChatRequest):
                 break
 
     for i in relevant:
+        reasoning_note = f" | Astrological basis: {i.get('astro_reasoning')}" if i.get("astro_reasoning") else ""
         context_lines.append(
-            f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+            f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}{reasoning_note}"
         )
 
     # Always include war/geopolitical signals — they are cross-asset and valid regardless of ticker
     war_lines = []
     for i in insights:
         if i.get("topic") == "war" and i not in relevant:
+            reasoning_note = f" | Astrological basis: {i.get('astro_reasoning')}" if i.get("astro_reasoning") else ""
             war_lines.append(
-                f"- [WAR] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+                f"- [WAR] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}{reasoning_note}"
             )
             if len(war_lines) >= 3:
                 break
@@ -1130,7 +1132,9 @@ def chat_celeste(body: ChatRequest):
         "You also cover geopolitical topics like war and conflict when they appear in the astrological signals, as these directly affect markets. "
         "Answer ONLY from an astrological perspective. Never refuse a question because a ticker or topic is outside your scope. "
         "Never suggest consulting other experts. "
-        "Keep every reply to 2 sentences maximum. Be direct and specific."
+        "Keep every reply to 2 sentences maximum. Be direct and specific. "
+        "When a signal includes 'Astrological basis', cite those EXACT planetary factors in your answer — never invent or add your own. "
+        "When no astrological basis is given, explain the prediction using the timeframe and outlook without inventing planetary causes."
     )
     if body.ticker:
         system += f"\nThe user is currently researching: {body.ticker.upper()}\n"
@@ -7306,6 +7310,7 @@ def _generate_astro_summary(insights: list[dict]) -> str:
         counts = Counter(i.get("outlook", "neutral") for i in insights)
         bullets_input = "\n".join(
             f"- [{i.get('topic','?').upper()}] {i.get('outlook','?').upper()} | {i.get('timeframe','?')}: {i.get('summary','')}"
+            + (f" (Basis: {i.get('astro_reasoning')})" if i.get("astro_reasoning") else "")
             for i in sample
         )
         client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -7315,7 +7320,8 @@ def _generate_astro_summary(insights: list[dict]) -> str:
             system=(
                 "You are a financial market summarizer. Given a list of astrological market signals, "
                 "write exactly 3 concise bullet points (one sentence each) summarizing the overall market outlook. "
-                "Focus on the dominant trends across sectors. Use plain English, no astrology jargon. "
+                "Focus on the dominant trends across sectors. Use plain English — where a 'Basis' field is provided, "
+                "you may briefly reference the planetary factor (e.g. 'driven by Saturn's transit') but never invent planetary causes not listed. "
                 "Return only the 3 bullet points, one per line, starting each line with '• '."
             ),
             messages=[{"role": "user", "content": (
@@ -7744,12 +7750,13 @@ Astrology signal the chatbot will reference: {insight_json}
 Script structure — write it exactly like this:
 1. "In today's financial news, [the most important or alarming headline in one sentence]."
 2. "So I asked Star Signal — what do you think will happen with this?"
-3. [Chatbot answer, prefixed with "Star Signal says:"] — 2-3 sentences, future tense only, based on the astrology signal. Give the market prediction first, then explain WHY using astrological terms (e.g. planetary transits, retrogrades, aspects, sign ingresses). Mention the timeframe.
+3. [Chatbot answer, prefixed with "Star Signal says:"] — 2-3 sentences, future tense only, based on the astrology signal. State the market prediction first, then explain WHY by citing the astrological reasoning. If `astro_reasoning` is provided in the signal, use ONLY those exact terms — do not invent or add planetary reasoning of your own. If no `astro_reasoning` is provided, explain the prediction using only the timeframe and outlook without inventing planetary causes. Mention the timeframe.
 4. "Link in bio to ask it yourself."
 
 Rules:
-- Plain English, no astrological jargon
+- Plain English — the astrological explanation should be understandable to a non-astrologer
 - The chatbot answer must be future-tense — what will happen, not what already happened
+- NEVER invent planets, retrogrades, or aspects that are not in the `astro_reasoning` field
 - Return ONLY the spoken words, no stage directions or labels"""
 
 _SOCIAL_CAPTION_PROMPT = """\
@@ -7808,12 +7815,13 @@ def _social_generate_script(insight: dict, news: list[dict]) -> str:
         messages=[{"role": "user", "content": _SOCIAL_SCRIPT_PROMPT.format(
             news_str=news_str,
             insight_json=_json.dumps({
-                "topic":          insight.get("topic"),
-                "outlook":        insight.get("outlook"),
-                "timeframe":      insight.get("timeframe"),
-                "summary":        insight.get("summary"),
-                "source_name":    insight.get("source_name"),
-                "published_date": insight.get("published_date"),
+                "topic":           insight.get("topic"),
+                "outlook":         insight.get("outlook"),
+                "timeframe":       insight.get("timeframe"),
+                "summary":         insight.get("summary"),
+                "astro_reasoning": insight.get("astro_reasoning"),
+                "source_name":     insight.get("source_name"),
+                "published_date":  insight.get("published_date"),
             })
         )}],
     )
