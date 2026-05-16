@@ -7744,7 +7744,7 @@ Astrology signal the chatbot will reference: {insight_json}
 Script structure — write it exactly like this:
 1. "In today's financial news, [the most important or alarming headline in one sentence]."
 2. "So I asked Star Signal — what do you think will happen with this?"
-3. [Chatbot answer, prefixed with "Star Signal says:"] — 2 sentences, future tense only, based on the astrology signal. Sound like a smart AI giving a confident market outlook, not an astrologer. Reference what astrologers are forecasting without using jargon. Mention the timeframe.
+3. [Chatbot answer, prefixed with "Star Signal says:"] — 2-3 sentences, future tense only, based on the astrology signal. Give the market prediction first, then explain WHY using astrological terms (e.g. planetary transits, retrogrades, aspects, sign ingresses). Mention the timeframe.
 4. "Link in bio to ask it yourself."
 
 Rules:
