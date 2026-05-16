@@ -7798,7 +7798,7 @@ def _fetch_top_financial_news() -> list[dict]:
         resp = requests.get(
             f"{NEWSAPI_BASE}/everything",
             params={
-                "q": "bitcoin OR ethereum OR crypto OR oil OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR \"S&P 500\" OR gold OR inflation OR bonds OR \"treasury\" OR \"US dollar\" OR \"dollar index\" OR war",
+                "q": "(bitcoin OR ethereum OR crypto OR oil OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR \"S&P 500\" OR gold OR inflation OR bonds OR treasury OR \"US dollar\") AND NOT (game OR gaming OR sports OR entertainment OR film OR movie OR TV)",
                 "sortBy": "publishedAt",
                 "language": "en",
                 "pageSize": 5,
@@ -8124,6 +8124,23 @@ def admin_social_posts(
             ],
             "total": len(posts),
         }
+
+
+@app.delete("/admin/social/posts/{post_id}")
+def admin_social_delete_post(
+    post_id: int,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Delete a social post record (use when manually deleted from Instagram)."""
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        post = db.query(SocialPost).filter(SocialPost.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        db.delete(post)
+        db.commit()
+    return {"deleted": True, "id": post_id}
 
 
 @app.get("/admin/social/preview-status")

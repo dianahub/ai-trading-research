@@ -49,6 +49,7 @@ export default function AdminSocialContent() {
   const [skipping, setSkipping]     = useState(false)
   const [running, setRunning]       = useState(false)
   const [expanded, setExpanded]     = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
   const [statusMsg, setStatusMsg]   = useState('')
   const [pollTimer, setPollTimer]   = useState(null)
 
@@ -154,6 +155,22 @@ export default function AdminSocialContent() {
     setTimeout(() => { loadPosts(); setRunning(false) }, 5000)
   }
 
+
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('Remove this post record? This only deletes it from the dashboard — it will NOT delete it from Instagram.')) return
+    setDeletingId(postId)
+    try {
+      const r = await fetch(`${API}/admin/social/posts/${postId}`, { method: 'DELETE', headers: adminHeaders() })
+      if (r.ok) {
+        setExpanded(null)
+        await loadPosts()
+      } else {
+        const d = await r.json().catch(() => ({}))
+        setStatusMsg(`Delete failed: ${d.detail ?? r.status}`)
+      }
+    } catch (e) { setStatusMsg(`Error: ${e}`) }
+    setDeletingId(null)
+  }
 
   const handleUploadAndPost = async () => {
     if (!uploadFile) return
@@ -401,9 +418,20 @@ export default function AdminSocialContent() {
                           Error: {post.error_message}
                         </div>
                       )}
-                      <div className="text-xs" style={{ color: '#334155' }}>
-                        Created: {new Date(post.created_at).toLocaleString()}
-                        {post.posted_at && ` · Posted: ${new Date(post.posted_at).toLocaleString()}`}
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs" style={{ color: '#334155' }}>
+                          Created: {new Date(post.created_at).toLocaleString()}
+                          {post.posted_at && ` · Posted: ${new Date(post.posted_at).toLocaleString()}`}
+                        </div>
+                        {post.status === 'posted' && (
+                          <button
+                            onClick={() => handleDeletePost(post.id)}
+                            disabled={deletingId === post.id}
+                            className="text-xs rounded px-2 py-1"
+                            style={{ background: '#2d0a0a', color: '#f87171', border: '1px solid #7f1d1d', opacity: deletingId === post.id ? 0.5 : 1 }}>
+                            {deletingId === post.id ? 'Removing…' : 'Deleted from Instagram'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
