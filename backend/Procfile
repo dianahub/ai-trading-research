@@ -1,1 +1,1 @@
-web: uvicorn main:app --host 0.0.0.0 --port $PORT
+web: PATH=/root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH uvicorn main:app --host 0.0.0.0 --port $PORT
