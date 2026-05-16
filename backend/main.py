@@ -1064,8 +1064,9 @@ def chat_celeste(body: ChatRequest):
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         raise HTTPException(status_code=503, detail="AI service unavailable")
 
-    # Build astro context from current insights
-    insights = _insights_state.get("insights", [])
+    # Build astro context from api.starsignal.io (single source of truth)
+    api_data = _fetch_astro_data()
+    insights = (api_data or {}).get("insights", []) or _insights_state.get("insights", [])
     context_lines = []
     if body.ticker:
         topic_map = {
