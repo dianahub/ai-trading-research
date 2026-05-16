@@ -58,10 +58,6 @@ export default function AdminSocialContent() {
   const [uploadResult, setUploadResult]   = useState(null)
   const [uploadMsg, setUploadMsg]         = useState('')
 
-  // HeyGen avatar browser
-  const [avatars, setAvatars]             = useState(null)
-  const [loadingAvatars, setLoadingAvatars] = useState(false)
-
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true)
     try {
@@ -158,15 +154,6 @@ export default function AdminSocialContent() {
     setTimeout(() => { loadPosts(); setRunning(false) }, 5000)
   }
 
-  const handleListAvatars = async () => {
-    setLoadingAvatars(true)
-    try {
-      const r = await fetch(`${API}/admin/heygen/avatars`, { headers: adminHeaders() })
-      const d = await r.json()
-      setAvatars(d.avatars ?? [])
-    } catch (e) { setAvatars([]) }
-    setLoadingAvatars(false)
-  }
 
   const handleUploadAndPost = async () => {
     if (!uploadFile) return
@@ -276,46 +263,7 @@ export default function AdminSocialContent() {
           </div>
         </div>
 
-        {/* HeyGen Avatar Browser */}
-        <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-sm font-bold" style={{ color: '#94a3b8' }}>HEYGEN AVATARS</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#475569' }}>Find your avatar ID to set in Railway → HEYGEN_AVATAR_ID</p>
-            </div>
-            <ActionButton
-              onClick={handleListAvatars}
-              loading={loadingAvatars} label="Load Avatars" loadingLabel="Loading…"
-              color="#0c1e38" textColor="#93c5fd" border="#1e4976"
-            />
-          </div>
 
-          {avatars !== null && (
-            avatars.length === 0
-              ? <p className="text-xs" style={{ color: '#475569' }}>No avatars found.</p>
-              : <div className="flex flex-col gap-2 mt-2">
-                  {avatars.map(a => (
-                    <div key={a.id} className="flex items-center gap-3 rounded-lg p-3"
-                      style={{ background: '#060d18', border: '1px solid #1e2d45' }}>
-                      {a.preview && <img src={a.preview} alt={a.name} className="rounded-md object-cover flex-shrink-0" style={{ width: 48, height: 48 }} />}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold truncate" style={{ color: '#e2e8f0' }}>{a.name || '(unnamed)'}</div>
-                        <div className="text-xs mt-0.5" style={{ color: '#475569' }}>{a.type}</div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-xs font-mono mb-1 select-all" style={{ color: '#6366f1' }}>{a.id}</div>
-                        <button
-                          onClick={() => { navigator.clipboard.writeText(a.id); }}
-                          className="text-xs rounded px-2 py-0.5"
-                          style={{ background: '#1e2d45', color: '#94a3b8', border: '1px solid #334155' }}>
-                          Copy ID
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-          )}
-        </div>
 
         {/* Upload your own video */}
         <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
