@@ -7823,7 +7823,7 @@ def _fetch_top_financial_news() -> list[dict]:
 def _social_generate_script(insight: dict, news: list[dict]) -> str:
     import json as _json
     news_str = "\n".join(f"- {a['title']} ({a['source']})" for a in news) if news else "No major headlines available today."
-    _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=30.0)
     msg = _ac.messages.create(
         model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
         max_tokens=250,
@@ -7844,7 +7844,7 @@ def _social_generate_script(insight: dict, news: list[dict]) -> str:
 
 
 def _social_generate_caption(insight: dict, top_headline: str) -> str:
-    _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=30.0)
     source_name = insight.get("source_name") or ""
     msg = _ac.messages.create(
         model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
@@ -8192,7 +8192,11 @@ def admin_social_generate_preview(
     _social_preview["at"]     = None
 
     def _run():
-        result = _social_run_pipeline(preview=True)
+        try:
+            result = _social_run_pipeline(preview=True)
+        except Exception as e:
+            print(f"[social-admin] preview thread crashed: {e}", flush=True)
+            result = {"status": "failed", "content_type": "video", "error": str(e)}
         _social_preview["result"] = result
         _social_preview["at"]     = datetime.now(timezone.utc)
         print(f"[social-admin] preview complete: {result.get('status')}", flush=True)
