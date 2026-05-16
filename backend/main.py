@@ -7798,7 +7798,7 @@ def _fetch_top_financial_news() -> list[dict]:
         resp = requests.get(
             f"{NEWSAPI_BASE}/everything",
             params={
-                "q": "(bitcoin OR ethereum OR crypto OR oil OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR \"S&P 500\" OR gold OR inflation OR bonds OR treasury OR \"US dollar\") AND NOT (game OR gaming OR sports OR entertainment OR film OR movie OR TV)",
+                "q": "(bitcoin OR ethereum OR crypto OR \"S&P 500\" OR \"stock market\" OR \"federal reserve\" OR \"interest rates\" OR gold OR inflation OR \"oil prices\" OR \"US dollar\" OR \"bond market\" OR \"wall street\") AND NOT (game OR gaming OR sports OR entertainment OR film OR movie OR TV OR Ford OR Tesla OR Toyota OR Apple OR Microsoft OR Amazon OR Google OR Meta)",
                 "sortBy": "publishedAt",
                 "language": "en",
                 "pageSize": 5,
