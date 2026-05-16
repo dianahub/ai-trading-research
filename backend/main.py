@@ -7921,7 +7921,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
 
         try:
             log("Selecting best insight...")
-            insight = _social_select_insight(db)
+            insight = _social_select_insight(db, ignore_used=preview)
             if not insight:
                 log("No unused insights — skipping")
                 if row:
