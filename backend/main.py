@@ -6907,7 +6907,6 @@ def admin_deactivate_partner(
 _LEGACY_FEEDS = [
     {"name": "AKxyz Astrology",                "url": "https://akxyz.blogspot.com/feeds/posts/default"},
     {"name": "Astrodoc Anil",                  "url": "https://astrodocanil.com/feed"},
-    {"name": "Cosmologer",                     "url": "https://cosmologer.blogspot.com/feeds/posts/default"},
     {"name": "Rowans Financial Astrology",     "url": "https://rowansfinancialastrology.com/feed"},
     {"name": "StockAstrologer",                "url": "https://stockastrologer.com/feed/"},
     {"name": "Invest By Cycles Newsletter",    "url": "https://investbycyclesnewsletter.substack.com/feed"},
@@ -6915,6 +6914,7 @@ _LEGACY_FEEDS = [
     {"name": "LunaticTrader",                  "url": "https://blog.lunatictrader.com/feed/"},
     {"name": "Financial Astrology by Rajeev",  "url": "https://rajeevprakash.com/feed/"},
     {"name": "The Weekly Stars",               "url": "https://theweeklystars.substack.com/feed"},
+    {"name": "Tres Mancias Consultoria",       "url": "https://tresmanciasconsultoria.substack.com/feed", "language": "es"},
 ]
 
 _insights_state: dict = {"insights": [], "last_fetch": None, "summary": "", "topic_summaries": {}}
@@ -7371,6 +7371,31 @@ def _generate_topic_summaries(insights: list[dict]) -> dict:
     return results
 
 
+def _translate_to_english(title: str, content: str) -> tuple[str, str]:
+    """Translate a non-English article to English using Claude. Returns (title, content)."""
+    try:
+        _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        msg = _ac.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": (
+                "Translate the following financial astrology article from Spanish to English. "
+                "Preserve all astrological terms, market predictions, timeframes, and signal details exactly. "
+                "Return JSON with keys 'title' and 'content' only.\n\n"
+                f"Title: {title}\n\nContent: {content[:3000]}"
+            )}],
+        )
+        import json as _json
+        text = msg.content[0].text.strip()
+        # Strip markdown code fences if present
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
+        parsed = _json.loads(text)
+        return parsed.get("title", title), parsed.get("content", content)
+    except Exception as e:
+        print(f"[ingestion] Translation failed: {e} — using original", flush=True)
+        return title, content
+
+
 def _run_ingestion():
     print(f"[{datetime.now().isoformat()}] Starting RSS ingestion...", flush=True)
     with Session(_engine) as db:
@@ -7408,8 +7433,12 @@ def _run_ingestion():
             # Register URL immediately so it's blocked even if insights are later deleted
             known_urls.add(article["link"])
             newly_processed.append((article["link"], False))
+            title, content = article["title"], article["content"]
+            if feed.get("language") and feed["language"] != "en":
+                print(f"[ingestion] Translating from {feed['language']}: \"{title[:60]}\"", flush=True)
+                title, content = _translate_to_english(title, content)
             raw = _extract_insights_from_article(
-                article["title"], article["content"],
+                title, content,
                 article["link"], article["source_name"], article["pub_date"],
             )
             forward = [
@@ -7671,8 +7700,8 @@ def _social_score_insight(i: PersistedInsight) -> float:
 
 _SOCIAL_EXCLUDED_SOURCES = {"Rowans Financial Astrology"}
 
-def _social_select_insight(db: Session) -> Optional[PersistedInsight]:
-    used_ids = {r[0] for r in db.query(SocialPost.insight_id).all() if r[0]}
+def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[PersistedInsight]:
+    used_ids = set() if ignore_used else {r[0] for r in db.query(SocialPost.insight_id).all() if r[0]}
     cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
     candidates = (
         db.query(PersistedInsight)
