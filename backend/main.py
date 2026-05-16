@@ -8128,7 +8128,7 @@ def admin_social_posts(
 
 @app.delete("/admin/social/posts/{post_id}")
 def admin_social_delete_post(
-    post_id: int,
+    post_id: str,
     x_admin_email: str = Header(default=""),
     x_admin_password: str = Header(default=""),
 ):
