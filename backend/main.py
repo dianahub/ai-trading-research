@@ -7708,9 +7708,24 @@ def _social_score_insight(i: dict) -> float:
 _SOCIAL_EXCLUDED_SOURCES = {"Rowans Financial Astrology"}
 
 def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[dict]:
-    """Pick the best insight from api.starsignal.io — single source of truth."""
-    used_ids = set() if ignore_used else {r[0] for r in db.query(SocialPost.insight_id).all() if r[0]}
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+    """Pick the best insight from api.starsignal.io — single source of truth.
+
+    Insights can be reused across posts as long as they are not on a 7-day cooldown.
+    This allows the same astrological signal to be referenced for different news headlines
+    on different days without exhausting the pool.
+    """
+    cooldown_dt = datetime.now(timezone.utc) - timedelta(days=7)
+    if ignore_used:
+        recent_ids: set = set()
+    else:
+        recent_ids = {
+            r[0] for r in db.query(SocialPost.insight_id)
+            .filter(SocialPost.insight_id.isnot(None), SocialPost.created_at >= cooldown_dt)
+            .all()
+            if r[0]
+        }
+
+    freshness_cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
 
     api_data = _fetch_astro_data()
     all_insights = (api_data or {}).get("insights", [])
@@ -7723,8 +7738,8 @@ def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[d
             if i.get("confidence") in confidence_levels
             and i.get("outlook") in outlooks
             and i.get("source_name") not in _SOCIAL_EXCLUDED_SOURCES
-            and (i.get("published_date") or "") >= cutoff
-            and i.get("id") not in used_ids
+            and (i.get("published_date") or "") >= freshness_cutoff
+            and i.get("id") not in recent_ids
         ]
 
     # Try strict first, then progressively loosen
