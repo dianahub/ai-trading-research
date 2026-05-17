@@ -182,28 +182,35 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
         with open(sub_path, "w", encoding="utf-8") as f:
             f.write(srt_content)
 
-        # Burn captions at the bottom of the frame, well below the face
-        # Video is 720x1280 portrait; MarginV=160 puts text ~160px from bottom (~12%)
+        # Dark panel covers the bottom 28% of the 1280px frame so captions
+        # are always readable regardless of the background image.
+        panel_frac = 0.28
+        drawbox = f"drawbox=x=0:y=h*{1 - panel_frac}:w=w:h=h*{panel_frac}:color=black@0.82:t=fill"
+
+        # NOTE: no quotes around force_style value — subprocess passes args
+        # directly to ffmpeg (no shell), so literal quotes break the filter.
         style = (
-            "FontSize=21,"
+            "FontSize=26,"
             "PrimaryColour=&H00FFFFFF,"
             "OutlineColour=&H00000000,"
             "Outline=2,"
             "Bold=1,"
             "Alignment=2,"
-            "MarginV=160"
+            "MarginV=90"
         )
         fonts_dir = _find_fonts_dir()
         if fonts_dir:
             print(f"[heygen] Using fonts from: {fonts_dir}", flush=True)
-            subtitle_filter = f"subtitles={sub_path}:fontsdir={fonts_dir}:force_style='{style}'"
+            subtitle_filter = f"subtitles={sub_path}:fontsdir={fonts_dir}:force_style={style}"
         else:
             print("[heygen] No fonts dir found — libass will use built-in fallback", flush=True)
-            subtitle_filter = f"subtitles={sub_path}:force_style='{style}'"
+            subtitle_filter = f"subtitles={sub_path}:force_style={style}"
+
+        vf = f"{drawbox},{subtitle_filter}"
         cmd = [
             ffmpeg_bin, "-y",
             "-i", raw_path,
-            "-vf", subtitle_filter,
+            "-vf", vf,
             "-c:a", "copy",
             "-preset", "fast",
             out_path,
