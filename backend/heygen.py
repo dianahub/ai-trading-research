@@ -169,13 +169,19 @@ def _find_ffmpeg() -> str | None:
 
 
 def _escape_drawtext(text: str) -> str:
-    """Escape text for ffmpeg drawtext unquoted option value (no shell involved)."""
-    # Without surrounding single quotes, these chars must be backslash-escaped.
-    text = text.replace("\\", "\\\\")   # backslash first
-    text = text.replace("’",  "\\’")    # apostrophe
-    text = text.replace(":",  "\\:")    # colon is option separator
-    text = text.replace("%",  "\\%")    # percent is special in drawtext
-    text = text.replace(" ",  "\\ ")    # space (required when not quoted)
+    """Escape text for ffmpeg drawtext single-quoted option value."""
+    # Use chr() to avoid editor substituting typographic apostrophes/quotes.
+    apos = chr(39)   # U+0027 straight apostrophe
+    bs   = chr(92)   # U+005C backslash
+    # Normalise typographic apostrophes to straight before escaping.
+    text = text.replace(chr(0x2018), apos)
+    text = text.replace(chr(0x2019), apos)
+    text = text.replace(bs,  bs + bs)                       # \ → \\
+    # Inside a single-quoted ffmpeg value, apostrophe must be ‘\’’
+    # (close-quote, literal-apostrophe, open-quote).
+    text = text.replace(apos, apos + bs + apos + apos)      # ‘ → ‘\’’
+    text = text.replace(":",  bs + ":")                     # colon
+    text = text.replace("%",  bs + "%")                     # percent
     return text
 
 
@@ -224,12 +230,10 @@ def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28) -> str:
         t1 = _s(*m.group(5, 6, 7, 8))
 
         escaped = _escape_drawtext(text[:80])
-        if filters:
-            pass  # log only first cue
-        else:
-            print(f"[heygen] first drawtext arg: text={escaped}", flush=True)
+        if not filters:
+            print(f"[heygen] first cue escaped: {repr(escaped)}", flush=True)
         f = (
-            f"drawtext=text={escaped}"
+            f"drawtext=text='{escaped}'"
             f":enable='between(t\\,{t0:.3f}\\,{t1:.3f})'"
             f":fontsize={fontsize}"
             f"{font_part}"
@@ -269,6 +273,9 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
 
         # Get subtitles (HeyGen VTT → SRT, or estimated from script)
         srt_content = _get_srt(caption_url, script)
+        if os.getenv("HEYGEN_CAPTION_TEST") == "1":
+            srt_content = "1\n00:00:00,000 --> 00:00:30,000\nHELLO\n"
+            print("[heygen] CAPTION TEST MODE — using 'HELLO' placeholder", flush=True)
         with open(sub_path, "w", encoding="utf-8") as f:
             f.write(srt_content)
 
