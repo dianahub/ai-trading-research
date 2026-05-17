@@ -169,13 +169,13 @@ def _find_ffmpeg() -> str | None:
 
 
 def _escape_drawtext(text: str) -> str:
-    """Escape text for ffmpeg drawtext filter value (no shell involved)."""
-    # In ffmpeg filter syntax, single quotes delimit option values, so
-    # a literal apostrophe must be escaped as \’
+    """Escape text for ffmpeg drawtext unquoted option value (no shell involved)."""
+    # Without surrounding single quotes, these chars must be backslash-escaped.
     text = text.replace("\\", "\\\\")   # backslash first
-    text = text.replace("’",  "\\’")    # apostrophe → \’
+    text = text.replace("’",  "\\’")    # apostrophe
     text = text.replace(":",  "\\:")    # colon is option separator
     text = text.replace("%",  "\\%")    # percent is special in drawtext
+    text = text.replace(" ",  "\\ ")    # space (required when not quoted)
     return text
 
 
@@ -224,8 +224,12 @@ def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28) -> str:
         t1 = _s(*m.group(5, 6, 7, 8))
 
         escaped = _escape_drawtext(text[:80])
+        if filters:
+            pass  # log only first cue
+        else:
+            print(f"[heygen] first drawtext arg: text={escaped}", flush=True)
         f = (
-            f"drawtext=text='{escaped}'"
+            f"drawtext=text={escaped}"
             f":enable='between(t\\,{t0:.3f}\\,{t1:.3f})'"
             f":fontsize={fontsize}"
             f"{font_part}"
