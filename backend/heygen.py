@@ -179,47 +179,11 @@ def _escape_drawtext(text: str) -> str:
 
 
 def _find_font_file() -> str | None:
-    """Find a TTF font file, checking common paths, nix store, then downloading."""
-    cached = "/tmp/DejaVuSans.ttf"
-    if os.path.isfile(cached):
-        return cached
-
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf",
-        "/root/.nix-profile/share/fonts/truetype/DejaVuSans.ttf",
-        "/usr/local/share/fonts/DejaVuSans.ttf",
-    ]
-    for p in candidates:
-        if os.path.isfile(p):
-            return p
-
-    try:
-        r = subprocess.run(
-            ["find", "/nix/store", "-name", "DejaVuSans.ttf", "-type", "f"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if r.returncode == 0 and r.stdout.strip():
-            return r.stdout.strip().splitlines()[0]
-    except Exception:
-        pass
-
-    # Last resort: download from GitHub (cached at /tmp for container lifetime)
-    try:
-        print("[heygen] Downloading DejaVuSans.ttf font...", flush=True)
-        resp = requests.get(
-            "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf",
-            timeout=15,
-        )
-        if resp.ok:
-            with open(cached, "wb") as f:
-                f.write(resp.content)
-            print(f"[heygen] Font downloaded → {cached}", flush=True)
-            return cached
-    except Exception as e:
-        print(f"[heygen] Font download failed: {e}", flush=True)
-
+    """Find a TTF font file — uses bundled DejaVuSans.ttf first."""
+    # Bundled font committed alongside this file — always available
+    bundled = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
+    if os.path.isfile(bundled):
+        return bundled
     return None
 
 
