@@ -7787,7 +7787,7 @@ Rules:
 - Lead with the news topic Diana mentions in the script, in quotes with a breaking-news emoji, like: 🚨 "Oil surges as tensions rise"
 - Bridge line using future tense, like: "✨ According to astrologers, [what is expected to happen next]"
 - Credit line using the exact source URL provided above: "📖 Read the full prediction: [source URL]"
-- End with "Link in bio → starsignal.io for free financial astrology signals 🔗"
+- End with "Link in bio to starsignal.io 🔗"
 - Add 8-12 hashtags including #{source_tag}: #financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology
 - Return ONLY the caption text"""
 
