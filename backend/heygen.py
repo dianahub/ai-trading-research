@@ -129,27 +129,48 @@ def _find_fonts_dir() -> str | None:
 
 def _find_ffmpeg() -> str | None:
     """Find the ffmpeg binary, including nix store locations Railway uses."""
-    found = shutil.which("ffmpeg")
-    if found:
-        return found
-    candidates = [
+    # 1. Try calling ffmpeg directly — works if it's already on PATH
+    try:
+        r = subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=5)
+        if r.returncode == 0:
+            return "ffmpeg"
+    except Exception:
+        pass
+
+    # 2. Ask bash — it sources nix profile so it sees packages that Python's
+    #    os.environ PATH misses (common on Railway nixpkgs builds)
+    try:
+        r = subprocess.run(
+            ["bash", "-c", "which ffmpeg"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:
+        pass
+
+    # 3. Well-known nix profile paths
+    for p in [
         "/root/.nix-profile/bin/ffmpeg",
         "/nix/var/nix/profiles/default/bin/ffmpeg",
         "/usr/local/bin/ffmpeg",
         "/usr/bin/ffmpeg",
-    ]
-    for p in candidates:
+    ]:
         if os.path.isfile(p) and os.access(p, os.X_OK):
             return p
+
+    # 4. Last resort: scan nix store (slow, short timeout)
     try:
-        result = subprocess.run(
-            ["find", "/nix/store", "-name", "ffmpeg", "-type", "f", "-not", "-path", "*/share/*"],
-            capture_output=True, text=True, timeout=20,
+        r = subprocess.run(
+            ["find", "/nix/store", "-name", "ffmpeg", "-type", "f",
+             "-not", "-path", "*/share/*"],
+            capture_output=True, text=True, timeout=10,
         )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip().splitlines()[0]
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip().splitlines()[0]
     except Exception:
         pass
+
     return None
 
 
