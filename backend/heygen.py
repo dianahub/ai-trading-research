@@ -168,6 +168,58 @@ def _find_ffmpeg() -> str | None:
     return None
 
 
+def _escape_drawtext(text: str) -> str:
+    """Escape text for use in ffmpeg drawtext filter value."""
+    # Order matters: backslash first, then special chars
+    text = text.replace("\\", "\\\\")
+    text = text.replace("'",  "’")   # replace smart-quote to avoid shell issues
+    text = text.replace(":",  "\\:")
+    text = text.replace("%",  "\\%")
+    return text
+
+
+def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28) -> str:
+    """Convert SRT text to a comma-joined chain of ffmpeg drawtext filters."""
+    blocks = re.split(r'\n\s*\n', srt.strip())
+    filters = []
+    for block in blocks:
+        lines = block.strip().splitlines()
+        timing_idx = next((i for i, l in enumerate(lines) if '-->' in l), None)
+        if timing_idx is None:
+            continue
+        timing   = lines[timing_idx]
+        text     = ' '.join(lines[timing_idx + 1:]).strip()
+        if not text:
+            continue
+
+        m = re.match(
+            r'(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)',
+            timing,
+        )
+        if not m:
+            continue
+
+        def _s(h, mi, s, ms):
+            return int(h) * 3600 + int(mi) * 60 + int(s) + int(ms) / 1000
+
+        t0 = _s(*m.group(1, 2, 3, 4))
+        t1 = _s(*m.group(5, 6, 7, 8))
+
+        escaped = _escape_drawtext(text[:80])   # trim very long lines
+        f = (
+            f"drawtext=text='{escaped}'"
+            f":enable='between(t\\,{t0:.3f}\\,{t1:.3f})'"
+            f":fontsize={fontsize}"
+            f":fontcolor=white"
+            f":x=(w-text_w)/2"
+            f":y={text_y}"
+            f":shadowx=2:shadowy=2:shadowcolor=black@0.9"
+        )
+        filters.append(f)
+
+    return ','.join(filters)
+
+
 def burn_captions(video_url: str, caption_url: str | None, script: str) -> str | None:
     """
     Download the HeyGen video, burn captions at the bottom (below the face),
@@ -197,32 +249,20 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
         with open(sub_path, "w", encoding="utf-8") as f:
             f.write(srt_content)
 
-        # Dark panel over bottom 28% of the 1280px frame (pixel values,
-        # not expressions, so it works across all ffmpeg builds).
+        # Dark panel over bottom 28% of the 1280px frame
         panel_h = 358   # 1280 * 0.28
         panel_y = 922   # 1280 - 358
         drawbox = f"drawbox=x=0:y={panel_y}:w=iw:h={panel_h}:color=black@0.82:t=fill"
 
-        # Commas inside a filter option value MUST be escaped as \, so ffmpeg
-        # doesn't interpret them as filter-chain separators.
-        style = (
-            "FontSize=26\\,"
-            "PrimaryColour=&H00FFFFFF\\,"
-            "OutlineColour=&H00000000\\,"
-            "Outline=2\\,"
-            "Bold=1\\,"
-            "Alignment=2\\,"
-            "MarginV=90"
-        )
-        fonts_dir = _find_fonts_dir()
-        if fonts_dir:
-            print(f"[heygen] Using fonts from: {fonts_dir}", flush=True)
-            subtitle_filter = f"subtitles={sub_path}:fontsdir={fonts_dir}:force_style={style}"
-        else:
-            print("[heygen] No fonts dir found — libass will use built-in fallback", flush=True)
-            subtitle_filter = f"subtitles={sub_path}:force_style={style}"
+        # Build drawtext filter chain from SRT — uses freetype (always
+        # available in static ffmpeg) instead of libass (not in imageio build).
+        drawtext_filters = _srt_to_drawtext(srt_content, text_y=panel_y + 80)
+        if not drawtext_filters:
+            print("[heygen] No drawtext cues built — skipping caption burn", flush=True)
+            return None
 
-        vf = f"{drawbox},{subtitle_filter}"
+        vf = drawbox + "," + drawtext_filters
+        print(f"[heygen] drawtext cues built ({drawtext_filters.count('drawtext=')} cues)", flush=True)
         cmd = [
             ffmpeg_bin, "-y",
             "-i", raw_path,
@@ -231,14 +271,6 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
             "-preset", "fast",
             out_path,
         ]
-        # Log SRT preview so we can verify content
-        try:
-            with open(sub_path) as _f:
-                _preview = _f.read(400)
-            print(f"[heygen] SRT preview:\n{_preview}", flush=True)
-        except Exception:
-            pass
-        print(f"[heygen] vf filter: {vf}", flush=True)
         print(f"[heygen] Burning captions with FFmpeg...", flush=True)
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         # Always log stderr — libass warnings appear even on exit 0
