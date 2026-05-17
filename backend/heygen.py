@@ -182,20 +182,21 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
         with open(sub_path, "w", encoding="utf-8") as f:
             f.write(srt_content)
 
-        # Dark panel covers the bottom 28% of the 1280px frame so captions
-        # are always readable regardless of the background image.
-        panel_frac = 0.28
-        drawbox = f"drawbox=x=0:y=h*{1 - panel_frac}:w=w:h=h*{panel_frac}:color=black@0.82:t=fill"
+        # Dark panel over bottom 28% of the 1280px frame (pixel values,
+        # not expressions, so it works across all ffmpeg builds).
+        panel_h = 358   # 1280 * 0.28
+        panel_y = 922   # 1280 - 358
+        drawbox = f"drawbox=x=0:y={panel_y}:w=iw:h={panel_h}:color=black@0.82:t=fill"
 
-        # NOTE: no quotes around force_style value — subprocess passes args
-        # directly to ffmpeg (no shell), so literal quotes break the filter.
+        # Commas inside a filter option value MUST be escaped as \, so ffmpeg
+        # doesn't interpret them as filter-chain separators.
         style = (
-            "FontSize=26,"
-            "PrimaryColour=&H00FFFFFF,"
-            "OutlineColour=&H00000000,"
-            "Outline=2,"
-            "Bold=1,"
-            "Alignment=2,"
+            "FontSize=26\\,"
+            "PrimaryColour=&H00FFFFFF\\,"
+            "OutlineColour=&H00000000\\,"
+            "Outline=2\\,"
+            "Bold=1\\,"
+            "Alignment=2\\,"
             "MarginV=90"
         )
         fonts_dir = _find_fonts_dir()
