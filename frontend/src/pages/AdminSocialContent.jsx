@@ -347,7 +347,17 @@ export default function AdminSocialContent() {
                     {preview.content_type === 'video' ? 'VIDEO' : 'IMAGE'}
                   </div>
                   {preview.content_type === 'video'
-                    ? <video src={preview.post.media_url} controls className="rounded-lg" style={{ maxWidth: 320 }} />
+                    ? <>
+                        <video src={preview.post.media_url} controls className="rounded-lg" style={{ maxWidth: 320 }} />
+                        <a
+                          href={`${API}/admin/social/download-video?url=${encodeURIComponent(preview.post.media_url)}`}
+                          download="starsignal-preview.mp4"
+                          className="inline-block mt-2 text-xs px-3 py-1 rounded"
+                          style={{ background: '#1e3a5f', color: '#7dd3fc' }}
+                        >
+                          ↓ Download video
+                        </a>
+                      </>
                     : <img src={preview.post.media_url} alt="preview" className="rounded-lg" style={{ maxWidth: 320 }} />
                   }
                 </div>

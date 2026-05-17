@@ -8311,6 +8311,71 @@ def admin_social_run_now(
     return {"started": True, "message": "Daily job triggered — will post if AUTO_POST_ENABLED=true."}
 
 
+@app.get("/admin/social/test-caption-burn")
+def admin_test_caption_burn(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Create a synthetic black video and burn 'HELLO' captions — tests ffmpeg pipeline without HeyGen."""
+    from fastapi.responses import FileResponse
+    import uuid, subprocess
+    _require_admin(x_admin_email, x_admin_password)
+    from heygen import burn_captions, _find_ffmpeg, _ensure_temp_dir
+    _ensure_temp_dir()
+    ffmpeg_bin = _find_ffmpeg()
+    if not ffmpeg_bin:
+        raise HTTPException(500, "ffmpeg not found")
+    tmp_id   = str(uuid.uuid4())
+    raw_path = f"/tmp/social_videos/{tmp_id}_raw.mp4"
+    # Generate a 10-second black 720x1280 video with silent audio
+    subprocess.run([
+        ffmpeg_bin, "-y",
+        "-f", "lavfi", "-i", "color=black:size=720x1280:rate=25",
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+        "-t", "10",
+        "-c:v", "libx264", "-c:a", "aac",
+        raw_path,
+    ], check=True, capture_output=True, timeout=60)
+    # Burn "HELLO" using burn_captions with a dummy video_url pointing to the local file
+    # We skip the download step by calling the internal pieces directly
+    from heygen import _srt_to_drawtext, _find_ffmpeg, _ensure_temp_dir, _cleanup_old_temp_files
+    import os
+    srt = "1\n00:00:00,000 --> 00:00:10,000\nHELLO\n"
+    out_path = f"/tmp/social_videos/{tmp_id}_out.mp4"
+    panel_h, panel_y = 358, 922
+    drawbox = f"drawbox=x=0:y={panel_y}:w=iw:h={panel_h}:color=black@0.82:t=fill"
+    drawtext_filters = _srt_to_drawtext(srt, text_y=panel_y + 80)
+    vf = drawbox + "," + drawtext_filters
+    result = subprocess.run(
+        [ffmpeg_bin, "-y", "-i", raw_path, "-vf", vf, "-c:a", "copy", "-preset", "fast", out_path],
+        capture_output=True, text=True, timeout=120,
+    )
+    os.unlink(raw_path)
+    if result.returncode != 0:
+        raise HTTPException(500, f"ffmpeg failed:\n{result.stderr[-2000:]}")
+    return FileResponse(out_path, media_type="video/mp4", filename="caption-test-HELLO.mp4")
+
+
+@app.get("/admin/social/download-video")
+def admin_social_download_video(
+    url: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Proxy-download a video URL so the browser can save it locally."""
+    from fastapi.responses import StreamingResponse
+    import urllib.parse
+    _require_admin(x_admin_email, x_admin_password)
+    r = requests.get(url, stream=True, timeout=120)
+    r.raise_for_status()
+    filename = "starsignal-preview.mp4"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Type": r.headers.get("Content-Type", "video/mp4"),
+    }
+    return StreamingResponse(r.iter_content(chunk_size=65536), headers=headers)
+
+
 @app.get("/partner-preview/{slug}")
 def partner_preview(slug: str):
     """Public read-only insight feed for a specific astrologer by name slug.
