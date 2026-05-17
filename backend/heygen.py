@@ -231,11 +231,21 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
             "-preset", "fast",
             out_path,
         ]
+        # Log SRT preview so we can verify content
+        try:
+            with open(sub_path) as _f:
+                _preview = _f.read(400)
+            print(f"[heygen] SRT preview:\n{_preview}", flush=True)
+        except Exception:
+            pass
+        print(f"[heygen] vf filter: {vf}", flush=True)
         print(f"[heygen] Burning captions with FFmpeg...", flush=True)
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        # Always log stderr — libass warnings appear even on exit 0
+        if result.stderr:
+            print(f"[heygen] FFmpeg stderr:\n{result.stderr[-2000:]}", flush=True)
         if result.returncode != 0:
             print(f"[heygen] FFmpeg failed (exit {result.returncode})", flush=True)
-            print(f"[heygen] FFmpeg stderr:\n{result.stderr}", flush=True)
             return None
 
         print(f"[heygen] Captions burned → {out_path}", flush=True)
