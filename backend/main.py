@@ -7964,21 +7964,54 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             content_type = "video"
             media_url    = ""
             try:
-                log("Generating HeyGen twin video...")
-                raw_video_url, caption_url = generate_twin_video(script)
-                log(f"Video ready: {raw_video_url} | caption_url: {caption_url}")
+                if os.getenv("HEYGEN_CAPTION_TEST") == "1":
+                    # Test mode: skip HeyGen, generate a black video locally and burn HELLO
+                    log("CAPTION TEST MODE — generating local test video with HELLO caption")
+                    from heygen import _find_ffmpeg, _ensure_temp_dir, _srt_to_drawtext
+                    import uuid as _uuid
+                    _ensure_temp_dir()
+                    ffmpeg_bin = _find_ffmpeg()
+                    tmp_id   = str(_uuid.uuid4())
+                    raw_path = f"/tmp/social_videos/{tmp_id}_raw.mp4"
+                    out_path = f"/tmp/social_videos/{tmp_id}.mp4"
+                    subprocess.run([
+                        ffmpeg_bin, "-y",
+                        "-f", "lavfi", "-i", "color=black:size=720x1280:rate=25",
+                        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+                        "-t", "10", "-c:v", "libx264", "-c:a", "aac", raw_path,
+                    ], check=True, capture_output=True, timeout=60)
+                    srt = "1\n00:00:00,000 --> 00:00:10,000\nHELLO\n"
+                    panel_h, panel_y = 358, 922
+                    drawbox = f"drawbox=x=0:y={panel_y}:w=iw:h={panel_h}:color=black@0.82:t=fill"
+                    dt_filters = _srt_to_drawtext(srt, text_y=panel_y + 80)
+                    vf = drawbox + "," + dt_filters
+                    res = subprocess.run(
+                        [ffmpeg_bin, "-y", "-i", raw_path, "-vf", vf, "-c:a", "copy", "-preset", "fast", out_path],
+                        capture_output=True, text=True, timeout=120,
+                    )
+                    os.unlink(raw_path)
+                    if res.returncode != 0:
+                        raise RuntimeError(f"HELLO test ffmpeg failed:\n{res.stderr[-1000:]}")
+                    log(f"HELLO test video ready — ffmpeg stderr: {res.stderr[-500:]}")
+                    file_id   = os.path.basename(out_path)
+                    media_url = f"{BACKEND_URL}/media/temp/{file_id}"
+                    log(f"Test video URL: {media_url}")
+                else:
+                    log("Generating HeyGen twin video...")
+                    raw_video_url, caption_url = generate_twin_video(script)
+                    log(f"Video ready: {raw_video_url} | caption_url: {caption_url}")
 
-                # Burn captions at the bottom of the frame (below the face)
-                media_url = raw_video_url
-                if os.getenv("HEYGEN_CAPTIONS", "true").lower() != "false":
-                    log("Burning captions into video...")
-                    captioned_path = burn_captions(raw_video_url, caption_url, script)
-                    if captioned_path:
-                        file_id   = os.path.basename(captioned_path)
-                        media_url = f"{BACKEND_URL}/media/temp/{file_id}"
-                        log(f"Captioned video: {media_url}")
-                    else:
-                        log("Caption burn failed — using original video")
+                    # Burn captions at the bottom of the frame (below the face)
+                    media_url = raw_video_url
+                    if os.getenv("HEYGEN_CAPTIONS", "true").lower() != "false":
+                        log("Burning captions into video...")
+                        captioned_path = burn_captions(raw_video_url, caption_url, script)
+                        if captioned_path:
+                            file_id   = os.path.basename(captioned_path)
+                            media_url = f"{BACKEND_URL}/media/temp/{file_id}"
+                            log(f"Captioned video: {media_url}")
+                        else:
+                            log("Caption burn failed — using original video")
 
                 if row:
                     row.video_url = media_url
