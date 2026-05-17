@@ -178,8 +178,61 @@ def _escape_drawtext(text: str) -> str:
     return text
 
 
+def _find_font_file() -> str | None:
+    """Find a TTF font file, checking common paths, nix store, then downloading."""
+    cached = "/tmp/DejaVuSans.ttf"
+    if os.path.isfile(cached):
+        return cached
+
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf",
+        "/root/.nix-profile/share/fonts/truetype/DejaVuSans.ttf",
+        "/usr/local/share/fonts/DejaVuSans.ttf",
+    ]
+    for p in candidates:
+        if os.path.isfile(p):
+            return p
+
+    try:
+        r = subprocess.run(
+            ["find", "/nix/store", "-name", "DejaVuSans.ttf", "-type", "f"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip().splitlines()[0]
+    except Exception:
+        pass
+
+    # Last resort: download from GitHub (cached at /tmp for container lifetime)
+    try:
+        print("[heygen] Downloading DejaVuSans.ttf font...", flush=True)
+        resp = requests.get(
+            "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf",
+            timeout=15,
+        )
+        if resp.ok:
+            with open(cached, "wb") as f:
+                f.write(resp.content)
+            print(f"[heygen] Font downloaded → {cached}", flush=True)
+            return cached
+    except Exception as e:
+        print(f"[heygen] Font download failed: {e}", flush=True)
+
+    return None
+
+
 def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28) -> str:
     """Convert SRT text to a comma-joined chain of ffmpeg drawtext filters."""
+    font_file = _find_font_file()
+    if font_file:
+        print(f"[heygen] Using font: {font_file}", flush=True)
+        font_part = f":fontfile={font_file}"
+    else:
+        print("[heygen] No font file found — drawtext will use built-in", flush=True)
+        font_part = ""
+
     blocks = re.split(r'\n\s*\n', srt.strip())
     filters = []
     for block in blocks:
@@ -205,11 +258,12 @@ def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28) -> str:
         t0 = _s(*m.group(1, 2, 3, 4))
         t1 = _s(*m.group(5, 6, 7, 8))
 
-        escaped = _escape_drawtext(text[:80])   # trim very long lines
+        escaped = _escape_drawtext(text[:80])
         f = (
             f"drawtext=text='{escaped}'"
             f":enable='between(t\\,{t0:.3f}\\,{t1:.3f})'"
             f":fontsize={fontsize}"
+            f"{font_part}"
             f":fontcolor=white"
             f":x=(w-text_w)/2"
             f":y={text_y}"
