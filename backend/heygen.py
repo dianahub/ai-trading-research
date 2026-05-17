@@ -169,12 +169,13 @@ def _find_ffmpeg() -> str | None:
 
 
 def _escape_drawtext(text: str) -> str:
-    """Escape text for use in ffmpeg drawtext filter value."""
-    # Order matters: backslash first, then special chars
-    text = text.replace("\\", "\\\\")
-    text = text.replace("'",  "’")   # replace smart-quote to avoid shell issues
-    text = text.replace(":",  "\\:")
-    text = text.replace("%",  "\\%")
+    """Escape text for ffmpeg drawtext filter value (no shell involved)."""
+    # In ffmpeg filter syntax, single quotes delimit option values, so
+    # a literal apostrophe must be escaped as \’
+    text = text.replace("\\", "\\\\")   # backslash first
+    text = text.replace("’",  "\\’")    # apostrophe → \’
+    text = text.replace(":",  "\\:")    # colon is option separator
+    text = text.replace("%",  "\\%")    # percent is special in drawtext
     return text
 
 
