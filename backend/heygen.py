@@ -217,11 +217,17 @@ def _find_font_file() -> str | None:
     return None
 
 
-def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28) -> str:
-    """Convert SRT text to a comma-joined chain of ffmpeg drawtext filters."""
+def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28,
+                     temp_dir: str | None = None) -> str:
+    """Convert SRT text to a comma-joined chain of ffmpeg drawtext filters.
+
+    Uses textfile= (writes each cue to a temp file) when temp_dir is provided,
+    completely avoiding text-escaping issues with apostrophes and other chars.
+    """
     font_file = _find_font_file()
     if font_file:
-        print(f"[heygen] Using font: {font_file}", flush=True)
+        sz = os.path.getsize(font_file)
+        print(f"[heygen] Using font: {font_file} ({sz} bytes)", flush=True)
         font_part = f":fontfile={font_file}"
     else:
         print("[heygen] No font file found — drawtext will use built-in", flush=True)
@@ -252,11 +258,24 @@ def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28) -> str:
         t0 = _s(*m.group(1, 2, 3, 4))
         t1 = _s(*m.group(5, 6, 7, 8))
 
-        escaped = _escape_drawtext(text[:80])
-        if not filters:
-            print(f"[heygen] first cue escaped: {repr(escaped)}", flush=True)
+        text_truncated = text[:80]
+
+        if temp_dir:
+            # Write cue text to a file — textfile= avoids ALL escaping issues
+            cue_path = os.path.join(temp_dir, f"cue_{len(filters)}.txt")
+            with open(cue_path, "w", encoding="utf-8") as fh:
+                fh.write(text_truncated)
+            if not filters:
+                print(f"[heygen] first cue text: {repr(text_truncated)}", flush=True)
+            text_part = f"textfile='{cue_path}'"
+        else:
+            escaped = _escape_drawtext(text_truncated)
+            if not filters:
+                print(f"[heygen] first cue escaped: {repr(escaped)}", flush=True)
+            text_part = f"text='{escaped}'"
+
         f = (
-            f"drawtext=text='{escaped}'"
+            f"drawtext={text_part}"
             f":enable='between(t,{t0:.3f},{t1:.3f})'"
             f":fontsize={fontsize}"
             f"{font_part}"
@@ -288,8 +307,11 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
     raw_path = os.path.join(_TEMP_DIR, f"{file_id}_raw.mp4")
     sub_path = os.path.join(_TEMP_DIR, f"{file_id}.srt")
     out_path = os.path.join(_TEMP_DIR, f"{file_id}.mp4")
+    cap_dir  = os.path.join(_TEMP_DIR, f"{file_id}_caps")
 
     try:
+        os.makedirs(cap_dir, exist_ok=True)
+
         # Download raw video
         print("[heygen] Downloading video for caption burn...", flush=True)
         _download(video_url, raw_path)
@@ -307,9 +329,8 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
         panel_y = 922   # 1280 - 358
         drawbox = f"drawbox=x=0:y={panel_y}:w=iw:h={panel_h}:color=black@0.82:t=fill"
 
-        # Build drawtext filter chain from SRT — uses freetype (always
-        # available in static ffmpeg) instead of libass (not in imageio build).
-        drawtext_filters = _srt_to_drawtext(srt_content, text_y=panel_y + 80)
+        # Build drawtext filter chain — cue text written to files to avoid escaping issues
+        drawtext_filters = _srt_to_drawtext(srt_content, text_y=panel_y + 80, temp_dir=cap_dir)
         if not drawtext_filters:
             print("[heygen] No drawtext cues built — skipping caption burn", flush=True)
             return None
@@ -324,9 +345,8 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
             "-preset", "fast",
             out_path,
         ]
-        print(f"[heygen] Burning captions with FFmpeg...", flush=True)
+        print("[heygen] Burning captions with FFmpeg...", flush=True)
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-        # Always log stderr — libass warnings appear even on exit 0
         if result.stderr:
             print(f"[heygen] FFmpeg stderr:\n{result.stderr[-2000:]}", flush=True)
         if result.returncode != 0:
@@ -346,6 +366,7 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
                 os.unlink(p)
             except Exception:
                 pass
+        shutil.rmtree(cap_dir, ignore_errors=True)
 
 
 # ── Caption helpers ────────────────────────────────────────────────────────────
