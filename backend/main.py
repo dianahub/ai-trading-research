@@ -7803,7 +7803,7 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
         try:
             resp = requests.get(
                 f"{NEWSAPI_BASE}/everything",
-                params={"q": q, "sortBy": "publishedAt", "language": "en", "pageSize": 5, "apiKey": NEWS_API_KEY},
+                params={"q": q, "sortBy": "publishedAt", "language": "en", "pageSize": 10, "apiKey": NEWS_API_KEY},
                 timeout=10,
             )
             resp.raise_for_status()
