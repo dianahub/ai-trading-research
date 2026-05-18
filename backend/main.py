@@ -145,6 +145,12 @@ INSTAGRAM_ACCOUNT_ID   = os.getenv("INSTAGRAM_ACCOUNT_ID", "")
 # Social pipeline
 AUTO_POST_ENABLED  = os.getenv("AUTO_POST_ENABLED", "false").lower() == "true"
 ADMIN_EMAIL_SOCIAL = os.getenv("ADMIN_EMAIL", "")
+
+def _social_today() -> str:
+    """Return today's date in the configured local timezone (default US/Eastern)."""
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo(os.getenv("SOCIAL_TIMEZONE", "America/New_York"))
+    return datetime.now(tz).strftime("%Y-%m-%d")
 if _stripe_available and STRIPE_SECRET_KEY:
     _stripe.api_key = STRIPE_SECRET_KEY
 
@@ -7933,7 +7939,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
     from heygen import generate_twin_video, burn_captions
     from instagram import post_reel, post_image
 
-    today = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = date or _social_today()
     log = lambda *a: print(f"[social {today}]", *a, flush=True)
 
     with Session(_engine) as db:
@@ -8325,7 +8331,7 @@ def admin_social_post_preview(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = _social_today()
     with Session(_engine) as db:
         existing = db.query(SocialPost).filter(SocialPost.date == today).first()
         insight_id = (p.get("insight") or {}).get("id")
@@ -8355,7 +8361,7 @@ def admin_social_skip_today(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = _social_today()
     with Session(_engine) as db:
         existing = db.query(SocialPost).filter(SocialPost.date == today).first()
         if existing:
