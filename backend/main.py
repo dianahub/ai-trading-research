@@ -7964,7 +7964,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             content_type = "video"
             media_url    = ""
             try:
-                if os.getenv("HEYGEN_CAPTION_TEST") == "1":
+                if os.getenv("HEYGEN_PIPELINE_TEST") == "1":
                     # Test mode: skip HeyGen, generate a black video locally and burn HELLO
                     log("CAPTION TEST MODE — generating local test video with HELLO caption")
                     import subprocess
