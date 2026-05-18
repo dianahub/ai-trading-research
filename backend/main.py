@@ -7968,7 +7968,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                     # Test mode: skip HeyGen, generate a black video locally and burn HELLO
                     log("CAPTION TEST MODE — generating local test video with HELLO caption")
                     import subprocess
-                    from heygen import _find_ffmpeg, _ensure_temp_dir, _srt_to_drawtext
+                    from heygen import _find_ffmpeg, _ensure_temp_dir
                     import uuid as _uuid
                     _ensure_temp_dir()
                     ffmpeg_bin = _find_ffmpeg()
@@ -7981,19 +7981,25 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                         "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
                         "-t", "10", "-c:v", "libx264", "-c:a", "aac", raw_path,
                     ], check=True, capture_output=True, timeout=60)
-                    srt = "1\n00:00:00,000 --> 00:00:10,000\nHELLO\n"
-                    panel_h, panel_y = 358, 922
-                    drawbox = f"drawbox=x=0:y={panel_y}:w=iw:h={panel_h}:color=black@0.82:t=fill"
-                    dt_filters = _srt_to_drawtext(srt, text_y=panel_y + 80)
-                    vf = drawbox + "," + dt_filters
+                    # Diagnose font file
+                    font_path = "/app/DejaVuSans.ttf"
+                    if os.path.isfile(font_path):
+                        log(f"Font exists: {font_path} size={os.path.getsize(font_path)} mode={oct(os.stat(font_path).st_mode)}")
+                        fontfile_opt = f":fontfile={font_path}"
+                    else:
+                        log(f"Font NOT FOUND at {font_path} — trying without fontfile")
+                        fontfile_opt = ""
+                    # Minimal drawtext — no enable, no shadow, hardcoded position
+                    vf = f"drawbox=x=0:y=900:w=iw:h=380:color=black@0.85:t=fill,drawtext=text=HELLO{fontfile_opt}:fontsize=60:fontcolor=white:x=(w-text_w)/2:y=960"
+                    log(f"vf filter: {vf}")
                     res = subprocess.run(
                         [ffmpeg_bin, "-y", "-i", raw_path, "-vf", vf, "-c:a", "copy", "-preset", "fast", out_path],
                         capture_output=True, text=True, timeout=120,
                     )
+                    log(f"ffmpeg exit={res.returncode} stderr={res.stderr[-800:]}")
                     os.unlink(raw_path)
                     if res.returncode != 0:
-                        raise RuntimeError(f"HELLO test ffmpeg failed:\n{res.stderr[-1000:]}")
-                    log(f"HELLO test video ready — ffmpeg stderr: {res.stderr[-500:]}")
+                        raise RuntimeError(f"HELLO test ffmpeg failed:\n{res.stderr[-800:]}")
                     file_id   = os.path.basename(out_path)
                     media_url = f"{BACKEND_URL}/media/temp/{file_id}"
                     log(f"Test video URL: {media_url}")
