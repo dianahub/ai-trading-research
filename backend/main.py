@@ -7972,7 +7972,9 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             log("Fetching top financial news...")
             top_news = _fetch_top_financial_news(topic=insight.get("topic"))
             top_headline = top_news[0]["title"] if top_news else ""
-            log(f"Top headline: {top_headline or '(none)'}")
+            log(f"Available headlines ({len(top_news)}):")
+            for _n in top_news:
+                log(f"  [{_n['source']}] {_n['title']}")
 
             log("Generating script...")
             recent_scripts = [
