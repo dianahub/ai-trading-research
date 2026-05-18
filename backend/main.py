@@ -7713,7 +7713,7 @@ def _social_score_insight(i: dict) -> float:
 
 _SOCIAL_EXCLUDED_SOURCES = {"Rowans Financial Astrology"}
 
-def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[dict]:
+def _social_select_insight(db: Session, ignore_used: bool = False, preferred_topic: str | None = None) -> Optional[dict]:
     """Pick the best insight from api.starsignal.io — single source of truth.
 
     Insights can be reused across posts as long as they are not on a 7-day cooldown.
@@ -7756,6 +7756,11 @@ def _social_select_insight(db: Session, ignore_used: bool = False) -> Optional[d
     )
     if not candidates:
         return None
+    # Prefer insight whose topic matches the inferred news topic
+    if preferred_topic:
+        topic_matches = [c for c in candidates if preferred_topic.lower() in (c.get("topic") or "").lower()]
+        if topic_matches:
+            return max(topic_matches, key=_social_score_insight)
     return max(candidates, key=_social_score_insight)
 
 
@@ -7770,7 +7775,7 @@ Astrology signal the chatbot will reference: {insight_json}
 
 Script structure — write it exactly like this:
 1. "In today's financial news, according to [source name from the headline], [the most important or alarming headline in one sentence]."
-2. "I asked Star Signal — what do astrologers say about [use the EXACT SAME market or asset you named in sentence 1 — if you said 'Solana', ask about 'Solana'; if you said 'the dollar', ask about 'the dollar'; NEVER switch to a different asset here]?"
+2. "I asked Star Signal — what do astrologers say about [use the EXACT SAME market or asset you named in sentence 1 — if you said 'the dollar', ask about 'the dollar'; NEVER switch to a different asset here]?" — write ONLY this question, do not invent the chatbot's answer here
 3. [Chatbot answer, prefixed with "Star Signal says:"] — 2-3 sentences, future tense only, based on the astrology signal. State the market prediction first, then explain WHY by citing the astrological reasoning. If `astro_reasoning` is provided in the signal, use ONLY those exact terms — do not invent or add planetary reasoning of your own. If no `astro_reasoning` is provided, explain the prediction using only the timeframe and outlook without inventing planetary causes. Mention the timeframe.
 4. "Link in bio to ask it yourself."
 
@@ -7780,6 +7785,7 @@ Rules:
 - Plain English — the astrological explanation should be understandable to a non-astrologer
 - The chatbot answer must be future-tense — what will happen, not what already happened
 - NEVER invent planets, retrogrades, or aspects that are not in the `astro_reasoning` field
+- NEVER invent a chatbot answer that isn't directly supported by the insight data provided — if the insight data is sparse, keep the answer short and factual
 - Return ONLY the spoken words, no stage directions or labels"""
 
 _SOCIAL_CAPTION_PROMPT = """\
@@ -7967,8 +7973,33 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 db.commit()
 
         try:
-            log("Selecting best insight...")
-            insight = _social_select_insight(db, ignore_used=preview)
+            # Step 1: fetch news first — headline drives everything
+            log("Fetching top financial news...")
+            top_news = _fetch_top_financial_news()
+            log(f"Available headlines ({len(top_news)}):")
+            for _n in top_news:
+                log(f"  [{_n['source']}] {_n['title']}")
+
+            # Step 2: infer topic from headlines to find the best matching insight
+            _TOPIC_KEYWORDS = {
+                "crypto":   ["bitcoin","ethereum","btc","eth","crypto"],
+                "currency": ["dollar","euro","yuan","yen","forex","treasury","exchange rate","central bank"],
+                "gold":     ["gold","precious metals","safe haven"],
+                "oil":      ["oil","opec","crude","energy"],
+                "stocks":   ["stock","s&p","nasdaq","equities","wall street","equity"],
+                "rates":    ["interest rate","federal reserve"," fed ","bond yield","treasury yield"],
+                "inflation":["inflation","cpi","cost of living"],
+            }
+            headline_text = " ".join(a["title"].lower() for a in top_news[:3])
+            inferred_topic = next(
+                (t for t, kws in _TOPIC_KEYWORDS.items() if any(k in headline_text for k in kws)),
+                None,
+            )
+            if inferred_topic:
+                log(f"Inferred topic from headlines: {inferred_topic}")
+
+            # Step 3: pick insight that matches the news topic
+            insight = _social_select_insight(db, ignore_used=preview, preferred_topic=inferred_topic)
             if not insight:
                 log("No unused insights — skipping")
                 if row:
@@ -7976,15 +8007,9 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                     row.error_message = "No unused insights"
                     db.commit()
                 return {"status": "skipped", "content_type": "video"}
-            log(f"Selected: [{insight.get('topic')}] {insight.get('outlook')} — {insight.get('summary','')[:60]}...")
+            log(f"Matched insight: [{insight.get('topic')}] {insight.get('outlook')} — {insight.get('summary','')[:60]}...")
 
-            log("Fetching top financial news...")
-            top_news = _fetch_top_financial_news(topic=insight.get("topic"))
-            top_headline = top_news[0]["title"] if top_news else ""
-            log(f"Available headlines ({len(top_news)}):")
-            for _n in top_news:
-                log(f"  [{_n['source']}] {_n['title']}")
-
+            # Step 4: generate script — news headline + chatbot-style AI answer
             log("Generating script...")
             recent_scripts = [
                 r.script_text for r in db.query(SocialPost)
