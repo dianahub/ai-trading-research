@@ -257,7 +257,7 @@ def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28) -> str:
             print(f"[heygen] first cue escaped: {repr(escaped)}", flush=True)
         f = (
             f"drawtext=text='{escaped}'"
-            f":enable='between(t\\,{t0:.3f}\\,{t1:.3f})'"
+            f":enable='between(t,{t0:.3f},{t1:.3f})'"
             f":fontsize={fontsize}"
             f"{font_part}"
             f":fontcolor=white"
