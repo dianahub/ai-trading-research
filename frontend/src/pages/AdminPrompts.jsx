@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 function headers() {
-  return { 'x-admin-email': import.meta.env.VITE_ADMIN_EMAIL || '', 'x-admin-password': import.meta.env.VITE_ADMIN_PASSWORD || '' }
+  return { 'x-admin-email': 'contact@starsignal.io', 'x-admin-password': 'BISCUITLOVE' }
 }
 
 const ROLE_COLORS = {
