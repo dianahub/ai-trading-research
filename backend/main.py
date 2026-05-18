@@ -7770,6 +7770,7 @@ Script structure — write it exactly like this:
 
 Rules:
 - Pick the most directly relevant financial MARKET headline — avoid lifestyle, travel, sports, or celebrity stories that only tangentially involve money
+- For crypto headlines, only use Bitcoin or Ethereum — skip altcoins like Solana, XRP, Cardano, Dogecoin, etc.
 - Plain English — the astrological explanation should be understandable to a non-astrologer
 - The chatbot answer must be future-tense — what will happen, not what already happened
 - NEVER invent planets, retrogrades, or aspects that are not in the `astro_reasoning` field
@@ -7820,7 +7821,7 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
     # Topic-specific market queries — precise enough to avoid lifestyle/sports crossovers
     _TOPIC_QUERIES: dict[str, str] = {
         "currency":    '"forex" OR "exchange rate" OR "US dollar" OR "yuan" OR "yen" OR "euro" OR "central bank" OR "currency markets" OR "Treasury"',
-        "crypto":      "bitcoin OR ethereum OR crypto OR \"digital assets\" OR \"blockchain\" OR BTC OR ETH",
+        "crypto":      '"bitcoin" OR "ethereum" OR "BTC" OR "ETH" OR "crypto market" OR "digital assets"',
         "gold":        '"gold" AND ("price" OR "market" OR "investors" OR "rally" OR "demand" OR "safe haven")',
         "oil":         '"oil" AND ("price" OR "OPEC" OR "crude" OR "energy market")',
         "stocks":      '"stock market" OR "S&P 500" OR "Nasdaq" OR "Dow Jones" OR "equities" OR "wall street"',
@@ -7843,9 +7844,9 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
         if results:
             return results
 
-    # Fallback: broad financial/macro news
+    # Fallback: broad financial/macro news (no altcoins — Bitcoin/Ethereum only)
     return _query(
-        "bitcoin OR ethereum OR crypto OR \"S&P 500\" OR \"stock market\" OR "
+        "bitcoin OR ethereum OR \"S&P 500\" OR \"stock market\" OR "
         "\"federal reserve\" OR \"interest rates\" OR gold OR inflation OR "
         "\"oil prices\" OR \"US dollar\" OR \"bond market\" OR \"wall street\""
     )
