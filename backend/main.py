@@ -7852,14 +7852,19 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
     )
 
 
-def _social_generate_script(insight: dict, news: list[dict]) -> str:
+def _social_generate_script(insight: dict, news: list[dict], recent_scripts: list[str] | None = None) -> str:
     import json as _json
     news_str = "\n".join(f"- {a['title']} ({a['source']})" for a in news) if news else "No major headlines available today."
+    recent_block = ""
+    if recent_scripts:
+        recent_block = "\n\nRecently used headlines (DO NOT repeat any of these):\n" + "\n".join(
+            f"- {s.splitlines()[0][:120]}" for s in recent_scripts if s
+        )
     _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=30.0)
     msg = _ac.messages.create(
         model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
         max_tokens=250,
-        messages=[{"role": "user", "content": _SOCIAL_SCRIPT_PROMPT.format(
+        messages=[{"role": "user", "content": (_SOCIAL_SCRIPT_PROMPT + recent_block).format(
             news_str=news_str,
             insight_json=_json.dumps({
                 "topic":           insight.get("topic"),
@@ -7970,7 +7975,13 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             log(f"Top headline: {top_headline or '(none)'}")
 
             log("Generating script...")
-            script = _social_generate_script(insight, top_news)
+            recent_scripts = [
+                r.script_text for r in db.query(SocialPost)
+                .filter(SocialPost.status == "posted", SocialPost.script_text.isnot(None))
+                .order_by(SocialPost.posted_at.desc())
+                .limit(3).all()
+            ]
+            script = _social_generate_script(insight, top_news, recent_scripts=recent_scripts)
             log(f"Script: {script[:80]}...")
 
             log("Generating caption...")
