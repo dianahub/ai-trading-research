@@ -7968,7 +7968,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                     # Test mode: skip HeyGen, generate a black video locally and burn HELLO
                     log("CAPTION TEST MODE — generating local test video with HELLO caption")
                     import subprocess
-                    from heygen import _find_ffmpeg, _ensure_temp_dir
+                    from heygen import _find_ffmpeg, _ensure_temp_dir, _find_font_file
                     import uuid as _uuid
                     _ensure_temp_dir()
                     ffmpeg_bin = _find_ffmpeg()
@@ -7981,15 +7981,9 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                         "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
                         "-t", "10", "-c:v", "libx264", "-c:a", "aac", raw_path,
                     ], check=True, capture_output=True, timeout=60)
-                    # Diagnose font file
-                    font_path = "/app/DejaVuSans.ttf"
-                    if os.path.isfile(font_path):
-                        log(f"Font exists: {font_path} size={os.path.getsize(font_path)} mode={oct(os.stat(font_path).st_mode)}")
-                        fontfile_opt = f":fontfile={font_path}"
-                    else:
-                        log(f"Font NOT FOUND at {font_path} — trying without fontfile")
-                        fontfile_opt = ""
-                    # Minimal drawtext — no enable, no shadow, hardcoded position
+                    font_path = _find_font_file()
+                    log(f"Font: {font_path} size={os.path.getsize(font_path) if font_path else 'N/A'}")
+                    fontfile_opt = f":fontfile={font_path}" if font_path else ""
                     vf = f"drawbox=x=0:y=900:w=iw:h=380:color=black@0.85:t=fill,drawtext=text=HELLO{fontfile_opt}:fontsize=60:fontcolor=white:x=(w-text_w)/2:y=960"
                     log(f"vf filter: {vf}")
                     res = subprocess.run(

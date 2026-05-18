@@ -186,11 +186,34 @@ def _escape_drawtext(text: str) -> str:
 
 
 def _find_font_file() -> str | None:
-    """Find a TTF font file — uses bundled DejaVuSans.ttf first."""
-    # Bundled font committed alongside this file — always available
+    """Find a valid TTF font file — prefers nix-installed font over bundled."""
+    # 1. nix store: dejavu_fonts is listed in nixpacks.toml — guaranteed real binary
+    try:
+        r = subprocess.run(
+            ["find", "/nix/store", "-name", "DejaVuSans.ttf", "-type", "f"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            p = r.stdout.strip().splitlines()[0]
+            if os.path.isfile(p):
+                return p
+    except Exception:
+        pass
+
+    # 2. Standard system font paths
+    for p in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+    ]:
+        if os.path.isfile(p):
+            return p
+
+    # 3. Bundled file (may be corrupted — last resort)
     bundled = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
-    if os.path.isfile(bundled):
+    if os.path.isfile(bundled) and os.path.getsize(bundled) > 100_000:
         return bundled
+
     return None
 
 
