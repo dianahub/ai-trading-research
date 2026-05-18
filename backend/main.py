@@ -7795,15 +7795,38 @@ Rules:
 
 
 def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
-    """Fetch recent headlines relevant to the given topic. Falls back to broad financial news."""
+    """Fetch recent financial headlines from quality sources (Bloomberg, Reuters, CNBC, etc.)."""
     if not NEWS_API_KEY or NEWS_API_KEY == "your_news_api_key_here":
         return []
+
+    _DOMAINS = (
+        "bloomberg.com,reuters.com,ft.com,wsj.com,cnbc.com,"
+        "marketwatch.com,investing.com,economist.com"
+    )
+
+    # Topic keyword to narrow results within the quality domains
+    _TOPIC_KEYWORDS: dict[str, str] = {
+        "currency":  "dollar OR euro OR yuan OR yen OR forex OR \"exchange rate\" OR Treasury OR \"central bank\"",
+        "crypto":    "bitcoin OR ethereum OR BTC OR ETH OR \"crypto market\"",
+        "gold":      "gold OR \"precious metals\" OR \"safe haven\"",
+        "oil":       "oil OR OPEC OR crude OR energy",
+        "stocks":    "\"stock market\" OR \"S&P 500\" OR Nasdaq OR equities OR \"wall street\"",
+        "rates":     "\"interest rates\" OR \"Federal Reserve\" OR Fed OR \"bond yields\" OR \"Treasury yields\"",
+        "inflation": "inflation OR CPI OR \"cost of living\" OR prices",
+    }
 
     def _query(q: str) -> list[dict]:
         try:
             resp = requests.get(
                 f"{NEWSAPI_BASE}/everything",
-                params={"q": q, "sortBy": "publishedAt", "language": "en", "pageSize": 10, "apiKey": NEWS_API_KEY},
+                params={
+                    "q":        q,
+                    "domains":  _DOMAINS,
+                    "sortBy":   "publishedAt",
+                    "language": "en",
+                    "pageSize": 10,
+                    "apiKey":   NEWS_API_KEY,
+                },
                 timeout=10,
             )
             resp.raise_for_status()
@@ -7818,37 +7841,17 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
         except Exception:
             return []
 
-    # Topic-specific market queries — precise enough to avoid lifestyle/sports crossovers
-    _TOPIC_QUERIES: dict[str, str] = {
-        "currency":    '"forex" OR "exchange rate" OR "US dollar" OR "yuan" OR "yen" OR "euro" OR "central bank" OR "currency markets" OR "Treasury"',
-        "crypto":      '"bitcoin" OR "ethereum" OR "BTC" OR "ETH" OR "crypto market" OR "digital assets"',
-        "gold":        '"gold" AND ("price" OR "market" OR "investors" OR "rally" OR "demand" OR "safe haven")',
-        "oil":         '"oil" AND ("price" OR "OPEC" OR "crude" OR "energy market")',
-        "stocks":      '"stock market" OR "S&P 500" OR "Nasdaq" OR "Dow Jones" OR "equities" OR "wall street"',
-        "rates":       '"interest rates" OR "Federal Reserve" OR "Fed" OR "bond yields" OR "Treasury yields"',
-        "inflation":   '"inflation" AND ("CPI" OR "prices" OR "Fed" OR "rate" OR "economy")',
-    }
-
-    # Search for news specifically about the insight topic first
+    # Topic-specific search within quality domains
     if topic:
         topic_lower = topic.lower()
-        specific_q = next(
-            (q for key, q in _TOPIC_QUERIES.items() if key in topic_lower),
-            topic,  # fallback to raw topic if no mapping
-        )
-        results = _query(specific_q)
-        if results:
-            return results
-        # If specific query returned nothing, try the raw topic
-        results = _query(topic)
+        kw = next((v for k, v in _TOPIC_KEYWORDS.items() if k in topic_lower), topic)
+        results = _query(kw)
         if results:
             return results
 
-    # Fallback: broad financial/macro news (no altcoins — Bitcoin/Ethereum only)
+    # Fallback: broad financial/market news from quality domains
     return _query(
-        "bitcoin OR ethereum OR \"S&P 500\" OR \"stock market\" OR "
-        "\"federal reserve\" OR \"interest rates\" OR gold OR inflation OR "
-        "\"oil prices\" OR \"US dollar\" OR \"bond market\" OR \"wall street\""
+        "market OR dollar OR Fed OR gold OR bitcoin OR oil OR bonds OR inflation OR stocks"
     )
 
 
