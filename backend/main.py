@@ -3103,6 +3103,7 @@ class ApiLead(_Base):
     last_message_sent = Column(String,  default="")
     mrr_potential    = Column(String,   default="")   # e.g. "$49", "$149"
     notes            = Column(String,   default="")
+    referrer         = Column(String,   default="")
     date_contacted   = Column(DateTime, nullable=True)
     date_responded   = Column(DateTime, nullable=True)
     created_at       = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -3615,6 +3616,7 @@ def _lead_dict(l):
         "last_message_sent": l.last_message_sent or "",
         "mrr_potential":  l.mrr_potential,
         "notes":          l.notes,
+        "referrer":       l.referrer or "",
         "date_contacted": l.date_contacted.isoformat() if l.date_contacted else None,
         "date_responded": l.date_responded.isoformat() if l.date_responded else None,
         "created_at":     l.created_at.isoformat() if l.created_at else None,
@@ -3632,6 +3634,7 @@ class ApiLeadCreate(BaseModel):
     stage:          str = ""
     mrr_potential:  str = ""
     notes:          str = ""
+    referrer:       str = ""
 
 class ApiLeadUpdate(BaseModel):
     company_name:    str | None = None
@@ -3647,6 +3650,7 @@ class ApiLeadUpdate(BaseModel):
     last_message_sent: str | None = None
     mrr_potential:   str | None = None
     notes:           str | None = None
+    referrer:        str | None = None
     date_contacted:  str | None = None
     date_responded:  str | None = None
 
@@ -8121,6 +8125,17 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             ig = post_reel(media_url, caption)
             log(f"Posted! ID: {ig['media_id']}  URL: {ig['permalink']}")
 
+            # ── Cross-post to Facebook ─────────────────────────────────────────
+            fb_permalink = ""
+            try:
+                from instagram import post_to_facebook
+                fb = post_to_facebook(media_url, caption)
+                if fb:
+                    fb_permalink = fb.get("permalink", "")
+                    log(f"Also posted to Facebook: {fb_permalink}")
+            except Exception as fb_err:
+                log(f"Facebook cross-post failed (Instagram OK): {fb_err}")
+
             row.status             = "posted"
             row.instagram_media_id = ig["media_id"]
             row.instagram_url      = ig["permalink"]
@@ -8129,8 +8144,8 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             db.commit()
 
             _social_notify(
-                f"Star Signal: Posted to Instagram — {today}",
-                f"Video posted!\n\nInsight: {insight.get('summary','')}\nScript: {script}\nCaption: {caption}\n\nURL: {ig['permalink']}",
+                f"Star Signal: Posted to Instagram & Facebook — {today}",
+                f"Video posted!\n\nInsight: {insight.get('summary','')}\nScript: {script}\nCaption: {caption}\n\nInstagram: {ig['permalink']}" + (f"\nFacebook: {fb_permalink}" if fb_permalink else ""),
             )
             return {"status": "posted", "content_type": content_type, "post": {"permalink": ig["permalink"]}}
 
@@ -8201,6 +8216,12 @@ async def admin_social_post_custom_video(
         ig = post_reel(video_url, caption)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Instagram post failed: {e}")
+
+    try:
+        from instagram import post_to_facebook
+        post_to_facebook(video_url, caption)
+    except Exception:
+        pass  # Facebook cross-post is best-effort
 
     return {"posted": True, "permalink": ig.get("permalink", ""), "caption": caption, "media_id": ig.get("media_id", "")}
 
@@ -8355,6 +8376,13 @@ def admin_social_post_preview(
         ig = post_reel(media_url, caption) if content_type == "video" else post_image(media_url, caption)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        from instagram import post_to_facebook
+        if content_type == "video":
+            post_to_facebook(media_url, caption)
+    except Exception:
+        pass  # Facebook cross-post is best-effort
 
     today = _social_today()
     with Session(_engine) as db:

@@ -1,9 +1,10 @@
 """
-Meta Graph API — post Reels and images to Instagram.
+Meta Graph API — post Reels and images to Instagram, and videos to Facebook.
 
 Env vars:
   INSTAGRAM_ACCESS_TOKEN — long-lived page/user access token
   INSTAGRAM_ACCOUNT_ID   — IG Business Account ID
+  FACEBOOK_PAGE_ID       — Facebook Page numeric ID (enables FB cross-posting)
 """
 
 import os
@@ -13,6 +14,8 @@ import requests
 _GRAPH         = "https://graph.facebook.com/v21.0"
 _POLL_INTERVAL = 5    # seconds
 _MAX_WAIT      = 300  # 5 minutes for video processing
+
+_fb_token_cache: dict = {}
 
 
 def _account_id() -> str:
@@ -27,6 +30,22 @@ def _token() -> str:
     if not v:
         raise RuntimeError("INSTAGRAM_ACCESS_TOKEN not set")
     return v
+
+
+def _fb_page_token(page_id: str) -> str:
+    if page_id in _fb_token_cache:
+        return _fb_token_cache[page_id]
+    r = requests.get(
+        f"{_GRAPH}/me/accounts",
+        params={"access_token": _token()},
+        timeout=15,
+    )
+    r.raise_for_status()
+    for page in r.json().get("data", []):
+        if page["id"] == page_id:
+            _fb_token_cache[page_id] = page["access_token"]
+            return page["access_token"]
+    raise RuntimeError(f"Facebook Page {page_id} not found in /me/accounts")
 
 
 def post_reel(video_url: str, caption: str) -> dict:
@@ -105,6 +124,29 @@ def post_image(image_url: str, caption: str) -> dict:
         raise RuntimeError(f"Instagram publish failed: {p.json()}")
 
     return {"media_id": media_id, "permalink": _get_permalink(media_id, token)}
+
+
+def post_to_facebook(video_url: str, caption: str) -> dict:
+    """Cross-post a video to the Facebook Page. Returns {"post_id": ..., "permalink": ...}.
+    No-ops (returns empty dict) if FACEBOOK_PAGE_ID is not set."""
+    page_id = os.getenv("FACEBOOK_PAGE_ID", "")
+    if not page_id:
+        return {}
+    token = _fb_page_token(page_id)
+    r = requests.post(
+        f"{_GRAPH}/{page_id}/videos",
+        params={"access_token": token},
+        json={"file_url": video_url, "description": caption, "published": True},
+        timeout=60,
+    )
+    r.raise_for_status()
+    post_id = r.json().get("id")
+    if not post_id:
+        raise RuntimeError(f"Facebook post failed: {r.json()}")
+    return {
+        "post_id":   post_id,
+        "permalink": f"https://www.facebook.com/{page_id}/videos/{post_id}",
+    }
 
 
 def _get_permalink(media_id: str, token: str) -> str:
