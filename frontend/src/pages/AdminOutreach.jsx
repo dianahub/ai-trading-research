@@ -1212,7 +1212,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr style={{ background: '#0f1a2e', borderBottom: '1px solid #1e2d45' }}>
-                      {['Company', 'Platform', 'What they build', 'Stage', 'MRR', 'Status', 'Actions'].map(h => (
+                      {['Company', 'Platform', 'What they build', 'Stage', 'MRR', 'Referrer', 'Status', 'Actions'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#94a3b8', background: '#0f1a2e' }}>{h}</th>
                       ))}
                     </tr>
@@ -1230,6 +1230,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
                         <td className="px-4 py-3 max-w-xs"><span className="text-xs line-clamp-2" style={{ color: '#94a3b8' }}>{l.what_they_build}</span></td>
                         <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{l.stage || '—'}</td>
                         <td className="px-4 py-3 text-xs font-bold" style={{ color: '#06b6d4' }}>{l.mrr_potential || '—'}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>{l.referrer || '—'}</td>
                         <td className="px-4 py-3"><LeadBadge status={l.status} /></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1472,6 +1473,7 @@ function ApiLeadsSection({ API, adminHeaders }) {
               { key: 'github_url',    label: 'GitHub URL',        type: 'text' },
               { key: 'tech_stack',    label: 'Tech Stack',        type: 'text' },
               { key: 'mrr_potential', label: 'MRR Potential',     type: 'text' },
+              { key: 'referrer',      label: 'Referrer',          type: 'text' },
             ].map(({ key, label, type }) => (
               <div key={key}>
                 <label className="block text-xs mb-1" style={{ color: '#94a3b8' }}>{label}</label>

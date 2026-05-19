@@ -349,14 +349,21 @@ export default function AdminSocialContent() {
                   {preview.content_type === 'video'
                     ? <>
                         <video src={preview.post.media_url} controls className="rounded-lg" style={{ maxWidth: 320 }} />
-                        <a
-                          href={`${API}/admin/social/download-video?url=${encodeURIComponent(preview.post.media_url)}`}
-                          download="starsignal-preview.mp4"
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(`${API}/admin/social/download-video?url=${encodeURIComponent(preview.post.media_url)}`, { headers: adminHeaders() })
+                            const blob = await res.blob()
+                            const a = document.createElement('a')
+                            a.href = URL.createObjectURL(blob)
+                            a.download = 'starsignal-preview.mp4'
+                            a.click()
+                            URL.revokeObjectURL(a.href)
+                          }}
                           className="inline-block mt-2 text-xs px-3 py-1 rounded"
                           style={{ background: '#1e3a5f', color: '#7dd3fc' }}
                         >
                           ↓ Download video
-                        </a>
+                        </button>
                       </>
                     : <img src={preview.post.media_url} alt="preview" className="rounded-lg" style={{ maxWidth: 320 }} />
                   }
