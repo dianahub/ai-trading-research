@@ -8136,6 +8136,18 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             except Exception as fb_err:
                 log(f"Facebook cross-post failed (Instagram OK): {fb_err}")
 
+            # ── Cross-post to YouTube ──────────────────────────────────────────
+            yt_permalink = ""
+            try:
+                from youtube import post_to_youtube
+                yt_title = (script.split(".")[0].strip()[:100]) if script else insight.get("topic", "Star Signal")
+                yt = post_to_youtube(media_url, yt_title, caption)
+                if yt:
+                    yt_permalink = yt.get("permalink", "")
+                    log(f"Also posted to YouTube: {yt_permalink}")
+            except Exception as yt_err:
+                log(f"YouTube cross-post failed (Instagram OK): {yt_err}")
+
             row.status             = "posted"
             row.instagram_media_id = ig["media_id"]
             row.instagram_url      = ig["permalink"]
@@ -8143,10 +8155,13 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
             row.posted_at          = datetime.now(timezone.utc)
             db.commit()
 
-            _social_notify(
-                f"Star Signal: Posted to Instagram & Facebook — {today}",
-                f"Video posted!\n\nInsight: {insight.get('summary','')}\nScript: {script}\nCaption: {caption}\n\nInstagram: {ig['permalink']}" + (f"\nFacebook: {fb_permalink}" if fb_permalink else ""),
+            notify_body = (
+                f"Video posted!\n\nInsight: {insight.get('summary','')}\nScript: {script}\nCaption: {caption}"
+                f"\n\nInstagram: {ig['permalink']}"
+                + (f"\nFacebook: {fb_permalink}" if fb_permalink else "")
+                + (f"\nYouTube: {yt_permalink}" if yt_permalink else "")
             )
+            _social_notify(f"Star Signal: Posted to Instagram, Facebook & YouTube — {today}", notify_body)
             return {"status": "posted", "content_type": content_type, "post": {"permalink": ig["permalink"]}}
 
         except Exception as err:
@@ -8221,7 +8236,14 @@ async def admin_social_post_custom_video(
         from instagram import post_to_facebook
         post_to_facebook(video_url, caption)
     except Exception:
-        pass  # Facebook cross-post is best-effort
+        pass  # best-effort
+
+    try:
+        from youtube import post_to_youtube
+        yt_title = insight.get("topic", "Star Signal") if insight else "Star Signal"
+        post_to_youtube(video_url, yt_title, caption)
+    except Exception:
+        pass  # best-effort
 
     return {"posted": True, "permalink": ig.get("permalink", ""), "caption": caption, "media_id": ig.get("media_id", "")}
 
@@ -8382,7 +8404,15 @@ def admin_social_post_preview(
         if content_type == "video":
             post_to_facebook(media_url, caption)
     except Exception:
-        pass  # Facebook cross-post is best-effort
+        pass  # best-effort
+
+    try:
+        from youtube import post_to_youtube
+        if content_type == "video":
+            yt_title = (p.get("script") or "").split(".")[0].strip()[:100] or "Star Signal"
+            post_to_youtube(media_url, yt_title, caption)
+    except Exception:
+        pass  # best-effort
 
     today = _social_today()
     with Session(_engine) as db:

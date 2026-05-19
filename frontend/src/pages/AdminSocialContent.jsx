@@ -126,7 +126,7 @@ export default function AdminSocialContent() {
   const handlePostPreview = async () => {
     if (!preview?.post) return
     setPosting(true)
-    setStatusMsg('Posting to Instagram & Facebook...')
+    setStatusMsg('Posting to Instagram, Facebook & YouTube...')
     try {
       const r = await fetch(`${API}/admin/social/post-preview`, { method: 'POST', headers: adminHeaders() })
       const d = await r.json()
@@ -271,7 +271,7 @@ export default function AdminSocialContent() {
             <ActionButton
               onClick={handlePostPreview}
               loading={posting} disabled={!preview?.post}
-              label="Post Preview to Instagram & Facebook" loadingLabel="Posting…"
+              label="Post Preview to Instagram, Facebook & YouTube" loadingLabel="Posting…"
               color="#052e1a" textColor="#34d399" border="#10b981"
             />
             <ActionButton
@@ -293,7 +293,7 @@ export default function AdminSocialContent() {
         <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
           <h2 className="text-sm font-bold mb-1" style={{ color: '#94a3b8' }}>POST YOUR OWN VIDEO</h2>
           <p className="text-xs mb-4" style={{ color: '#475569' }}>
-            Upload a video you recorded. A caption with today's news + astrology tags is generated automatically and posted to Instagram & Facebook.
+            Upload a video you recorded. A caption with today's news + astrology tags is generated automatically and posted to Instagram, Facebook & YouTube.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -308,7 +308,7 @@ export default function AdminSocialContent() {
               onClick={handleUploadAndPost}
               loading={uploading}
               disabled={!uploadFile}
-              label="Post to Instagram & Facebook"
+              label="Post to Instagram, Facebook & YouTube"
               loadingLabel="Uploading & Posting…"
               color="#052e1a" textColor="#34d399" border="#10b981"
             />
