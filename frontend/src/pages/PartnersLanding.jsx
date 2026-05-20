@@ -272,6 +272,7 @@ export default function PartnersLanding() {
             <Link to="/contact" style={{ color: '#94a3b8', textDecoration: 'none' }}>Contact</Link>
             <Link to="/partners/dashboard" style={{ color: '#94a3b8', textDecoration: 'none' }}>Partner Login</Link>
             <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none' }}>LinkedIn</a>
+            <a href="https://www.instagram.com/starsignal.io/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none' }}>Instagram</a>
           </div>
         </div>
       </footer>

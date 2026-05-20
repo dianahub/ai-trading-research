@@ -32,6 +32,7 @@ function PageLayout({ title, children }) {
             <Link to="/terms" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Terms</Link>
             <Link to="/privacy" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Privacy</Link>
             <Link to="/contact" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Contact</Link>
+            <a href="https://www.instagram.com/starsignal.io/" target="_blank" rel="noopener noreferrer" className="text-xs hover:underline" style={{ color: '#94a3b8' }}>Instagram</a>
           </div>
         </div>
       </footer>

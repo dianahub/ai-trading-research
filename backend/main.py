@@ -4085,6 +4085,9 @@ class User(_Base):
     grandfathered               = Column(Boolean, default=False)
     discount_code_used          = Column(String, nullable=True)
     pricing_tier                = Column(String, nullable=True)  # founding|referred|pro — billing classification, never changes
+    subscription_status         = Column(String, nullable=True)  # none|active|past_due|canceled|unpaid|trialing
+    last_invoice_at             = Column(DateTime, nullable=True)
+    last_invoice_amount         = Column(Integer, default=0)     # cents
     last_login                  = Column(DateTime, nullable=True)
     beta_day14_sent             = Column(Boolean, default=False)
     beta_day25_sent             = Column(Boolean, default=False)
@@ -4331,6 +4334,9 @@ def _run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS pricing_tier TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user'",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS api_key TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'none'",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_invoice_at TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_invoice_amount INTEGER DEFAULT 0",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS discount_code TEXT DEFAULT ''",
         "ALTER TABLE beta_applications ADD COLUMN IF NOT EXISTS password_hash TEXT",
         "INSERT INTO site_config (key, value) VALUES ('beta_open', 'true') ON CONFLICT DO NOTHING",
@@ -6012,6 +6018,7 @@ async def stripe_webhook(request: Request):
             if user:
                 user.stripe_customer_id = customer_id
                 user.stripe_subscription_id = sub_id
+                user.subscription_status = "active"
                 price_id = None
                 if sub_id:
                     sub = _stripe.Subscription.retrieve(sub_id)
@@ -6038,6 +6045,7 @@ async def stripe_webhook(request: Request):
             if user:
                 status = sub.get("status")
                 price_id = sub["items"]["data"][0]["price"]["id"]
+                user.subscription_status = status
                 if status == "active":
                     user.tier = _tier_from_price_id(price_id)
                     user.stripe_subscription_end = None
@@ -6053,11 +6061,19 @@ async def stripe_webhook(request: Request):
             if user:
                 user.tier = "free"
                 user.stripe_subscription_id = None
+                user.subscription_status = "canceled"
                 db.commit()
 
         elif event["type"] == "invoice.payment_succeeded":
-            # Alias — same payload shape as invoice.paid; handled below via fall-through
-            pass
+            inv = event["data"]["object"]
+            cid = inv.get("customer")
+            if cid:
+                user = db.query(User).filter(User.stripe_customer_id == cid).first()
+                if user:
+                    user.subscription_status = "active"
+                    user.last_invoice_at = datetime.now(timezone.utc)
+                    user.last_invoice_amount = inv.get("amount_paid", 0)
+                    db.commit()
 
         elif event["type"] == "invoice.payment_failed":
             inv  = event["data"]["object"]
@@ -6065,6 +6081,8 @@ async def stripe_webhook(request: Request):
             if cid:
                 user = db.query(User).filter(User.stripe_customer_id == cid).first()
                 if user:
+                    user.subscription_status = "past_due"
+                    db.commit()
                     import threading as _t
                     _t.Thread(target=_send_payment_failed_email,
                               args=(user.email, user.first_name or ""),
@@ -6081,6 +6099,11 @@ async def stripe_webhook(request: Request):
             user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
             if not user:
                 return {"ok": True}
+
+            user.subscription_status = "active"
+            user.last_invoice_at = datetime.now(timezone.utc)
+            user.last_invoice_amount = inv.get("amount_paid", 0)
+            db.commit()
 
             # Deduplicate
             if db.query(Commission).filter(Commission.stripe_invoice_id == stripe_invoice_id).first():
@@ -6240,6 +6263,98 @@ def get_usage_today(ss_session: Optional[str] = Cookie(None)):
             "unlimited": limit is None,
             "upgrade":   upgrade,
         }
+
+
+# ── Admin: billing dashboard ──────────────────────────────────────────────────
+
+@app.get("/admin/billing")
+def admin_billing(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    from fastapi.responses import HTMLResponse
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        paying = db.query(User).filter(
+            User.subscription_status == "active"
+        ).order_by(User.last_invoice_at.desc()).all()
+        past_due = db.query(User).filter(
+            User.subscription_status == "past_due"
+        ).order_by(User.last_invoice_at.desc()).all()
+        canceled = db.query(User).filter(
+            User.subscription_status == "canceled"
+        ).order_by(User.updated_at.desc()).all()
+
+        mrr_cents = sum(u.last_invoice_amount or 0 for u in paying)
+        mrr = mrr_cents / 100.0
+
+        def status_badge(s):
+            colors = {
+                "active":   ("#22c55e", "#14532d"),
+                "past_due": ("#f59e0b", "#451a03"),
+                "canceled": ("#ef4444", "#450a0a"),
+                "none":     ("#6b7280", "#111827"),
+            }
+            bg, fg = colors.get(s or "none", ("#6b7280", "#111827"))
+            return f'<span style="background:{bg};color:#fff;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600">{s or "none"}</span>'
+
+        def user_rows(users):
+            if not users:
+                return "<tr><td colspan='6' style='color:#6b7280;padding:12px'>None</td></tr>"
+            rows = ""
+            for u in users:
+                inv_date = u.last_invoice_at.strftime("%Y-%m-%d") if u.last_invoice_at else "—"
+                inv_amt  = f"${(u.last_invoice_amount or 0)/100:.2f}" if u.last_invoice_amount else "—"
+                cust_link = (f'<a href="https://dashboard.stripe.com/customers/{u.stripe_customer_id}" '
+                             f'target="_blank" style="color:#a78bfa">{u.stripe_customer_id[:12]}…</a>'
+                             if u.stripe_customer_id else "—")
+                rows += (
+                    f"<tr>"
+                    f"<td>{u.email}</td>"
+                    f"<td>{u.tier}</td>"
+                    f"<td>{status_badge(u.subscription_status)}</td>"
+                    f"<td>{inv_amt}</td>"
+                    f"<td>{inv_date}</td>"
+                    f"<td>{cust_link}</td>"
+                    f"</tr>"
+                )
+            return rows
+
+        html = f"""<!doctype html>
+<html><head><meta charset="utf-8"><title>Billing — Star Signal Admin</title>
+<style>
+  body{{font-family:system-ui,sans-serif;background:#0f0f17;color:#e2e8f0;margin:0;padding:24px}}
+  h1{{color:#a78bfa;margin:0 0 4px}}
+  h2{{color:#c4b5fd;font-size:14px;text-transform:uppercase;letter-spacing:.08em;margin:28px 0 10px}}
+  .stat-row{{display:flex;gap:20px;margin:20px 0}}
+  .stat{{background:#1e1e2e;border-radius:10px;padding:20px 28px;min-width:140px}}
+  .stat .label{{font-size:12px;color:#94a3b8;margin-bottom:4px}}
+  .stat .value{{font-size:28px;font-weight:700;color:#a78bfa}}
+  table{{width:100%;border-collapse:collapse;background:#1e1e2e;border-radius:10px;overflow:hidden}}
+  th{{background:#2d1b69;color:#c4b5fd;text-align:left;padding:10px 14px;font-size:12px;text-transform:uppercase}}
+  td{{padding:10px 14px;font-size:13px;border-bottom:1px solid #2d2d3f;color:#e2e8f0}}
+  tr:last-child td{{border-bottom:none}}
+  a{{color:#a78bfa}}
+</style>
+</head><body>
+<h1>Star Signal — Billing</h1>
+<div class="stat-row">
+  <div class="stat"><div class="label">MRR (active)</div><div class="value">${mrr:,.2f}</div></div>
+  <div class="stat"><div class="label">Active</div><div class="value">{len(paying)}</div></div>
+  <div class="stat"><div class="label">Past Due</div><div class="value">{len(past_due)}</div></div>
+  <div class="stat"><div class="label">Canceled</div><div class="value">{len(canceled)}</div></div>
+</div>
+<h2>Active Subscribers</h2>
+<table><thead><tr><th>Email</th><th>Tier</th><th>Status</th><th>Last Invoice</th><th>Invoice Date</th><th>Stripe Customer</th></tr></thead>
+<tbody>{user_rows(paying)}</tbody></table>
+<h2>Past Due</h2>
+<table><thead><tr><th>Email</th><th>Tier</th><th>Status</th><th>Last Invoice</th><th>Invoice Date</th><th>Stripe Customer</th></tr></thead>
+<tbody>{user_rows(past_due)}</tbody></table>
+<h2>Canceled</h2>
+<table><thead><tr><th>Email</th><th>Tier</th><th>Status</th><th>Last Invoice</th><th>Invoice Date</th><th>Stripe Customer</th></tr></thead>
+<tbody>{user_rows(canceled)}</tbody></table>
+</body></html>"""
+        return HTMLResponse(html)
 
 
 # ── Admin: users list ─────────────────────────────────────────────────────────

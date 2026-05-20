@@ -804,6 +804,7 @@ export default function PartnersDashboard() {
             <Link to="/terms" style={{ color: '#94a3b8', textDecoration: 'none' }}>Terms</Link>
             <Link to="/privacy" style={{ color: '#94a3b8', textDecoration: 'none' }}>Privacy</Link>
             <a href="https://www.linkedin.com/company/113175994/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none' }}>LinkedIn</a>
+            <a href="https://www.instagram.com/starsignal.io/" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none' }}>Instagram</a>
           </div>
         </div>
       </footer>
