@@ -8885,6 +8885,16 @@ def admin_heygen_avatars(
 class GeneratePreviewBody(BaseModel):
     forced_headline: str | None = None
 
+@app.get("/admin/social/news-search")
+def admin_social_news_search(
+    q: str = "",
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    results = _fetch_top_financial_news(topic=q.strip() if q.strip() else None)
+    return {"headlines": results}
+
 @app.post("/admin/social/generate-preview")
 def admin_social_generate_preview(
     body: GeneratePreviewBody = GeneratePreviewBody(),

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -46,6 +46,11 @@ export default function AdminSocialContent() {
   const [loadingPosts, setLoadingPosts] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [forcedHeadline, setForcedHeadline] = useState('')
+  const [newsSuggestions, setNewsSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const newsDebounceRef = useRef(null)
+  const newsInputRef = useRef(null)
   const [posting, setPosting]       = useState(false)
   const [skipping, setSkipping]     = useState(false)
   const [running, setRunning]       = useState(false)
@@ -317,18 +322,60 @@ export default function AdminSocialContent() {
         {/* Controls */}
         <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
           <h2 className="text-sm font-bold mb-4" style={{ color: '#94a3b8' }}>MANUAL CONTROLS</h2>
-          <div className="mb-3">
+          <div className="mb-3 relative">
             <label className="block text-xs font-semibold mb-1" style={{ color: '#94a3b8' }}>
-              Custom headline <span style={{ color: '#475569', fontWeight: 400 }}>(optional — leave blank to auto-pick)</span>
+              Custom headline <span style={{ color: '#475569', fontWeight: 400 }}>(optional — type to search live news, or leave blank to auto-pick)</span>
             </label>
             <input
+              ref={newsInputRef}
               type="text"
               value={forcedHeadline}
-              onChange={e => setForcedHeadline(e.target.value)}
-              placeholder="e.g. Fed holds rates steady as inflation cools"
+              onChange={e => {
+                const val = e.target.value
+                setForcedHeadline(val)
+                setShowSuggestions(true)
+                clearTimeout(newsDebounceRef.current)
+                if (val.trim().length < 2) { setNewsSuggestions([]); return }
+                newsDebounceRef.current = setTimeout(async () => {
+                  setLoadingSuggestions(true)
+                  try {
+                    const r = await fetch(`${API}/admin/social/news-search?q=${encodeURIComponent(val.trim())}`, { headers: adminHeaders() })
+                    const d = await r.json()
+                    setNewsSuggestions(d.headlines || [])
+                  } catch { setNewsSuggestions([]) }
+                  setLoadingSuggestions(false)
+                }, 400)
+              }}
+              onFocus={() => { if (newsSuggestions.length) setShowSuggestions(true) }}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="e.g. Fed holds rates steady…"
               className="w-full rounded-lg px-3 py-2 text-sm"
               style={{ background: '#0d1f35', border: '1px solid #1e3a5f', color: '#e2e8f0', outline: 'none' }}
             />
+            {showSuggestions && (newsSuggestions.length > 0 || loadingSuggestions) && (
+              <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
+                {loadingSuggestions && (
+                  <div className="px-3 py-2 text-xs" style={{ color: '#475569' }}>Searching…</div>
+                )}
+                {newsSuggestions.map((item, i) => (
+                  <button
+                    key={i}
+                    onMouseDown={() => {
+                      setForcedHeadline(item.title)
+                      setShowSuggestions(false)
+                      setNewsSuggestions([])
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-opacity-50"
+                    style={{ color: '#e2e8f0', borderTop: i > 0 ? '1px solid #1e3a5f' : 'none', background: 'transparent' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#0d1f35'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span>{item.title}</span>
+                    <span className="ml-2 text-xs" style={{ color: '#475569' }}>{item.source}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             <ActionButton
