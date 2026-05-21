@@ -45,6 +45,7 @@ export default function AdminSocialContent() {
   const [preview, setPreview]       = useState(null)
   const [loadingPosts, setLoadingPosts] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [forcedHeadline, setForcedHeadline] = useState('')
   const [posting, setPosting]       = useState(false)
   const [skipping, setSkipping]     = useState(false)
   const [running, setRunning]       = useState(false)
@@ -111,7 +112,11 @@ export default function AdminSocialContent() {
     setPreview(null)
     setStatusMsg('Generating preview — this takes 2–5 minutes...')
     try {
-      const r = await fetch(`${API}/admin/social/generate-preview`, { method: 'POST', headers: adminHeaders() })
+      const r = await fetch(`${API}/admin/social/generate-preview`, {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ forced_headline: forcedHeadline.trim() || null }),
+      })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
         setStatusMsg(`Failed to start: ${d.detail ?? r.status}`)
@@ -312,6 +317,19 @@ export default function AdminSocialContent() {
         {/* Controls */}
         <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
           <h2 className="text-sm font-bold mb-4" style={{ color: '#94a3b8' }}>MANUAL CONTROLS</h2>
+          <div className="mb-3">
+            <label className="block text-xs font-semibold mb-1" style={{ color: '#94a3b8' }}>
+              Custom headline <span style={{ color: '#475569', fontWeight: 400 }}>(optional — leave blank to auto-pick)</span>
+            </label>
+            <input
+              type="text"
+              value={forcedHeadline}
+              onChange={e => setForcedHeadline(e.target.value)}
+              placeholder="e.g. Fed holds rates steady as inflation cools"
+              className="w-full rounded-lg px-3 py-2 text-sm"
+              style={{ background: '#0d1f35', border: '1px solid #1e3a5f', color: '#e2e8f0', outline: 'none' }}
+            />
+          </div>
           <div className="flex flex-wrap gap-3">
             <ActionButton
               onClick={handleGeneratePreview}

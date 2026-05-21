@@ -8270,7 +8270,7 @@ def _social_notify(subject: str, body: str):
 _social_preview: dict = {"result": None, "at": None}
 
 
-def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict:
+def _social_run_pipeline(preview: bool = False, date: str | None = None, forced_headline: str | None = None) -> dict:
     """
     Full social pipeline:
       1. Pick best unused insight
@@ -8312,8 +8312,12 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
 
         try:
             # Step 1: fetch news first — headline drives everything
-            log("Fetching top financial news...")
-            top_news = _fetch_top_financial_news()
+            if forced_headline:
+                log(f"Using forced headline: {forced_headline}")
+                top_news = [{"title": forced_headline, "source": "Custom"}]
+            else:
+                log("Fetching top financial news...")
+                top_news = _fetch_top_financial_news()
             log(f"Available headlines ({len(top_news)}):")
             for _n in top_news:
                 log(f"  [{_n['source']}] {_n['title']}")
@@ -8878,18 +8882,23 @@ def admin_heygen_avatars(
     return {"avatars": results}
 
 
+class GeneratePreviewBody(BaseModel):
+    forced_headline: str | None = None
+
 @app.post("/admin/social/generate-preview")
 def admin_social_generate_preview(
+    body: GeneratePreviewBody = GeneratePreviewBody(),
     x_admin_email: str = Header(default=""),
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
     _social_preview["result"] = None
     _social_preview["at"]     = None
+    headline = body.forced_headline.strip() if body.forced_headline and body.forced_headline.strip() else None
 
     def _run():
         try:
-            result = _social_run_pipeline(preview=True)
+            result = _social_run_pipeline(preview=True, forced_headline=headline)
         except Exception as e:
             print(f"[social-admin] preview thread crashed: {e}", flush=True)
             result = {"status": "failed", "content_type": "video", "error": str(e)}
