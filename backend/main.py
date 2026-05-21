@@ -8160,16 +8160,41 @@ def _social_generate_script(insight: dict, news: list[dict], recent_scripts: lis
     script = _call(ask_about)
 
     # Validate: sentence 2 must ask about the same asset as sentence 1.
-    # If mismatched, retry once with the correct asset injected explicitly.
+    # Bug-prone approach (stopwords like "the" cause false matches) replaced
+    # with a prefill-based retry that literally writes sentences 1+2 and
+    # lets Claude only generate the answer (sentences 3+4).
     used_headline = _extract_script_headline(script)
     if used_headline:
         correct_asset = _extract_headline_asset(used_headline)
         if correct_asset:
             m = re.search(r"what do astrologers say about (.+?)\?", script, re.IGNORECASE)
             asked = m.group(1).strip().lower() if m else ""
-            # Check mismatch: neither string contains the other
-            if asked and correct_asset.lower() not in asked and not any(w in asked for w in correct_asset.lower().split()):
-                script = _call(f"{correct_asset} — IMPORTANT: sentence 1 is about {correct_asset}, so sentence 2 MUST ask about {correct_asset}")
+            # Meaningful words only — filter stopwords so "the", "and", "a" don't cause false passes
+            _stop = {"the", "a", "an", "and", "or", "of", "in", "on", "at", "to", "for", "with", "about"}
+            asset_words = [w for w in correct_asset.lower().split() if w not in _stop]
+            mismatch = asked and not any(w in asked for w in asset_words)
+            if mismatch:
+                # Extract sentence 1 from first attempt (it's correct; only Q2 is wrong).
+                # Prefill sentences 1+2 so Claude cannot override them — only writes answer.
+                s1_match = re.match(r'(.+?[.!?])\s+I asked', script, re.DOTALL | re.IGNORECASE)
+                if s1_match:
+                    sentence_1 = s1_match.group(1).strip()
+                    prefill = f"{sentence_1} I asked Star Signal — what do astrologers say about {correct_asset}?"
+                    _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=30.0)
+                    answer_msg = _ac.messages.create(
+                        model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+                        max_tokens=200,
+                        messages=[
+                            {"role": "user", "content": (_SOCIAL_SCRIPT_PROMPT + recent_block).format(
+                                news_str=news_str, insight_json=insight_json, ask_about=correct_asset,
+                            )},
+                            {"role": "assistant", "content": prefill},
+                        ],
+                    )
+                    tail = answer_msg.content[0].text.strip() if answer_msg.content[0].type == "text" else ""
+                    script = f"{prefill} {tail}"
+                else:
+                    script = _call(f"{correct_asset} — CRITICAL: sentence 2 MUST ask about {correct_asset}")
 
     return script
 
