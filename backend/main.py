@@ -8039,6 +8039,8 @@ _HEADLINE_ASSET_MAP = [
     (["iran", "tehran", "sanctions on iran"], "the Iran situation"),
     (["russia", "ukraine", "war in", "conflict in", "geopolit"], "the geopolitical situation"),
     (["china tariff", "trade war", "tariffs on"], "trade and tariffs"),
+    (["chinese stock", "china stock", "shanghai", "hang seng", "csi 300", "china market", "china sells", "china dumps", "beijing"], "Chinese stocks"),
+    (["us treasuries", "u.s. treasuries", "dumping treasuries", "selling treasuries", "treasury selloff", "treasury market"], "US Treasuries"),
 ]
 
 
@@ -8090,6 +8092,8 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
         "stocks":    "\"stock market\" OR \"S&P 500\" OR Nasdaq OR equities OR \"wall street\"",
         "rates":     "\"interest rates\" OR \"Federal Reserve\" OR Fed OR \"bond yields\" OR \"Treasury yields\"",
         "inflation": "inflation OR CPI OR \"cost of living\" OR prices",
+        "china":     "China OR \"Chinese stocks\" OR \"CSI 300\" OR \"yuan\" OR \"US Treasuries\" OR \"trade war\" OR tariffs",
+        "treasuries": "Treasury OR \"US Treasuries\" OR \"bond market\" OR \"China selling\" OR \"bond yields\"",
     }
 
     def _query(q: str) -> list[dict]:
@@ -8128,7 +8132,7 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
 
     # Fallback: broad financial/market news from quality domains
     return _query(
-        "market OR dollar OR Fed OR gold OR bitcoin OR oil OR bonds OR inflation OR stocks"
+        "market OR dollar OR Fed OR gold OR bitcoin OR oil OR bonds OR inflation OR stocks OR China OR Treasury OR tariffs"
     )
 
 
