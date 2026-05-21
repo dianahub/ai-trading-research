@@ -150,9 +150,22 @@ export default function ChatWidget({ usesLeft, onUse, onAnonLimit, ticker, authe
                 <p style={{ color: '#94a3b8', fontSize: 11, margin: 0 }}>Astro Market Guide</p>
               </div>
             </div>
-            <span style={{ fontSize: 11, color: usageColor }}>
-              {usesLeft} use{usesLeft !== 1 ? 's' : ''} left
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 11, color: usageColor }}>
+                {usesLeft} use{usesLeft !== 1 ? 's' : ''} left
+              </span>
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Close chat"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#94a3b8', fontSize: 20, lineHeight: 1,
+                  padding: '2px 4px', borderRadius: 6,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  minWidth: 28, minHeight: 28,
+                }}
+              >✕</button>
+            </div>
           </div>
 
           {/* Login gate */}

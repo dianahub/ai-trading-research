@@ -1767,13 +1767,24 @@ def analyze(req: AnalyzeRequest, response: Response, ss_session: Optional[str] =
     if asset_type == "stock":
         # Fundamentals block
         fd = req.fundamentals_data
+        def _pct(v): return f"{v}%" if v is not None else "N/A"
         if fd and fd.get("revenue"):
-            def _pct(v): return f"{v}%" if v is not None else "N/A"
             last_eps = fd.get("earnings_history", [{}])[0] if fd.get("earnings_history") else {}
             fundamentals_block = (
                 f"Revenue (TTM): {_fmt(fd.get('revenue'))} | Gross Margin: {_pct(fd.get('gross_margin_pct'))} | Op Margin: {_pct(fd.get('operating_margin_pct'))} | Net Margin: {_pct(fd.get('net_margin_pct'))}\n"
                 f"Rev Growth YoY: {_pct(fd.get('revenue_growth_yoy_pct'))} | FCF: {_fmt(fd.get('free_cash_flow'))} | D/E: {fd.get('debt_to_equity','N/A')} | Current Ratio: {fd.get('current_ratio','N/A')}\n"
                 f"Health Score: {fd.get('health_score','N/A')}/10 | Latest EPS: actual {last_eps.get('eps_actual','N/A')} vs est {last_eps.get('eps_estimate','N/A')} (surprise {_pct(last_eps.get('surprise_pct'))})"
+            )
+        elif fd and any(fd.get(k) for k in ("inception_date", "aum", "expense_ratio", "fund_family", "asset_class")):
+            def _fmt_aum(v):
+                if not v: return "N/A"
+                if v >= 1e9: return f"${v/1e9:.2f}B"
+                if v >= 1e6: return f"${v/1e6:.1f}M"
+                return f"${v:,.0f}"
+            fundamentals_block = (
+                f"Type: ETF/Fund | Category: {fd.get('asset_class') or 'N/A'} | Issuer: {fd.get('fund_family') or 'N/A'}\n"
+                f"Inception Date: {fd.get('inception_date') or 'N/A'} | AUM: {_fmt_aum(fd.get('aum'))} | Expense Ratio: {_pct(fd.get('expense_ratio'))}\n"
+                f"NAV: {_fmt(fd.get('nav'))} | YTD Return: {_pct(fd.get('ytd_return'))} | 3-Year Avg Return: {_pct(fd.get('three_year_avg_return'))}"
             )
         else:
             fundamentals_block = "Fundamental data not available for this ticker."
@@ -2930,6 +2941,33 @@ def get_fundamentals(ticker: str):
     if current_ratio    is not None: score += 2 if current_ratio    > 2.0 else (1 if current_ratio    > 1.0 else 0)
     if fcf > 0: score += 2
 
+    # For ETFs / funds, financial-datasets returns no revenue data.
+    # Fall back to yfinance to get ETF-specific fields.
+    etf_info = {}
+    if not income.get("revenue"):
+        try:
+            import yfinance as yf
+            from datetime import date as _date
+            info = yf.Ticker(upper).info or {}
+            raw_inception = info.get("fundInceptionDate")
+            if raw_inception:
+                inception_str = _date.fromtimestamp(raw_inception).isoformat()
+            else:
+                inception_str = None
+            etf_info = {
+                "asset_class":    info.get("category") or info.get("quoteType"),
+                "fund_family":    info.get("fundFamily"),
+                "inception_date": inception_str,
+                "aum":            info.get("totalAssets"),
+                "expense_ratio":  info.get("annualReportExpenseRatio") or info.get("expenseRatio"),
+                "nav":            info.get("navPrice"),
+                "ytd_return":     info.get("ytdReturn"),
+                "three_year_avg_return": info.get("threeYearAverageReturn"),
+                "holdings_count": info.get("holdings") and len(info["holdings"]),
+            }
+        except Exception:
+            pass
+
     result = {
         "ticker":            upper,
         "period":            income.get("report_period"),
@@ -2967,6 +3005,7 @@ def get_fundamentals(ticker: str):
             }
             for e in earnings
         ],
+        **etf_info,
     }
 
     _fd_cache[upper] = {"data": result, "ts": time.time()}
