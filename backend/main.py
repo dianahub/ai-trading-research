@@ -209,6 +209,12 @@ class ContactMessage(_Base):
     message    = Column(String, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+class AnonUsage(_Base):
+    __tablename__ = "anon_usage"
+    token      = Column(String, primary_key=True)
+    uses       = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 _Base.metadata.create_all(_engine)  # creates table if it doesn't exist
 # Add promo_code column to existing tables that predate this field
 with _engine.connect() as _conn:
@@ -1065,10 +1071,15 @@ class ChatRequest(BaseModel):
 
 
 @app.post("/chat")
-def chat_celeste(body: ChatRequest):
+def chat_celeste(body: ChatRequest, response: Response, ss_session: Optional[str] = Cookie(None), ss_anon: Optional[str] = Cookie(None)):
     """StarSignal — astrological market chat assistant."""
     if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         raise HTTPException(status_code=503, detail="AI service unavailable")
+
+    with Session(_engine) as db:
+        user = _get_user_from_cookie(ss_session, db)
+        if not user:
+            _check_anon_limit(db, ss_anon, response)
 
     # Build astro context from api.starsignal.io (single source of truth)
     api_data = _fetch_astro_data()
@@ -1657,7 +1668,7 @@ def get_technicals(ticker: str):
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypass_usage: bool = False):
+def analyze(req: AnalyzeRequest, response: Response, ss_session: Optional[str] = Cookie(None), ss_anon: Optional[str] = Cookie(None), bypass_usage: bool = False):
     """
     Send all available data to Claude for a structured research report.
     Handles both crypto (whale data) and stock (insider + options) asset types.
@@ -1709,6 +1720,8 @@ def analyze(req: AnalyzeRequest, ss_session: Optional[str] = Cookie(None), bypas
                     })
                 row.request_count += 1
                 db.commit()
+            else:
+                _check_anon_limit(db, ss_anon, response)
 
     # ── Shared formatters ──────────────────────────────────────────────────────
     def _fmt(v):
@@ -4446,6 +4459,38 @@ def _get_user_from_cookie(session_token: Optional[str], db: Session) -> Optional
     except Exception:
         pass
     return None
+
+
+def _check_anon_limit(db, anon_token: str | None, response) -> None:
+    """Allow one free use for anonymous (not logged-in) users; raise 429 after that."""
+    import uuid as _uuid
+    ANON_FREE_USES = 1
+
+    if not anon_token:
+        token = str(_uuid.uuid4())
+        db.add(AnonUsage(token=token, uses=1))
+        db.commit()
+        response.set_cookie(
+            "ss_anon", token, httponly=True,
+            samesite=COOKIE_SAMESITE, secure=True, max_age=86400 * 30,
+        )
+        return
+
+    row = db.query(AnonUsage).filter(AnonUsage.token == anon_token).first()
+    if not row:
+        # Stale/unknown token — treat as first use
+        db.add(AnonUsage(token=anon_token, uses=1))
+        db.commit()
+        return
+
+    if row.uses >= ANON_FREE_USES:
+        raise HTTPException(status_code=429, detail={
+            "reason":  "anon_limit",
+            "message": "Sign up free to keep going",
+        })
+
+    row.uses += 1
+    db.commit()
 
 
 def _send_email(to: str, subject: str, body: str, text_only: bool = False, bcc: str | None = None):

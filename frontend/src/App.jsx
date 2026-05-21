@@ -359,10 +359,6 @@ export default function App() {
 const handleToggleAstro = () => setShowAstro(prev => !prev)
 
   const handleSearch = async (ticker) => {
-    if (AUTH_ACTIVE && !authedUser) {
-      setShowAuthPrompt(true)
-      return
-    }
     if (!AUTH_ACTIVE && usesLeft <= 0) {
       setError('You\'ve used all 10 free analyses for today. Come back tomorrow or upgrade for unlimited access.')
       return
@@ -481,7 +477,9 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             }
             setData(prev => ({ ...prev, analysis }))
           } catch (analysisErr) {
-            if (analysisErr.message?.includes('daily_limit') || analysisErr.message?.includes('429')) {
+            if (analysisErr.message?.includes('anon_limit')) {
+              setShowAuthPrompt(true)
+            } else if (analysisErr.message?.includes('daily_limit') || analysisErr.message?.includes('429')) {
               fetchUsage()
             } else {
               // Retry once automatically
@@ -1015,6 +1013,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       <ChatWidget
         usesLeft={AUTH_ACTIVE && authedUser && (authedUser.tier === 'partner_preview' || ['astrologer','influencer','admin'].includes(authedUser.role)) ? PARTNER_LIMIT : usesLeft}
         onUse={() => { if (!AUTH_ACTIVE || !authedUser || (authedUser.tier !== 'partner_preview' && !['astrologer','influencer','admin'].includes(authedUser.role))) setUsesLeft(decrementUses()) }}
+        onAnonLimit={() => setShowAuthPrompt(true)}
         ticker={ticker}
         authedUser={authedUser}
         authActive={AUTH_ACTIVE}

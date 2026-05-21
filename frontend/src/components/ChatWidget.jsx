@@ -5,7 +5,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const GREETING = "Hi! I'm StarSignal ♅ — your astrological market guide. Ask me anything about the current signals, or about the ticker you're researching."
 
-export default function ChatWidget({ usesLeft, onUse, ticker, authedUser, authActive }) {
+export default function ChatWidget({ usesLeft, onUse, onAnonLimit, ticker, authedUser, authActive }) {
   const loggedIn = !authActive || !!authedUser
   const [open, setOpen]       = useState(false)
   const [input, setInput]     = useState('')
@@ -43,11 +43,23 @@ export default function ChatWidget({ usesLeft, onUse, ticker, authedUser, authAc
 
     try {
       const res = await fetch(`${API}/chat`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ messages: apiMessages, ticker: ticker || '' }),
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ messages: apiMessages, ticker: ticker || '' }),
       })
-      if (!res.ok) throw new Error('bad response')
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        const reason = typeof body.detail === 'object' ? body.detail?.reason : null
+        if (reason === 'anon_limit') {
+          onAnonLimit?.()
+          setMessages(prev => prev.slice(0, -1)) // remove the user message
+          setInput(text) // restore input so they can try after signing up
+          setLoading(false)
+          return
+        }
+        throw new Error('bad response')
+      }
       const data = await res.json()
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
     } catch {
