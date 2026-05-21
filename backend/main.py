@@ -8049,6 +8049,15 @@ def _social_generate_caption(insight: dict, script: str) -> str:
     return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
 
 
+def _extract_script_headline(script: str) -> str:
+    """Extract the actual news headline Claude chose for the script's first sentence."""
+    first_line = script.split('\n')[0]
+    m = re.search(r'according to [^,]+,\s*(.+)', first_line, re.IGNORECASE)
+    if m:
+        return m.group(1).strip().rstrip('."\'')
+    return ""
+
+
 def _social_notify(subject: str, body: str):
     if not ADMIN_EMAIL_SOCIAL or not RESEND_API_KEY:
         return
@@ -8164,7 +8173,9 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 row.caption = caption
                 db.commit()
 
-            top_headline_text = top_news[0]["title"] if top_news else ""
+            # Extract the headline Claude actually used in the script (may differ from top_news[0])
+            script_headline = _extract_script_headline(script) or (top_news[0]["title"] if top_news else "")
+            log(f"Script headline: {script_headline[:80]}")
 
             # ── Video via HeyGen ───────────────────────────────────────────────
             content_type     = "video"
@@ -8226,7 +8237,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 if row:
                     row.video_url     = media_url
                     row.public_url    = media_url
-                    row.news_headline = top_headline_text
+                    row.news_headline = script_headline
 
                     # Copy to perm dir so download survives until next container restart
                     if local_video_path and os.path.exists(local_video_path):
@@ -8242,7 +8253,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                     try:
                         from thumbnail import generate_thumbnail as _gen_thumb
                         thumb_path = _gen_thumb(
-                            headline=top_headline_text or script[:120],
+                            headline=script_headline or script[:120],
                             topic=insight.get("topic"),
                             date_str=today,
                             suffix=today,
@@ -8275,7 +8286,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 try:
                     from thumbnail import generate_thumbnail as _gen_thumb
                     _gen_thumb(
-                        headline=top_headline_text or script[:120],
+                        headline=script_headline or script[:120],
                         topic=insight.get("topic"),
                         date_str=today,
                         suffix="preview",
@@ -8287,7 +8298,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                     "status":        "posted",
                     "content_type":  content_type,
                     "thumbnail_url": preview_thumb_url,
-                    "news_headline": top_headline_text,
+                    "news_headline": script_headline,
                     "post": {
                         "insight":      {"id": insight.get('id',''), "topic": insight.get('topic'), "summary": insight.get('summary','')},
                         "script":       script,
