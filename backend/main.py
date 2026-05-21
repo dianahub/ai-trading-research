@@ -215,6 +215,19 @@ class AnonUsage(_Base):
     uses       = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+class Lead(_Base):
+    __tablename__ = "leads"
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    name           = Column(String, nullable=False)
+    email          = Column(String, nullable=False)
+    phone          = Column(String, nullable=True, default="")
+    date_contacted = Column(DateTime, nullable=True)
+    notes          = Column(String, nullable=True, default="")
+    converted      = Column(Boolean, default=False)
+    created_at     = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at     = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                            onupdate=lambda: datetime.now(timezone.utc))
+
 _Base.metadata.create_all(_engine)  # creates table if it doesn't exist
 # Add promo_code column to existing tables that predate this field
 with _engine.connect() as _conn:
@@ -9999,3 +10012,152 @@ def admin_prompts(x_admin_email: str = Header(default=""),
             },
         ],
     }
+
+
+# ── Leads ─────────────────────────────────────────────────────────────────────
+
+class LeadCreate(BaseModel):
+    name:           str
+    email:          str
+    phone:          str = ""
+    date_contacted: str | None = None  # ISO date string
+    notes:          str = ""
+
+class LeadUpdate(BaseModel):
+    name:           str | None = None
+    email:          str | None = None
+    phone:          str | None = None
+    date_contacted: str | None = None
+    notes:          str | None = None
+
+
+def _lead_dict(lead: Lead) -> dict:
+    return {
+        "id":             lead.id,
+        "name":           lead.name,
+        "email":          lead.email,
+        "phone":          lead.phone or "",
+        "date_contacted": lead.date_contacted.isoformat() if lead.date_contacted else None,
+        "notes":          lead.notes or "",
+        "converted":      lead.converted,
+        "created_at":     lead.created_at.isoformat() if lead.created_at else None,
+    }
+
+
+@app.get("/admin/leads")
+def admin_leads_list(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        leads = db.query(Lead).order_by(Lead.created_at.desc()).all()
+        return [_lead_dict(l) for l in leads]
+
+
+@app.post("/admin/leads", status_code=201)
+def admin_leads_create(
+    body: LeadCreate,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    date_contacted = None
+    if body.date_contacted:
+        try:
+            date_contacted = datetime.fromisoformat(body.date_contacted)
+        except ValueError:
+            pass
+    with Session(_engine) as db:
+        lead = Lead(
+            name=body.name,
+            email=body.email,
+            phone=body.phone,
+            date_contacted=date_contacted,
+            notes=body.notes,
+        )
+        db.add(lead)
+        db.commit()
+        db.refresh(lead)
+        return _lead_dict(lead)
+
+
+@app.patch("/admin/leads/{lead_id}")
+def admin_leads_update(
+    lead_id: int,
+    body: LeadUpdate,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        if not lead:
+            raise HTTPException(404, "Lead not found")
+        if body.name is not None:
+            lead.name = body.name
+        if body.email is not None:
+            lead.email = body.email
+        if body.phone is not None:
+            lead.phone = body.phone
+        if body.notes is not None:
+            lead.notes = body.notes
+        if body.date_contacted is not None:
+            try:
+                lead.date_contacted = datetime.fromisoformat(body.date_contacted)
+            except ValueError:
+                pass
+        lead.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(lead)
+        return _lead_dict(lead)
+
+
+@app.delete("/admin/leads/{lead_id}", status_code=204)
+def admin_leads_delete(
+    lead_id: int,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        if not lead:
+            raise HTTPException(404, "Lead not found")
+        db.delete(lead)
+        db.commit()
+
+
+@app.post("/admin/leads/{lead_id}/convert")
+def admin_leads_convert(
+    lead_id: int,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Convert a lead to a user account (free tier). Returns the new user id."""
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        lead = db.query(Lead).filter(Lead.id == lead_id).first()
+        if not lead:
+            raise HTTPException(404, "Lead not found")
+        if lead.converted:
+            raise HTTPException(409, "Lead already converted")
+        existing = db.query(User).filter(User.email == lead.email).first()
+        if existing:
+            lead.converted = True
+            db.commit()
+            return {"user_id": existing.id, "email": existing.email, "already_existed": True}
+        first, *rest = lead.name.strip().split(" ", 1)
+        user = User(
+            email=lead.email,
+            first_name=first,
+            last_name=rest[0] if rest else "",
+            tier="free",
+            role="user",
+            email_verified=False,
+        )
+        db.add(user)
+        lead.converted = True
+        db.commit()
+        db.refresh(user)
+        return {"user_id": user.id, "email": user.email, "already_existed": False}

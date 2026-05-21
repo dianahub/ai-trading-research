@@ -2,6 +2,12 @@ import { Link } from 'react-router-dom'
 
 const PAGES = [
   {
+    path:  '/admin/leads',
+    title: 'Leads',
+    desc:  'Track leads with name, email, phone, contact date, and notes. Convert to user accounts with one click.',
+    icon:  '🎯',
+  },
+  {
     path:  '/admin/pending-users',
     title: 'Pending Users',
     desc:  'Review and approve beta access applications.',
