@@ -117,13 +117,19 @@ export default function AdminSocialContent() {
     if (!q) return
     setLoadingSuggestions(true)
     setShowSuggestions(false)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12000)
     try {
-      const r = await fetch(`${API}/admin/social/news-search?q=${encodeURIComponent(q)}`, { headers: adminHeaders() })
+      const r = await fetch(`${API}/admin/social/news-search?q=${encodeURIComponent(q)}`, { headers: adminHeaders(), signal: controller.signal })
       const d = await r.json()
       setNewsSuggestions(d.headlines || [])
       setShowSuggestions(true)
-    } catch { setNewsSuggestions([]) }
-    setLoadingSuggestions(false)
+    } catch {
+      setNewsSuggestions([])
+    } finally {
+      clearTimeout(timeout)
+      setLoadingSuggestions(false)
+    }
   }
 
   const handleGeneratePreview = async () => {
