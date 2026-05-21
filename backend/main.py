@@ -8023,7 +8023,7 @@ _HEADLINE_ASSET_MAP = [
     (["treasury yield", "bond yield", "10-year yield", "yields rise", "yields fall"], "bond yields"),
     (["federal reserve", "fed raises", "fed cuts", "fed holds", "interest rate hike", "interest rate cut", "fomc"], "interest rates"),
     (["inflation", "cpi rose", "cpi fell", "consumer price"], "inflation"),
-    (["iran", "tehran", "sanctions on iran"], "oil and the Iran situation"),
+    (["iran", "tehran", "sanctions on iran"], "the Iran situation"),
     (["russia", "ukraine", "war in", "conflict in", "geopolit"], "the geopolitical situation"),
     (["china tariff", "trade war", "tariffs on"], "trade and tariffs"),
 ]
@@ -8031,10 +8031,14 @@ _HEADLINE_ASSET_MAP = [
 
 def _extract_headline_asset(headline: str) -> str | None:
     hl = " " + headline.lower() + " "
+    matched = []
     for keywords, asset in _HEADLINE_ASSET_MAP:
         if any(kw in hl for kw in keywords):
-            return asset
-    return None
+            matched.append(asset)
+    if not matched:
+        return None
+    # Combine up to 2 distinct assets (e.g. "oil and the Iran situation")
+    return " and ".join(matched[:2])
 
 _SOCIAL_CAPTION_PROMPT = """\
 Write an Instagram Reel caption for this financial astrology content.
