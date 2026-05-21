@@ -8394,7 +8394,8 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
 
             # ── Post to Instagram ──────────────────────────────────────────────
             log("Posting Reel to Instagram...")
-            ig = post_reel(media_url, caption)
+            cover_url = f"{BACKEND_URL}/media/perm/{today}_thumb.jpg" if os.path.exists(os.path.join(os.getenv('SOCIAL_MEDIA_DIR', '/tmp/social_videos/perm'), f"{today}_thumb.jpg")) else None
+            ig = post_reel(media_url, caption, cover_url=cover_url)
             log(f"Posted! ID: {ig['media_id']}  URL: {ig['permalink']}")
 
             # ── Cross-post to Facebook ─────────────────────────────────────────
@@ -8788,9 +8789,10 @@ def admin_social_post_preview(
     media_url    = p.get("media_url", "")
     caption      = p.get("caption", "")
     content_type = p.get("content_type", "video")
+    cover_url    = preview.get("thumbnail_url") or None
 
     try:
-        ig = post_reel(media_url, caption) if content_type == "video" else post_image(media_url, caption)
+        ig = post_reel(media_url, caption, cover_url=cover_url) if content_type == "video" else post_image(media_url, caption)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

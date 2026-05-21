@@ -48,15 +48,19 @@ def _fb_page_token(page_id: str) -> str:
     raise RuntimeError(f"Facebook Page {page_id} not found in /me/accounts")
 
 
-def post_reel(video_url: str, caption: str) -> dict:
+def post_reel(video_url: str, caption: str, cover_url: str | None = None) -> dict:
     """Upload a Reel. Returns {"media_id": ..., "permalink": ...}."""
     account_id = _account_id()
     token      = _token()
 
+    payload: dict = {"media_type": "REELS", "video_url": video_url, "caption": caption, "share_to_feed": True}
+    if cover_url:
+        payload["cover_url"] = cover_url
+
     r = requests.post(
         f"{_GRAPH}/{account_id}/media",
         params={"access_token": token},
-        json={"media_type": "REELS", "video_url": video_url, "caption": caption, "share_to_feed": True},
+        json=payload,
         timeout=30,
     )
     r.raise_for_status()
