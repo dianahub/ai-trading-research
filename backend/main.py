@@ -8897,14 +8897,26 @@ def admin_social_generate_preview(
     return {"started": True, "message": "Preview generation started — poll GET /admin/social/preview-status for progress."}
 
 
+class PostPreviewBody(BaseModel):
+    # Client sends the full preview data back so a server restart doesn't lose it
+    post:          dict | None = None
+    thumbnail_url: str | None = None
+    news_headline: str | None = None
+
 @app.post("/admin/social/post-preview")
 def admin_social_post_preview(
+    body: PostPreviewBody = PostPreviewBody(),
     x_admin_email: str = Header(default=""),
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    preview = _social_preview.get("result")
-    if not preview or not preview.get("post"):
+    # Use server-side memory first; fall back to data sent by client (survives restarts)
+    mem = _social_preview.get("result")
+    if mem and mem.get("post"):
+        preview = mem
+    elif body.post:
+        preview = {"post": body.post, "thumbnail_url": body.thumbnail_url, "news_headline": body.news_headline}
+    else:
         raise HTTPException(status_code=400, detail="No preview available — generate one first")
 
     from instagram import post_reel, post_image

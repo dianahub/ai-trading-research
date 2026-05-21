@@ -131,7 +131,11 @@ export default function AdminSocialContent() {
     setPosting(true)
     setStatusMsg('Posting to Instagram, Facebook & YouTube...')
     try {
-      const r = await fetch(`${API}/admin/social/post-preview`, { method: 'POST', headers: adminHeaders() })
+      const r = await fetch(`${API}/admin/social/post-preview`, {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ post: preview.post, thumbnail_url: preview.thumbnail_url ?? null, news_headline: preview.news_headline ?? null }),
+      })
       const d = await r.json()
       if (d.posted) {
         setStatusMsg(`Posted! ${d.permalink}`)
