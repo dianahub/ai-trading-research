@@ -51,8 +51,11 @@ export default function AdminSocialContent() {
   const [expanded, setExpanded]     = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [deletingVideoId, setDeletingVideoId] = useState(null)
   const [statusMsg, setStatusMsg]   = useState('')
   const [pollTimer, setPollTimer]   = useState(null)
+  const [regenThumb, setRegenThumb] = useState(false)
+  const [thumbKey, setThumbKey]     = useState(Date.now()) // cache-bust thumbnail img
 
   // Upload & post your own video
   const [uploadFile, setUploadFile]       = useState(null)
@@ -177,6 +180,49 @@ export default function AdminSocialContent() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
     setDeletingId(null)
+  }
+
+  const handleRegenThumbnail = async () => {
+    setRegenThumb(true)
+    try {
+      const r = await fetch(`${API}/admin/social/preview/regenerate-thumbnail`, { method: 'POST', headers: adminHeaders() })
+      const d = await r.json()
+      if (d.thumbnail_url) {
+        setPreview(prev => ({ ...prev, thumbnail_url: d.thumbnail_url }))
+        setThumbKey(Date.now())
+        setStatusMsg('Thumbnail regenerated.')
+      } else {
+        setStatusMsg(`Regen failed: ${d.detail ?? JSON.stringify(d)}`)
+      }
+    } catch (e) { setStatusMsg(`Error: ${e}`) }
+    setRegenThumb(false)
+  }
+
+  const handleDeleteVideo = async (postId) => {
+    setDeletingVideoId(postId)
+    try {
+      const r = await fetch(`${API}/admin/social/posts/${postId}/video`, { method: 'DELETE', headers: adminHeaders() })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok) {
+        await loadPosts()
+        setStatusMsg('Video file deleted.')
+      } else {
+        setStatusMsg(`Delete failed: ${d.detail ?? JSON.stringify(d)}`)
+      }
+    } catch (e) { setStatusMsg(`Error: ${e}`) }
+    setDeletingVideoId(null)
+  }
+
+  const handleDownloadStoredVideo = async (postId, date) => {
+    const url = `${API}/admin/social/posts/${postId}/video?download=true`
+    const r = await fetch(url, { headers: adminHeaders() })
+    if (!r.ok) { setStatusMsg('Download failed — video may have been deleted.'); return }
+    const blob = await r.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `starsignal-${date}.mp4`
+    a.click()
+    URL.revokeObjectURL(a.href)
   }
 
   const handleUploadAndPost = async () => {
@@ -340,7 +386,9 @@ export default function AdminSocialContent() {
         {preview?.post && (
           <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #10b981' }}>
             <h2 className="text-sm font-bold mb-3" style={{ color: '#34d399' }}>PREVIEW READY</h2>
-            <div className="grid grid-cols-1 gap-3 text-sm">
+
+            {/* Video + Thumbnail side by side */}
+            <div className="flex flex-wrap gap-5 mb-4">
               {preview.post.media_url && (
                 <div>
                   <div className="text-xs mb-1" style={{ color: '#475569' }}>
@@ -348,7 +396,7 @@ export default function AdminSocialContent() {
                   </div>
                   {preview.content_type === 'video'
                     ? <>
-                        <video src={preview.post.media_url} controls className="rounded-lg" style={{ maxWidth: 320 }} />
+                        <video src={preview.post.media_url} controls className="rounded-lg" style={{ maxWidth: 280 }} />
                         <button
                           onClick={async () => {
                             const res = await fetch(`${API}/admin/social/download-video?url=${encodeURIComponent(preview.post.media_url)}`, { headers: adminHeaders() })
@@ -365,8 +413,42 @@ export default function AdminSocialContent() {
                           ↓ Download video
                         </button>
                       </>
-                    : <img src={preview.post.media_url} alt="preview" className="rounded-lg" style={{ maxWidth: 320 }} />
+                    : <img src={preview.post.media_url} alt="preview" className="rounded-lg" style={{ maxWidth: 280 }} />
                   }
+                </div>
+              )}
+
+              {/* Thumbnail preview */}
+              <div>
+                <div className="text-xs mb-1" style={{ color: '#475569' }}>THUMBNAIL (cover image)</div>
+                {preview.thumbnail_url
+                  ? <img
+                      src={`${preview.thumbnail_url.split('?')[0]}?_k=${thumbKey}`}
+                      alt="thumbnail"
+                      className="rounded-lg"
+                      style={{ maxWidth: 160, border: '1px solid #1e3a5f' }}
+                    />
+                  : <div className="rounded-lg flex items-center justify-center text-xs"
+                      style={{ width: 160, height: 285, background: '#0c1e38', border: '1px solid #1e3a5f', color: '#475569' }}>
+                      No thumbnail
+                    </div>
+                }
+                <button
+                  onClick={handleRegenThumbnail}
+                  disabled={regenThumb}
+                  className="mt-2 text-xs px-3 py-1 rounded block"
+                  style={{ background: '#1a1a2e', border: '1px solid #334155', color: regenThumb ? '#475569' : '#94a3b8', cursor: regenThumb ? 'default' : 'pointer' }}
+                >
+                  {regenThumb ? 'Regenerating…' : '↻ Regenerate thumbnail'}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 text-sm">
+              {preview.news_headline && (
+                <div>
+                  <div className="text-xs mb-1" style={{ color: '#475569' }}>NEWS HEADLINE</div>
+                  <p style={{ color: '#93c5fd' }}>{preview.news_headline}</p>
                 </div>
               )}
               <div>
@@ -416,6 +498,65 @@ export default function AdminSocialContent() {
 
                   {isOpen && (
                     <div className="px-5 pb-4 flex flex-col gap-3" style={{ borderTop: '1px solid #1e2d45', paddingTop: 12 }}>
+
+                      {/* Thumbnail + video side by side */}
+                      <div className="flex flex-wrap gap-4">
+                        {post.thumbnail_url && (
+                          <div>
+                            <div className="text-xs mb-1" style={{ color: '#475569' }}>THUMBNAIL</div>
+                            <img
+                              src={`${post.thumbnail_url}?email=contact%40starsignal.io&password=BISCUITLOVE`}
+                              alt="thumbnail"
+                              className="rounded-lg"
+                              style={{ maxWidth: 120, border: '1px solid #1e3a5f' }}
+                            />
+                          </div>
+                        )}
+                        {post.public_url && (
+                          <div>
+                            <div className="text-xs mb-1" style={{ color: '#475569' }}>MEDIA</div>
+                            {post.content_type === 'video'
+                              ? <video src={post.public_url} controls className="rounded-lg" style={{ maxWidth: 240 }} />
+                              : <img src={post.public_url} alt="post" className="rounded-lg" style={{ maxWidth: 240 }} />
+                            }
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stored video actions */}
+                      {post.content_type === 'video' && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {post.has_stored_video
+                            ? <>
+                                <button
+                                  onClick={() => handleDownloadStoredVideo(post.id, post.date)}
+                                  className="text-xs px-3 py-1 rounded"
+                                  style={{ background: '#0c1e38', border: '1px solid #1e4976', color: '#7dd3fc' }}
+                                >
+                                  ↓ Download stored video
+                                </button>
+                                {deletingVideoId === post.id
+                                  ? <span className="text-xs" style={{ color: '#f87171' }}>Deleting…</span>
+                                  : <button
+                                      onClick={() => handleDeleteVideo(post.id)}
+                                      className="text-xs px-3 py-1 rounded"
+                                      style={{ background: '#2d0a0a', border: '1px solid #7f1d1d', color: '#f87171' }}
+                                    >
+                                      Delete video file
+                                    </button>
+                                }
+                              </>
+                            : <span className="text-xs" style={{ color: '#334155' }}>No stored video</span>
+                          }
+                        </div>
+                      )}
+
+                      {post.news_headline && (
+                        <div>
+                          <div className="text-xs mb-1" style={{ color: '#475569' }}>NEWS HEADLINE</div>
+                          <p className="text-sm" style={{ color: '#93c5fd' }}>{post.news_headline}</p>
+                        </div>
+                      )}
                       {post.script_text && (
                         <div>
                           <div className="text-xs mb-1" style={{ color: '#475569' }}>SCRIPT</div>
@@ -426,15 +567,6 @@ export default function AdminSocialContent() {
                         <div>
                           <div className="text-xs mb-1" style={{ color: '#475569' }}>CAPTION</div>
                           <p className="text-sm" style={{ color: '#94a3b8' }}>{post.caption}</p>
-                        </div>
-                      )}
-                      {post.public_url && (
-                        <div>
-                          <div className="text-xs mb-1" style={{ color: '#475569' }}>MEDIA</div>
-                          {post.content_type === 'video'
-                            ? <video src={post.public_url} controls className="rounded-lg" style={{ maxWidth: 280 }} />
-                            : <img src={post.public_url} alt="post" className="rounded-lg" style={{ maxWidth: 280 }} />
-                          }
                         </div>
                       )}
                       {post.error_message && (

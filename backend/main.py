@@ -4272,6 +4272,9 @@ class SocialPost(_Base):
     instagram_media_id  = Column(String, nullable=True)
     instagram_url       = Column(String, nullable=True)
     error_message       = Column(String, nullable=True)
+    news_headline       = Column(String, nullable=True)
+    thumbnail_path      = Column(String, nullable=True)
+    stored_video_path   = Column(String, nullable=True)
     created_at          = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     posted_at           = Column(DateTime, nullable=True)
 
@@ -4301,6 +4304,19 @@ try:
         _conn.commit()
 except Exception:
     pass  # column already exists
+
+# Add news_headline, thumbnail_path, stored_video_path to social_posts (idempotent)
+for _col_sql in [
+    "ALTER TABLE social_posts ADD COLUMN news_headline TEXT",
+    "ALTER TABLE social_posts ADD COLUMN thumbnail_path TEXT",
+    "ALTER TABLE social_posts ADD COLUMN stored_video_path TEXT",
+]:
+    try:
+        with _engine.connect() as _conn:
+            _conn.execute(text(_col_sql))
+            _conn.commit()
+    except Exception:
+        pass  # column already exists
 
 TIER_DAILY_LIMITS: dict[str, int | None] = {
     "free":             3,
@@ -8148,9 +8164,12 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 row.caption = caption
                 db.commit()
 
+            top_headline_text = top_news[0]["title"] if top_news else ""
+
             # ── Video via HeyGen ───────────────────────────────────────────────
-            content_type = "video"
-            media_url    = ""
+            content_type     = "video"
+            media_url        = ""
+            local_video_path = None  # local file path for perm copy + thumbnail
             try:
                 if os.getenv("HEYGEN_PIPELINE_TEST") == "1":
                     # Test mode: skip HeyGen, generate a black video locally and burn HELLO
@@ -8182,8 +8201,9 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                     os.unlink(raw_path)
                     if res.returncode != 0:
                         raise RuntimeError(f"HELLO test ffmpeg failed:\n{res.stderr[-800:]}")
-                    file_id   = os.path.basename(out_path)
-                    media_url = f"{BACKEND_URL}/media/temp/{file_id}"
+                    file_id          = os.path.basename(out_path)
+                    media_url        = f"{BACKEND_URL}/media/temp/{file_id}"
+                    local_video_path = out_path
                     log(f"Test video URL: {media_url}")
                 else:
                     log("Generating HeyGen twin video...")
@@ -8196,15 +8216,42 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                         log("Burning captions into video...")
                         captioned_path = burn_captions(raw_video_url, caption_url, script)
                         if captioned_path:
-                            file_id   = os.path.basename(captioned_path)
-                            media_url = f"{BACKEND_URL}/media/temp/{file_id}"
+                            file_id          = os.path.basename(captioned_path)
+                            media_url        = f"{BACKEND_URL}/media/temp/{file_id}"
+                            local_video_path = captioned_path
                             log(f"Captioned video: {media_url}")
                         else:
                             log("Caption burn failed — using original video")
 
                 if row:
-                    row.video_url = media_url
-                    row.public_url = media_url
+                    row.video_url     = media_url
+                    row.public_url    = media_url
+                    row.news_headline = top_headline_text
+
+                    # Copy to perm dir so download survives until next container restart
+                    if local_video_path and os.path.exists(local_video_path):
+                        import shutil as _shutil
+                        from thumbnail import ensure_perm_dir, PERM_DIR as _PERM_DIR
+                        ensure_perm_dir()
+                        perm_video = os.path.join(_PERM_DIR, f"{today}.mp4")
+                        _shutil.copy2(local_video_path, perm_video)
+                        row.stored_video_path = perm_video
+                        log(f"Video stored at: {perm_video}")
+
+                    # Generate thumbnail unique to this news headline
+                    try:
+                        from thumbnail import generate_thumbnail as _gen_thumb
+                        thumb_path = _gen_thumb(
+                            headline=top_headline_text or script[:120],
+                            topic=insight.get("topic"),
+                            date_str=today,
+                            suffix=today,
+                        )
+                        row.thumbnail_path = thumb_path
+                        log(f"Thumbnail: {thumb_path}")
+                    except Exception as _thumb_err:
+                        log(f"Thumbnail generation failed (non-fatal): {_thumb_err}")
+
                     db.commit()
             except Exception as video_err:
                 err_msg = str(video_err)
@@ -8223,9 +8270,24 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
 
             # Return preview without posting
             if preview:
+                # Generate preview thumbnail (stored as "preview_thumb.jpg")
+                preview_thumb_url = None
+                try:
+                    from thumbnail import generate_thumbnail as _gen_thumb
+                    _gen_thumb(
+                        headline=top_headline_text or script[:120],
+                        topic=insight.get("topic"),
+                        date_str=today,
+                        suffix="preview",
+                    )
+                    preview_thumb_url = f"{BACKEND_URL}/media/perm/preview_thumb.jpg"
+                except Exception as _thumb_err:
+                    log(f"Preview thumbnail failed (non-fatal): {_thumb_err}")
                 return {
-                    "status": "posted",
-                    "content_type": content_type,
+                    "status":        "posted",
+                    "content_type":  content_type,
+                    "thumbnail_url": preview_thumb_url,
+                    "news_headline": top_headline_text,
                     "post": {
                         "insight":      {"id": insight.get('id',''), "topic": insight.get('topic'), "summary": insight.get('summary','')},
                         "script":       script,
@@ -8299,6 +8361,119 @@ def serve_temp_video(file_id: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Not found")
     return FileResponse(path, media_type="video/mp4")
+
+
+@app.get("/media/perm/{filename}")
+def serve_perm_media(filename: str):
+    """Serve a permanently-stored video or thumbnail from the perm dir."""
+    if not re.match(r'^[\w\-]+\.(mp4|jpg|jpeg)$', filename):
+        raise HTTPException(status_code=404, detail="Not found")
+    from thumbnail import PERM_DIR
+    path = os.path.join(PERM_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Not found")
+    media_type = "video/mp4" if filename.endswith(".mp4") else "image/jpeg"
+    return FileResponse(path, media_type=media_type)
+
+
+@app.get("/admin/social/posts/{post_id}/thumbnail")
+def admin_social_post_thumbnail(
+    post_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+    email: str = "",
+    password: str = "",
+):
+    """Return the thumbnail for a post; accepts auth via header or query params (for <img src> use)."""
+    _require_admin(x_admin_email or email, x_admin_password or password)
+    with Session(_engine) as db:
+        post = db.query(SocialPost).filter(SocialPost.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        thumb_path = post.thumbnail_path
+        # Regenerate if missing
+        if not thumb_path or not os.path.exists(thumb_path):
+            headline = post.news_headline or post.script_text or ""
+            if not headline:
+                raise HTTPException(status_code=404, detail="No headline data for thumbnail")
+            try:
+                from thumbnail import generate_thumbnail as _gen_thumb
+                thumb_path = _gen_thumb(
+                    headline=headline[:200],
+                    topic=None,
+                    date_str=post.date,
+                    suffix=post.date,
+                )
+                post.thumbnail_path = thumb_path
+                db.commit()
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Thumbnail generation failed: {e}")
+        return FileResponse(thumb_path, media_type="image/jpeg")
+
+
+@app.get("/admin/social/posts/{post_id}/video")
+def admin_social_post_video(
+    post_id: str,
+    download: bool = False,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Stream or download the stored video for a post."""
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        post = db.query(SocialPost).filter(SocialPost.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        if not post.stored_video_path or not os.path.exists(post.stored_video_path):
+            raise HTTPException(status_code=404, detail="Video file not stored or has been deleted")
+        headers = {}
+        if download:
+            fname = f"starsignal-{post.date}.mp4"
+            headers["Content-Disposition"] = f'attachment; filename="{fname}"'
+        return FileResponse(post.stored_video_path, media_type="video/mp4", headers=headers)
+
+
+@app.delete("/admin/social/posts/{post_id}/video")
+def admin_social_delete_post_video(
+    post_id: str,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Delete only the stored video file for a post (keeps the DB record)."""
+    _require_admin(x_admin_email, x_admin_password)
+    with Session(_engine) as db:
+        post = db.query(SocialPost).filter(SocialPost.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        deleted = False
+        if post.stored_video_path and os.path.exists(post.stored_video_path):
+            os.unlink(post.stored_video_path)
+            deleted = True
+        post.stored_video_path = None
+        db.commit()
+        return {"deleted": deleted, "id": post_id}
+
+
+@app.post("/admin/social/preview/regenerate-thumbnail")
+def admin_social_regen_preview_thumbnail(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Regenerate the thumbnail for the current preview using the same headline."""
+    _require_admin(x_admin_email, x_admin_password)
+    preview = _social_preview.get("result")
+    if not preview or not preview.get("post"):
+        raise HTTPException(status_code=400, detail="No preview available — generate one first")
+    headline = preview.get("news_headline") or (preview["post"].get("script") or "")[:120]
+    topic    = (preview["post"].get("insight") or {}).get("topic")
+    try:
+        from thumbnail import generate_thumbnail as _gen_thumb
+        _gen_thumb(headline=headline, topic=topic, date_str=_social_today(), suffix="preview")
+        thumb_url = f"{BACKEND_URL}/media/perm/preview_thumb.jpg?t={int(time.time())}"
+        _social_preview["result"]["thumbnail_url"] = thumb_url
+        return {"thumbnail_url": thumb_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Thumbnail generation failed: {e}")
 
 
 @app.post("/admin/social/post-custom-video")
@@ -8380,17 +8555,21 @@ def admin_social_posts(
         return {
             "posts": [
                 {
-                    "id":               p.id,
-                    "date":             p.date,
-                    "status":           p.status,
-                    "content_type":     p.content_type,
-                    "script_text":      p.script_text,
-                    "caption":          p.caption,
-                    "public_url":       p.public_url,
-                    "instagram_url":    p.instagram_url,
-                    "error_message":    p.error_message,
-                    "created_at":       p.created_at.isoformat() if p.created_at else None,
-                    "posted_at":        p.posted_at.isoformat() if p.posted_at else None,
+                    "id":                p.id,
+                    "date":              p.date,
+                    "status":            p.status,
+                    "content_type":      p.content_type,
+                    "script_text":       p.script_text,
+                    "caption":           p.caption,
+                    "news_headline":     p.news_headline,
+                    "public_url":        p.public_url,
+                    "instagram_url":     p.instagram_url,
+                    "error_message":     p.error_message,
+                    "has_stored_video":  bool(p.stored_video_path and os.path.exists(p.stored_video_path)),
+                    "thumbnail_url":     (f"{BACKEND_URL}/admin/social/posts/{p.id}/thumbnail"
+                                         if p.thumbnail_path else None),
+                    "created_at":        p.created_at.isoformat() if p.created_at else None,
+                    "posted_at":         p.posted_at.isoformat() if p.posted_at else None,
                 }
                 for p in posts
             ],
@@ -8404,12 +8583,18 @@ def admin_social_delete_post(
     x_admin_email: str = Header(default=""),
     x_admin_password: str = Header(default=""),
 ):
-    """Delete a social post record (use when manually deleted from Instagram)."""
+    """Delete a social post record and its stored files (use when manually deleted from Instagram)."""
     _require_admin(x_admin_email, x_admin_password)
     with Session(_engine) as db:
         post = db.query(SocialPost).filter(SocialPost.id == post_id).first()
         if not post:
             raise HTTPException(status_code=404, detail="Post not found")
+        for fpath in [post.stored_video_path, post.thumbnail_path]:
+            if fpath and os.path.exists(fpath):
+                try:
+                    os.unlink(fpath)
+                except Exception:
+                    pass
         db.delete(post)
         db.commit()
     return {"deleted": True, "id": post_id}
@@ -8529,7 +8714,27 @@ def admin_social_post_preview(
     except Exception:
         pass  # best-effort
 
-    today = _social_today()
+    today      = _social_today()
+    preview_res = _social_preview.get("result") or {}
+
+    # Promote preview thumbnail to a date-keyed file
+    thumb_path = None
+    try:
+        from thumbnail import PERM_DIR, ensure_perm_dir, generate_thumbnail as _gen_thumb
+        import shutil as _shutil
+        ensure_perm_dir()
+        preview_thumb = os.path.join(PERM_DIR, "preview_thumb.jpg")
+        dated_thumb   = os.path.join(PERM_DIR, f"{today}_thumb.jpg")
+        if os.path.exists(preview_thumb):
+            _shutil.copy2(preview_thumb, dated_thumb)
+            thumb_path = dated_thumb
+        else:
+            headline = preview_res.get("news_headline") or (p.get("script") or "")[:120]
+            topic    = (p.get("insight") or {}).get("topic")
+            thumb_path = _gen_thumb(headline=headline, topic=topic, date_str=today, suffix=today)
+    except Exception:
+        pass
+
     with Session(_engine) as db:
         existing = db.query(SocialPost).filter(SocialPost.date == today).first()
         insight_id = (p.get("insight") or {}).get("id")
@@ -8538,6 +8743,10 @@ def admin_social_post_preview(
             existing.instagram_media_id = ig["media_id"]
             existing.instagram_url      = ig["permalink"]
             existing.posted_at          = datetime.now(timezone.utc)
+            if thumb_path:
+                existing.thumbnail_path = thumb_path
+            if preview_res.get("news_headline"):
+                existing.news_headline = preview_res["news_headline"]
             db.commit()
         else:
             db.add(SocialPost(
@@ -8545,6 +8754,8 @@ def admin_social_post_preview(
                 insight_id=insight_id, script_text=p.get("script"), caption=caption,
                 public_url=media_url, instagram_media_id=ig["media_id"],
                 instagram_url=ig["permalink"], posted_at=datetime.now(timezone.utc),
+                thumbnail_path=thumb_path,
+                news_headline=preview_res.get("news_headline"),
             ))
             db.commit()
 
