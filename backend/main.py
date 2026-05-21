@@ -7994,7 +7994,7 @@ Astrology signal the chatbot will reference: {insight_json}
 
 Script structure — write it exactly like this:
 1. "In today's financial news, according to [source name from the headline], [the most important or alarming headline in one sentence]."
-2. "I asked Star Signal — what do astrologers say about [use the EXACT SAME market or asset you named in sentence 1 — if you said 'the dollar', ask about 'the dollar'; NEVER switch to a different asset here]?" — write ONLY this question, do not invent the chatbot's answer here
+2. "I asked Star Signal — what do astrologers say about {ask_about}?" — write ONLY this question, do not invent the chatbot's answer here
 3. [Chatbot answer, prefixed with "Star Signal says:"] — 2-3 sentences, future tense only, based on the astrology signal. State the market prediction first, then explain WHY by citing the astrological reasoning. If `astro_reasoning` is provided in the signal, use ONLY those exact terms — do not invent or add planetary reasoning of your own. If no `astro_reasoning` is provided, explain the prediction using only the timeframe and outlook without inventing planetary causes. Mention the timeframe.
 4. "Link in bio to ask it yourself."
 
@@ -8006,6 +8006,35 @@ Rules:
 - NEVER invent planets, retrogrades, or aspects that are not in the `astro_reasoning` field
 - NEVER invent a chatbot answer that isn't directly supported by the insight data provided — if the insight data is sparse, keep the answer short and factual
 - Return ONLY the spoken words, no stage directions or labels"""
+
+
+# Maps headline keywords → canonical asset name used in sentence 2
+_HEADLINE_ASSET_MAP = [
+    (["crude oil", "wti", "brent", "oil price", "oil falls", "oil rises", "oil drops", "petroleum", "barrel of oil"], "oil"),
+    (["bitcoin", " btc ", "btc,", "btc."], "bitcoin"),
+    (["ethereum", " eth "], "ethereum"),
+    (["gold price", "gold futures", "gold hits", "gold surges", "gold falls", "gold rally", "gold rises"], "gold"),
+    (["silver price", "silver hits", "silver surges"], "silver"),
+    (["s&p 500", "s&p500", "nasdaq", "dow jones", "wall street", "stock market", "equities sell", "equities rise"], "stocks"),
+    (["the dollar", "us dollar", "u.s. dollar", "dollar index", "dollar falls", "dollar rises", "dollar weakens", "dollar strengthens", "dxy"], "the dollar"),
+    (["yuan", "renminbi", "cny"], "the yuan"),
+    (["yen falls", "yen rises", "yen weakens", "japanese yen"], "the yen"),
+    (["euro falls", "euro rises", "euro weakens", "eurozone"], "the euro"),
+    (["treasury yield", "bond yield", "10-year yield", "yields rise", "yields fall"], "bond yields"),
+    (["federal reserve", "fed raises", "fed cuts", "fed holds", "interest rate hike", "interest rate cut", "fomc"], "interest rates"),
+    (["inflation", "cpi rose", "cpi fell", "consumer price"], "inflation"),
+    (["iran", "tehran", "sanctions on iran"], "oil and the Iran situation"),
+    (["russia", "ukraine", "war in", "conflict in", "geopolit"], "the geopolitical situation"),
+    (["china tariff", "trade war", "tariffs on"], "trade and tariffs"),
+]
+
+
+def _extract_headline_asset(headline: str) -> str | None:
+    hl = " " + headline.lower() + " "
+    for keywords, asset in _HEADLINE_ASSET_MAP:
+        if any(kw in hl for kw in keywords):
+            return asset
+    return None
 
 _SOCIAL_CAPTION_PROMPT = """\
 Write an Instagram Reel caption for this financial astrology content.
@@ -8088,30 +8117,57 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
 
 def _social_generate_script(insight: dict, news: list[dict], recent_scripts: list[str] | None = None) -> str:
     import json as _json
+
     news_str = "\n".join(f"- {a['title']} ({a['source']})" for a in news) if news else "No major headlines available today."
     recent_block = ""
     if recent_scripts:
         recent_block = "\n\nRecently used headlines (DO NOT repeat any of these):\n" + "\n".join(
             f"- {s.splitlines()[0][:120]}" for s in recent_scripts if s
         )
-    _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=30.0)
-    msg = _ac.messages.create(
-        model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
-        max_tokens=250,
-        messages=[{"role": "user", "content": (_SOCIAL_SCRIPT_PROMPT + recent_block).format(
-            news_str=news_str,
-            insight_json=_json.dumps({
-                "topic":           insight.get("topic"),
-                "outlook":         insight.get("outlook"),
-                "timeframe":       insight.get("timeframe"),
-                "summary":         insight.get("summary"),
-                "astro_reasoning": insight.get("astro_reasoning"),
-                "source_name":     insight.get("source_name"),
-                "published_date":  insight.get("published_date"),
-            })
-        )}],
-    )
-    return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
+
+    insight_json = _json.dumps({
+        "topic":           insight.get("topic"),
+        "outlook":         insight.get("outlook"),
+        "timeframe":       insight.get("timeframe"),
+        "summary":         insight.get("summary"),
+        "astro_reasoning": insight.get("astro_reasoning"),
+        "source_name":     insight.get("source_name"),
+        "published_date":  insight.get("published_date"),
+    })
+
+    # Pre-compute the likely asset from top headline so we can inject it.
+    # Claude still picks the final headline, but this nudges sentence 2.
+    top_asset = _extract_headline_asset(news[0]["title"]) if news else None
+    ask_about = top_asset or "the market or asset mentioned in sentence 1 (NEVER a different market)"
+
+    def _call(ask_about_str: str) -> str:
+        _ac = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=30.0)
+        msg = _ac.messages.create(
+            model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+            max_tokens=250,
+            messages=[{"role": "user", "content": (_SOCIAL_SCRIPT_PROMPT + recent_block).format(
+                news_str=news_str,
+                insight_json=insight_json,
+                ask_about=ask_about_str,
+            )}],
+        )
+        return msg.content[0].text.strip() if msg.content[0].type == "text" else ""
+
+    script = _call(ask_about)
+
+    # Validate: sentence 2 must ask about the same asset as sentence 1.
+    # If mismatched, retry once with the correct asset injected explicitly.
+    used_headline = _extract_script_headline(script)
+    if used_headline:
+        correct_asset = _extract_headline_asset(used_headline)
+        if correct_asset:
+            m = re.search(r"what do astrologers say about (.+?)\?", script, re.IGNORECASE)
+            asked = m.group(1).strip().lower() if m else ""
+            # Check mismatch: neither string contains the other
+            if asked and correct_asset.lower() not in asked and not any(w in asked for w in correct_asset.lower().split()):
+                script = _call(f"{correct_asset} — IMPORTANT: sentence 1 is about {correct_asset}, so sentence 2 MUST ask about {correct_asset}")
+
+    return script
 
 
 def _social_generate_caption(insight: dict, script: str) -> str:
