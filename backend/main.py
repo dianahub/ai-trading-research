@@ -8228,8 +8228,8 @@ def _social_generate_caption(insight: dict, script: str) -> str:
 
 def _extract_script_headline(script: str) -> str:
     """Extract the actual news headline Claude chose for the script's first sentence."""
-    first_line = script.split('\n')[0]
-    m = re.search(r'according to [^,]+,\s*(.+)', first_line, re.IGNORECASE)
+    first_sentence = re.split(r'(?<=[.!?])\s+', script.strip())[0]
+    m = re.search(r'according to [^,]+,\s*(.+)', first_sentence, re.IGNORECASE)
     if m:
         return m.group(1).strip().rstrip('."\'')
     return ""
