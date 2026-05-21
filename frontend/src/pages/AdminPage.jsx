@@ -2,6 +2,12 @@ import { Link } from 'react-router-dom'
 
 const PAGES = [
   {
+    path:  '/admin/qr-code',
+    title: 'QR Code',
+    desc:  'Download the starsignal.io QR code for print, slides, or sharing.',
+    icon:  '⬛',
+  },
+  {
     path:  '/admin/leads',
     title: 'Leads',
     desc:  'Track leads with name, email, phone, contact date, and notes. Convert to user accounts with one click.',

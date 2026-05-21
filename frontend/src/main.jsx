@@ -41,6 +41,7 @@ import PartnerPreview from './pages/PartnerPreview.jsx'
 import AdminSocialContent from './pages/AdminSocialContent.jsx'
 import AdminPrompts from './pages/AdminPrompts.jsx'
 import AdminLeads from './pages/AdminLeads.jsx'
+import AdminQRCode from './pages/AdminQRCode.jsx'
 import FeedbackPage from './pages/FeedbackPage.jsx'
 import ContactApiPage from './pages/ContactApiPage.jsx'
 
@@ -93,6 +94,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/social-content" element={<AdminSocialContent />} />
         <Route path="/admin/prompts" element={<AdminPrompts />} />
         <Route path="/admin/leads" element={<AdminLeads />} />
+        <Route path="/admin/qr-code" element={<AdminQRCode />} />
         <Route path="/feedback" element={<FeedbackPage />} />
       </Routes>
     </BrowserRouter>

@@ -9980,6 +9980,16 @@ def natal_analysis(payload: NatalAnalysisRequest,
 
 
 # GET /admin/prompts — view all Claude prompts used in the pipeline
+@app.get("/admin/qr-code")
+def admin_qr_code(x_admin_email: str = Header(default=""), x_admin_password: str = Header(default="")):
+    """Return the starsignal.io QR code PNG."""
+    _require_admin(x_admin_email, x_admin_password)
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "starsignal_qr.png")
+    if not os.path.exists(path):
+        raise HTTPException(404, "QR code not found")
+    return FileResponse(path, media_type="image/png", filename="starsignal_qr.png")
+
+
 @app.get("/admin/prompts")
 def admin_prompts(x_admin_email: str = Header(default=""),
                   x_admin_password: str = Header(default="")):
