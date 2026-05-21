@@ -8896,23 +8896,28 @@ def admin_social_news_search(
     if not q:
         results = _fetch_top_financial_news()
     else:
-        # Use raw query directly — skip topic keyword mapping
+        def _do_search(extra_params: dict) -> list[dict]:
+            try:
+                resp = requests.get(
+                    f"{NEWSAPI_BASE}/everything",
+                    params={"q": q, "sortBy": "publishedAt", "language": "en", "pageSize": 15, "apiKey": NEWS_API_KEY, **extra_params},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                body = resp.json()
+                return [
+                    {"title": a["title"], "source": a["source"]["name"]}
+                    for a in body.get("articles", [])
+                    if a.get("title") and "[Removed]" not in a["title"]
+                ] if body.get("status") == "ok" else []
+            except Exception:
+                return []
+
         _domains = "bloomberg.com,reuters.com,ft.com,wsj.com,cnbc.com,marketwatch.com,investing.com,economist.com"
-        try:
-            resp = requests.get(
-                f"{NEWSAPI_BASE}/everything",
-                params={"q": q, "domains": _domains, "sortBy": "publishedAt", "language": "en", "pageSize": 15, "apiKey": NEWS_API_KEY},
-                timeout=10,
-            )
-            resp.raise_for_status()
-            body = resp.json()
-            results = [
-                {"title": a["title"], "source": a["source"]["name"]}
-                for a in body.get("articles", [])
-                if a.get("title") and "[Removed]" not in a["title"]
-            ] if body.get("status") == "ok" else []
-        except Exception:
-            results = []
+        results = _do_search({"domains": _domains})
+        if not results:
+            # Broaden to all sources if domain-filtered search returns nothing
+            results = _do_search({})
     return {"headlines": results}
 
 @app.post("/admin/social/generate-preview")
