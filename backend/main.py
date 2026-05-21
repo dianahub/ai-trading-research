@@ -8892,7 +8892,27 @@ def admin_social_news_search(
     x_admin_password: str = Header(default=""),
 ):
     _require_admin(x_admin_email, x_admin_password)
-    results = _fetch_top_financial_news(topic=q.strip() if q.strip() else None)
+    q = q.strip()
+    if not q:
+        results = _fetch_top_financial_news()
+    else:
+        # Use raw query directly — skip topic keyword mapping
+        _domains = "bloomberg.com,reuters.com,ft.com,wsj.com,cnbc.com,marketwatch.com,investing.com,economist.com"
+        try:
+            resp = requests.get(
+                f"{NEWSAPI_BASE}/everything",
+                params={"q": q, "domains": _domains, "sortBy": "publishedAt", "language": "en", "pageSize": 15, "apiKey": NEWS_API_KEY},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            results = [
+                {"title": a["title"], "source": a["source"]["name"]}
+                for a in body.get("articles", [])
+                if a.get("title") and "[Removed]" not in a["title"]
+            ] if body.get("status") == "ok" else []
+        except Exception:
+            results = []
     return {"headlines": results}
 
 @app.post("/admin/social/generate-preview")
