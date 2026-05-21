@@ -1,0 +1,16 @@
+name: Daily Instagram Post
+
+on:
+  schedule:
+    - cron: '0 15 * * *'   # 3pm UTC = 11am EDT / 8am PDT
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger social pipeline
+        run: |
+          curl -sf -X POST "https://aitrading.starsignal.io/admin/social/run-now" \
+            -H "x-admin-email: ${{ secrets.ADMIN_EMAIL }}" \
+            -H "x-admin-password: ${{ secrets.ADMIN_PASSWORD }}"
