@@ -8900,7 +8900,7 @@ def admin_social_news_search(
             try:
                 resp = requests.get(
                     f"{NEWSAPI_BASE}/everything",
-                    params={"q": q, "sortBy": "publishedAt", "language": "en", "pageSize": 15, "apiKey": NEWS_API_KEY, **extra_params},
+                    params={"q": q, "searchIn": "title", "sortBy": "publishedAt", "language": "en", "pageSize": 15, "apiKey": NEWS_API_KEY, **extra_params},
                     timeout=10,
                 )
                 resp.raise_for_status()
