@@ -112,6 +112,20 @@ export default function AdminSocialContent() {
     setPollTimer(timer)
   }, [])
 
+  const handleNewsSearch = async () => {
+    const q = forcedHeadline.trim()
+    if (!q) return
+    setLoadingSuggestions(true)
+    setShowSuggestions(false)
+    try {
+      const r = await fetch(`${API}/admin/social/news-search?q=${encodeURIComponent(q)}`, { headers: adminHeaders() })
+      const d = await r.json()
+      setNewsSuggestions(d.headlines || [])
+      setShowSuggestions(true)
+    } catch { setNewsSuggestions([]) }
+    setLoadingSuggestions(false)
+  }
+
   const handleGeneratePreview = async () => {
     setGenerating(true)
     setPreview(null)
@@ -324,39 +338,30 @@ export default function AdminSocialContent() {
           <h2 className="text-sm font-bold mb-4" style={{ color: '#94a3b8' }}>MANUAL CONTROLS</h2>
           <div className="mb-3 relative">
             <label className="block text-xs font-semibold mb-1" style={{ color: '#94a3b8' }}>
-              Custom headline <span style={{ color: '#475569', fontWeight: 400 }}>(optional — type to search live news, or leave blank to auto-pick)</span>
+              Custom headline <span style={{ color: '#475569', fontWeight: 400 }}>(optional — leave blank to auto-pick)</span>
             </label>
-            <input
-              ref={newsInputRef}
-              type="text"
-              value={forcedHeadline}
-              onChange={e => {
-                const val = e.target.value
-                setForcedHeadline(val)
-                setShowSuggestions(true)
-                clearTimeout(newsDebounceRef.current)
-                if (val.trim().length < 2) { setNewsSuggestions([]); return }
-                newsDebounceRef.current = setTimeout(async () => {
-                  setLoadingSuggestions(true)
-                  try {
-                    const r = await fetch(`${API}/admin/social/news-search?q=${encodeURIComponent(val.trim())}`, { headers: adminHeaders() })
-                    const d = await r.json()
-                    setNewsSuggestions(d.headlines || [])
-                  } catch { setNewsSuggestions([]) }
-                  setLoadingSuggestions(false)
-                }, 400)
-              }}
-              onFocus={() => { if (newsSuggestions.length) setShowSuggestions(true) }}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-              placeholder="e.g. Fed holds rates steady…"
-              className="w-full rounded-lg px-3 py-2 text-sm"
-              style={{ background: '#0d1f35', border: '1px solid #1e3a5f', color: '#e2e8f0', outline: 'none' }}
-            />
-            {showSuggestions && (newsSuggestions.length > 0 || loadingSuggestions) && (
+            <div className="flex gap-2">
+              <input
+                ref={newsInputRef}
+                type="text"
+                value={forcedHeadline}
+                onChange={e => { setForcedHeadline(e.target.value); setShowSuggestions(false) }}
+                onKeyDown={async e => { if (e.key === 'Enter') { e.preventDefault(); await handleNewsSearch() } }}
+                placeholder="Type keywords and click Search…"
+                className="flex-1 rounded-lg px-3 py-2 text-sm"
+                style={{ background: '#0d1f35', border: '1px solid #1e3a5f', color: '#e2e8f0', outline: 'none' }}
+              />
+              <button
+                onClick={handleNewsSearch}
+                disabled={loadingSuggestions}
+                className="rounded-lg px-4 py-2 text-sm font-semibold"
+                style={{ background: '#0c1e38', border: '1px solid #1e4976', color: '#93c5fd', whiteSpace: 'nowrap', opacity: loadingSuggestions ? 0.6 : 1 }}
+              >
+                {loadingSuggestions ? 'Searching…' : 'Search'}
+              </button>
+            </div>
+            {showSuggestions && newsSuggestions.length > 0 && (
               <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
-                {loadingSuggestions && (
-                  <div className="px-3 py-2 text-xs" style={{ color: '#475569' }}>Searching…</div>
-                )}
                 {newsSuggestions.map((item, i) => (
                   <button
                     key={i}
@@ -365,7 +370,7 @@ export default function AdminSocialContent() {
                       setShowSuggestions(false)
                       setNewsSuggestions([])
                     }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-opacity-50"
+                    className="w-full text-left px-3 py-2 text-sm"
                     style={{ color: '#e2e8f0', borderTop: i > 0 ? '1px solid #1e3a5f' : 'none', background: 'transparent' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#0d1f35'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
