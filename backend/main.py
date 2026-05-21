@@ -7995,11 +7995,11 @@ Astrology signal the chatbot will reference: {insight_json}
 Script structure — write it exactly like this:
 1. "In today's financial news, according to [source name from the headline], [the most important or alarming headline in one sentence]."
 2. "I asked Star Signal — what do astrologers say about {ask_about}?" — write ONLY this question, do not invent the chatbot's answer here
-3. [Chatbot answer, prefixed with "Star Signal says:"] — 2-3 sentences, future tense only, based on the astrology signal. State the market prediction first, then explain WHY by citing the astrological reasoning. If `astro_reasoning` is provided in the signal, use ONLY those exact terms — do not invent or add planetary reasoning of your own. If no `astro_reasoning` is provided, explain the prediction using only the timeframe and outlook without inventing planetary causes. Mention the timeframe.
+3. [Chatbot answer, prefixed with "Star Signal says:"] — 2-3 sentences, future tense only. The answer MUST be about {ask_about} — that is the topic Diana just asked about. Use the astrological signal data as context, but frame every prediction around {ask_about} specifically. If the signal covers a related market, connect it to {ask_about} (e.g. if signal is about the dollar and Diana asked about oil, say how the dollar dynamic will affect oil). If `astro_reasoning` is provided, cite those exact terms. Mention the timeframe.
 4. "Link in bio to ask it yourself."
 
 Rules:
-- Pick the most directly relevant financial MARKET headline — avoid lifestyle, travel, sports, or celebrity stories that only tangentially involve money
+- The news headline is the primary driver — pick the most alarming, market-moving headline
 - For crypto headlines, only use Bitcoin or Ethereum — skip altcoins like Solana, XRP, Cardano, Dogecoin, etc.
 - Plain English — the astrological explanation should be understandable to a non-astrologer
 - The chatbot answer must be future-tense — what will happen, not what already happened
