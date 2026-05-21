@@ -8119,7 +8119,7 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
     )
 
 
-def _social_generate_script(insight: dict, news: list[dict], recent_scripts: list[str] | None = None) -> str:
+def _social_generate_script(insight: dict | None, news: list[dict], recent_scripts: list[str] | None = None, fallback_signals: list[dict] | None = None) -> str:
     import json as _json
 
     news_str = "\n".join(f"- {a['title']} ({a['source']})" for a in news) if news else "No major headlines available today."
@@ -8129,15 +8129,23 @@ def _social_generate_script(insight: dict, news: list[dict], recent_scripts: lis
             f"- {s.splitlines()[0][:120]}" for s in recent_scripts if s
         )
 
-    insight_json = _json.dumps({
-        "topic":           insight.get("topic"),
-        "outlook":         insight.get("outlook"),
-        "timeframe":       insight.get("timeframe"),
-        "summary":         insight.get("summary"),
-        "astro_reasoning": insight.get("astro_reasoning"),
-        "source_name":     insight.get("source_name"),
-        "published_date":  insight.get("published_date"),
-    })
+    if insight:
+        insight_json = _json.dumps({
+            "topic":           insight.get("topic"),
+            "outlook":         insight.get("outlook"),
+            "timeframe":       insight.get("timeframe"),
+            "summary":         insight.get("summary"),
+            "astro_reasoning": insight.get("astro_reasoning"),
+            "source_name":     insight.get("source_name"),
+            "published_date":  insight.get("published_date"),
+        })
+    else:
+        # Chat-style fallback: format all available signals the same way /chat does
+        lines = []
+        for s in (fallback_signals or []):
+            reasoning = f" | Astrological basis: {s.get('astro_reasoning')}" if s.get("astro_reasoning") else ""
+            lines.append(f"- [{s.get('topic','?').upper()}] {s.get('outlook','?').upper()} | {s.get('timeframe','?')}: {s.get('summary','')}{reasoning}")
+        insight_json = "No single matched signal — answer using the following current astrological signals:\n" + "\n".join(lines)
 
     # Pre-compute the likely asset from top headline so we can inject it.
     # Claude still picks the final headline, but this nudges sentence 2.
@@ -8313,14 +8321,10 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
 
             # Step 3: pick insight that matches the news topic
             insight = _social_select_insight(db, ignore_used=preview, preferred_topic=inferred_topic)
-            if not insight:
-                log("No unused insights — skipping")
-                if row:
-                    row.status = "skipped"
-                    row.error_message = "No unused insights"
-                    db.commit()
-                return {"status": "skipped", "content_type": "video"}
-            log(f"Matched insight: [{insight.get('topic')}] {insight.get('outlook')} — {insight.get('summary','')[:60]}...")
+            if insight:
+                log(f"Matched insight: [{insight.get('topic')}] {insight.get('outlook')} — {insight.get('summary','')[:60]}...")
+            else:
+                log("No unused insights — falling back to chat-style answer using all available signals")
 
             # Step 4: generate script — news headline + chatbot-style AI answer
             log("Generating script...")
@@ -8330,14 +8334,35 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None) -> dict
                 .order_by(SocialPost.posted_at.desc())
                 .limit(3).all()
             ]
-            script = _social_generate_script(insight, top_news, recent_scripts=recent_scripts)
+            # If no specific insight, pass all available signals so the answer uses chat-style context
+            fallback_signals = None
+            if not insight:
+                api_data = _fetch_astro_data()
+                all_signals = (api_data or {}).get("insights", []) or _insights_state.get("insights", [])
+                if not all_signals:
+                    log("No signals at all — skipping")
+                    if row:
+                        row.status = "skipped"
+                        row.error_message = "No insights or signals available"
+                        db.commit()
+                    return {"status": "skipped", "content_type": "video"}
+                # Build diverse sample across topics (same logic as /chat)
+                seen, fallback_signals = set(), []
+                for s in all_signals:
+                    t = s.get("topic")
+                    if t not in seen:
+                        seen.add(t)
+                        fallback_signals.append(s)
+                    if len(fallback_signals) >= 6:
+                        break
+            script = _social_generate_script(insight, top_news, recent_scripts=recent_scripts, fallback_signals=fallback_signals)
             log(f"Script: {script[:80]}...")
 
             log("Generating caption...")
-            caption = _social_generate_caption(insight, script)
+            caption = _social_generate_caption(insight or {}, script)
 
             if row:
-                row.insight_id = insight.get('id','')
+                row.insight_id = (insight or {}).get('id','')
                 row.script_text = script
                 row.caption = caption
                 db.commit()
