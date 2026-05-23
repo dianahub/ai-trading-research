@@ -45,6 +45,10 @@ export default function AdminSocialContent() {
   const [preview, setPreview]       = useState(null)
   const [loadingPosts, setLoadingPosts] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [generatingScript, setGeneratingScript] = useState(false)
+  const [scriptStage, setScriptStage] = useState(null) // {script, caption, news_headline, insight}
+  const [editedScript, setEditedScript] = useState('')
+  const [editedCaption, setEditedCaption] = useState('')
   const [forcedHeadline, setForcedHeadline] = useState('')
   const [newsSuggestions, setNewsSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -132,19 +136,52 @@ export default function AdminSocialContent() {
     }
   }
 
-  const handleGeneratePreview = async () => {
-    setGenerating(true)
+  const handleGenerateScript = async () => {
+    setGeneratingScript(true)
+    setScriptStage(null)
     setPreview(null)
-    setStatusMsg('Generating preview — this takes 2–5 minutes...')
+    setStatusMsg('Generating script and caption...')
     try {
-      const r = await fetch(`${API}/admin/social/generate-preview`, {
+      const r = await fetch(`${API}/admin/social/generate-script`, {
         method: 'POST',
         headers: adminHeaders(),
         body: JSON.stringify({ forced_headline: forcedHeadline.trim() || null }),
       })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        setStatusMsg(`Failed: ${d.detail ?? r.status}`)
+        setGeneratingScript(false)
+        return
+      }
+      setScriptStage(d)
+      setEditedScript(d.script)
+      setEditedCaption(d.caption)
+      setStatusMsg('Script ready — review and edit below, then click Send to HeyGen.')
+    } catch (e) {
+      setStatusMsg(`Network error: ${e}`)
+    }
+    setGeneratingScript(false)
+  }
+
+  const handleSendToHeygen = async () => {
+    if (!scriptStage) return
+    setGenerating(true)
+    setPreview(null)
+    setStatusMsg('Sending to HeyGen — this takes 2–5 minutes...')
+    try {
+      const r = await fetch(`${API}/admin/social/generate-heygen`, {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({
+          script:        editedScript,
+          caption:       editedCaption,
+          news_headline: scriptStage.news_headline,
+          insight:       scriptStage.insight,
+        }),
+      })
       if (!r.ok) {
         const d = await r.json().catch(() => ({}))
-        setStatusMsg(`Failed to start: ${d.detail ?? r.status}`)
+        setStatusMsg(`Failed to start HeyGen: ${d.detail ?? r.status}`)
         setGenerating(false)
         return
       }
@@ -390,8 +427,8 @@ export default function AdminSocialContent() {
           </div>
           <div className="flex flex-wrap gap-3">
             <ActionButton
-              onClick={handleGeneratePreview}
-              loading={generating} label="Generate Preview" loadingLabel="Generating…"
+              onClick={handleGenerateScript}
+              loading={generatingScript} label="Generate Content" loadingLabel="Generating…"
               color="#0c1e38" textColor="#93c5fd" border="#1e4976"
             />
             <ActionButton
@@ -461,6 +498,58 @@ export default function AdminSocialContent() {
             </div>
           )}
         </div>
+
+        {/* Script stage — review and edit before sending to HeyGen */}
+        {scriptStage && !preview?.post && (
+          <div className="rounded-xl p-5 mb-6" style={{ background: '#0b1120', border: '1px solid #3b82f6' }}>
+            <h2 className="text-sm font-bold mb-3" style={{ color: '#93c5fd' }}>REVIEW & EDIT — then send to HeyGen</h2>
+
+            {scriptStage.news_headline && (
+              <div className="mb-4">
+                <div className="text-xs mb-1" style={{ color: '#475569' }}>NEWS HEADLINE</div>
+                <p className="text-sm" style={{ color: '#7dd3fc' }}>{scriptStage.news_headline}</p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-xs font-semibold mb-1" style={{ color: '#94a3b8' }}>SCRIPT</label>
+              <textarea
+                value={editedScript}
+                onChange={e => setEditedScript(e.target.value)}
+                rows={7}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: '#0d1f35', border: '1px solid #1e4976', color: '#e2e8f0', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
+              />
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-xs font-semibold mb-1" style={{ color: '#94a3b8' }}>CAPTION</label>
+              <textarea
+                value={editedCaption}
+                onChange={e => setEditedCaption(e.target.value)}
+                rows={5}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: '#0d1f35', border: '1px solid #1e4976', color: '#e2e8f0', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <ActionButton
+                onClick={handleSendToHeygen}
+                loading={generating}
+                label="Send to HeyGen"
+                loadingLabel="Generating video…"
+                color="#1a0a3e" textColor="#a78bfa" border="#6d28d9"
+              />
+              <button
+                onClick={() => { setScriptStage(null); setEditedScript(''); setEditedCaption(''); setStatusMsg('') }}
+                className="text-xs" style={{ color: '#64748b' }}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Preview result */}
         {preview?.post && (

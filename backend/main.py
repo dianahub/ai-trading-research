@@ -8073,6 +8073,80 @@ Rules:
 - Return ONLY the caption text"""
 
 
+def _translate_headlines_to_english(items: list[dict]) -> list[dict]:
+    """Translate non-English headlines in-place using Claude Haiku. Returns items unchanged on failure."""
+    if not items:
+        return items
+    try:
+        numbered = "\n".join(f"{i+1}. {it['title']}" for i, it in enumerate(items))
+        resp = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY")).messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{"role": "user", "content": (
+                "Translate each headline to English. Return only the numbered translations, "
+                "one per line. If a headline is already in English, copy it unchanged.\n\n" + numbered
+            )}],
+        )
+        lines = [l.strip() for l in resp.content[0].text.strip().splitlines() if l.strip()]
+        import re as _re
+        translations = [_re.sub(r'^\d+\.\s*', '', l) for l in lines]
+        if len(translations) == len(items):
+            for i, it in enumerate(items):
+                it["title"] = translations[i]
+    except Exception:
+        pass
+    return items
+
+
+def _fetch_intl_financial_news(q: str | None = None) -> list[dict]:
+    """Fetch international (non-English) financial news and translate to English."""
+    if not NEWS_API_KEY or NEWS_API_KEY == "your_news_api_key_here":
+        return []
+
+    _INTL_SOURCES = [
+        # German
+        ("de", "handelsblatt.com,faz.net,sueddeutsche.de"),
+        # French
+        ("fr", "lesechos.fr,lefigaro.fr,latribune.fr"),
+        # Japanese
+        ("ja", "nikkei.com,nhk.or.jp"),
+        # Chinese (simplified)
+        ("zh", "caixin.com"),
+        # Spanish
+        ("es", "expansion.com,elpais.com"),
+        # Portuguese
+        ("pt", "valor.com.br,estadao.com.br"),
+    ]
+
+    query = q or "mercado OR Wirtschaft OR économie OR 経済 OR 市场 OR finanzas OR mercado"
+    collected: list[dict] = []
+    for lang, domains in _INTL_SOURCES:
+        try:
+            resp = requests.get(
+                f"{NEWSAPI_BASE}/everything",
+                params={"q": query, "domains": domains, "sortBy": "publishedAt",
+                        "language": lang, "pageSize": 3, "apiKey": NEWS_API_KEY},
+                timeout=8,
+            )
+            if resp.ok:
+                body = resp.json()
+                for a in body.get("articles", []):
+                    if a.get("title") and "[Removed]" not in a["title"]:
+                        collected.append({"title": a["title"], "source": a["source"]["name"]})
+        except Exception:
+            continue
+        if len(collected) >= 12:
+            break
+
+    if not collected:
+        return []
+    translated = _translate_headlines_to_english(collected)
+    for it in translated:
+        if not it["source"].endswith(")"):
+            it["source"] = it["source"] + " (translated)"
+    return translated
+
+
 def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
     """Fetch recent financial headlines from quality sources (Bloomberg, Reuters, CNBC, etc.)."""
     if not NEWS_API_KEY or NEWS_API_KEY == "your_news_api_key_here":
@@ -8080,7 +8154,9 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
 
     _DOMAINS = (
         "bloomberg.com,reuters.com,ft.com,wsj.com,cnbc.com,"
-        "marketwatch.com,investing.com,economist.com"
+        "marketwatch.com,investing.com,economist.com,"
+        "asia.nikkei.com,scmp.com,thehindu.com,arabnews.com,"
+        "financialpost.com,barrons.com,zawya.com"
     )
 
     # Topic keyword to narrow results within the quality domains
@@ -8130,10 +8206,18 @@ def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
         if results:
             return results
 
-    # Fallback: broad financial/market news from quality domains
-    return _query(
+    # Fallback: broad financial/market news from quality domains + international
+    en_results = _query(
         "market OR dollar OR Fed OR gold OR bitcoin OR oil OR bonds OR inflation OR stocks OR China OR Treasury OR tariffs"
     )
+    intl = _fetch_intl_financial_news()
+    seen = {r["title"] for r in en_results}
+    merged = en_results[:]
+    for it in intl:
+        if it["title"] not in seen:
+            merged.append(it)
+            seen.add(it["title"])
+    return merged[:15]
 
 
 def _social_generate_script(insight: dict | None, news: list[dict], recent_scripts: list[str] | None = None, fallback_signals: list[dict] | None = None) -> str:
@@ -8323,18 +8407,9 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None, forced_
                 log(f"  [{_n['source']}] {_n['title']}")
 
             # Step 2: infer topic from headlines to find the best matching insight
-            _TOPIC_KEYWORDS = {
-                "crypto":   ["bitcoin","ethereum","btc","eth","crypto"],
-                "currency": ["dollar","euro","yuan","yen","forex","treasury","exchange rate","central bank"],
-                "gold":     ["gold","precious metals","safe haven"],
-                "oil":      ["oil","opec","crude","energy"],
-                "stocks":   ["stock","s&p","nasdaq","equities","wall street","equity"],
-                "rates":    ["interest rate","federal reserve"," fed ","bond yield","treasury yield"],
-                "inflation":["inflation","cpi","cost of living"],
-            }
             headline_text = " ".join(a["title"].lower() for a in top_news[:3])
             inferred_topic = next(
-                (t for t, kws in _TOPIC_KEYWORDS.items() if any(k in headline_text for k in kws)),
+                (t for t, kws in _SOCIAL_TOPIC_KEYWORDS.items() if any(k in headline_text for k in kws)),
                 None,
             )
             if inferred_topic:
@@ -8885,6 +8960,15 @@ def admin_heygen_avatars(
 class GeneratePreviewBody(BaseModel):
     forced_headline: str | None = None
 
+class GenerateScriptBody(BaseModel):
+    forced_headline: str | None = None
+
+class GenerateHeygenBody(BaseModel):
+    script: str
+    caption: str
+    news_headline: str | None = None
+    insight: dict | None = None
+
 @app.get("/admin/social/news-search")
 def admin_social_news_search(
     q: str = "",
@@ -8916,12 +9000,233 @@ def admin_social_news_search(
             except Exception:
                 return []
 
-        _domains = "bloomberg.com,reuters.com,ft.com,wsj.com,cnbc.com,marketwatch.com,investing.com,economist.com"
+        _domains = (
+            "bloomberg.com,reuters.com,ft.com,wsj.com,cnbc.com,marketwatch.com,"
+            "investing.com,economist.com,asia.nikkei.com,scmp.com,thehindu.com,"
+            "arabnews.com,financialpost.com,barrons.com"
+        )
         results = _do_search({"domains": _domains})
         if not results:
-            # Broaden to all sources if domain-filtered search returns nothing
+            # Broaden to all English sources if domain-filtered search returns nothing
             results = _do_search({})
+
+        # International non-English results (translated)
+        intl_items: list[dict] = []
+        _INTL_LANG_DOMAINS = [
+            ("de", "handelsblatt.com,faz.net,sueddeutsche.de"),
+            ("fr", "lesechos.fr,lefigaro.fr,latribune.fr"),
+            ("ja", "nikkei.com,nhk.or.jp"),
+            ("zh", "caixin.com"),
+            ("es", "expansion.com,elpais.com"),
+            ("pt", "valor.com.br,estadao.com.br"),
+        ]
+        for lang, domains in _INTL_LANG_DOMAINS:
+            try:
+                resp = requests.get(
+                    f"{NEWSAPI_BASE}/everything",
+                    params={"q": q, "searchIn": "title", "from": today, "domains": domains,
+                            "sortBy": "publishedAt", "language": lang, "pageSize": 3,
+                            "apiKey": NEWS_API_KEY},
+                    timeout=8,
+                )
+                if resp.ok:
+                    body = resp.json()
+                    for a in body.get("articles", []):
+                        if a.get("title") and "[Removed]" not in a["title"]:
+                            intl_items.append({"title": a["title"], "source": a["source"]["name"]})
+            except Exception:
+                continue
+            if len(intl_items) >= 10:
+                break
+
+        if intl_items:
+            translated = _translate_headlines_to_english(intl_items)
+            for it in translated:
+                it["source"] = it["source"] + " (translated)"
+            seen = {r["title"] for r in results}
+            for it in translated:
+                if it["title"] not in seen:
+                    results.append(it)
+
     return {"headlines": results}
+
+
+_SOCIAL_TOPIC_KEYWORDS = {
+    "crypto":    ["bitcoin","ethereum","btc","eth","crypto"],
+    "currency":  ["dollar","euro","yuan","yen","forex","treasury","exchange rate","central bank"],
+    "gold":      ["gold","precious metals","safe haven"],
+    "oil":       ["oil","opec","crude","energy"],
+    "stocks":    ["stock","s&p","nasdaq","equities","wall street","equity"],
+    "rates":     ["interest rate","federal reserve"," fed ","bond yield","treasury yield"],
+    "inflation": ["inflation","cpi","cost of living"],
+}
+
+
+@app.post("/admin/social/generate-script")
+def admin_social_generate_script(
+    body: GenerateScriptBody = GenerateScriptBody(),
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Step 1 of 2: generate script + caption via Claude. Fast — no HeyGen call."""
+    _require_admin(x_admin_email, x_admin_password)
+    headline = body.forced_headline.strip() if body.forced_headline and body.forced_headline.strip() else None
+
+    with Session(_engine) as db:
+        if headline:
+            top_news = [{"title": headline, "source": "Custom"}]
+        else:
+            top_news = _fetch_top_financial_news()
+
+        headline_text = " ".join(a["title"].lower() for a in top_news[:3])
+        inferred_topic = next(
+            (t for t, kws in _SOCIAL_TOPIC_KEYWORDS.items() if any(k in headline_text for k in kws)),
+            None,
+        )
+
+        insight = _social_select_insight(db, ignore_used=True, preferred_topic=inferred_topic)
+
+        recent_scripts = [
+            r.script_text for r in db.query(SocialPost)
+            .filter(SocialPost.status == "posted", SocialPost.script_text.isnot(None))
+            .order_by(SocialPost.posted_at.desc())
+            .limit(3).all()
+        ]
+
+        fallback_signals = None
+        if not insight:
+            api_data = _fetch_astro_data()
+            all_signals = (api_data or {}).get("insights", []) or _insights_state.get("insights", [])
+            if not all_signals:
+                raise HTTPException(status_code=400, detail="No insights or signals available")
+            seen, fallback_signals = set(), []
+            for s in all_signals:
+                t = s.get("topic")
+                if t not in seen:
+                    seen.add(t)
+                    fallback_signals.append(s)
+                if len(fallback_signals) >= 6:
+                    break
+
+        script  = _social_generate_script(insight, top_news, recent_scripts=recent_scripts, fallback_signals=fallback_signals)
+        caption = _social_generate_caption(insight or {}, script)
+        script_headline = _extract_script_headline(script) or (top_news[0]["title"] if top_news else "")
+
+        return {
+            "status":        "ok",
+            "script":        script,
+            "caption":       caption,
+            "news_headline": script_headline,
+            "insight":       {"id": insight.get("id",""), "topic": insight.get("topic"), "summary": insight.get("summary","")} if insight else None,
+        }
+
+
+@app.post("/admin/social/generate-heygen")
+def admin_social_generate_heygen(
+    body: GenerateHeygenBody,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Step 2 of 2: send the (possibly edited) script to HeyGen. Poll /preview-status for progress."""
+    _require_admin(x_admin_email, x_admin_password)
+    _social_preview["result"] = None
+    _social_preview["at"]     = None
+
+    script        = body.script.strip()
+    caption       = body.caption.strip()
+    news_headline = (body.news_headline or "").strip()
+    insight       = body.insight or {}
+
+    def _run():
+        from heygen import generate_twin_video, burn_captions
+        today = _social_today()
+        log = lambda *a: print(f"[social-heygen {today}]", *a, flush=True)
+        try:
+            content_type     = "video"
+            media_url        = ""
+            local_video_path = None
+
+            if os.getenv("HEYGEN_PIPELINE_TEST") == "1":
+                import subprocess
+                from heygen import _find_ffmpeg, _ensure_temp_dir, _find_font_file
+                import uuid as _uuid
+                _ensure_temp_dir()
+                ffmpeg_bin = _find_ffmpeg()
+                tmp_id   = str(_uuid.uuid4())
+                raw_path = f"/tmp/social_videos/{tmp_id}_raw.mp4"
+                out_path = f"/tmp/social_videos/{tmp_id}.mp4"
+                subprocess.run([
+                    ffmpeg_bin, "-y",
+                    "-f", "lavfi", "-i", "color=black:size=720x1280:rate=25",
+                    "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+                    "-t", "10", "-c:v", "libx264", "-c:a", "aac", raw_path,
+                ], check=True, capture_output=True, timeout=60)
+                font_path = _find_font_file()
+                fontfile_opt = f":fontfile={font_path}" if font_path else ""
+                vf = f"drawbox=x=0:y=900:w=iw:h=380:color=black@0.85:t=fill,drawtext=text=HELLO{fontfile_opt}:fontsize=60:fontcolor=white:x=(w-text_w)/2:y=960"
+                res = subprocess.run(
+                    [ffmpeg_bin, "-y", "-i", raw_path, "-vf", vf, "-c:a", "copy", "-preset", "fast", out_path],
+                    capture_output=True, text=True, timeout=120,
+                )
+                os.unlink(raw_path)
+                if res.returncode != 0:
+                    raise RuntimeError(f"Test ffmpeg failed:\n{res.stderr[-800:]}")
+                file_id          = os.path.basename(out_path)
+                media_url        = f"{BACKEND_URL}/media/temp/{file_id}"
+                local_video_path = out_path
+            else:
+                log("Generating HeyGen twin video...")
+                raw_video_url, caption_url = generate_twin_video(script)
+                log(f"Video ready: {raw_video_url}")
+                media_url = raw_video_url
+                if os.getenv("HEYGEN_CAPTIONS", "true").lower() != "false":
+                    log("Burning captions...")
+                    captioned_path = burn_captions(raw_video_url, caption_url, script)
+                    if captioned_path:
+                        file_id          = os.path.basename(captioned_path)
+                        media_url        = f"{BACKEND_URL}/media/temp/{file_id}"
+                        local_video_path = captioned_path
+                        log(f"Captioned video: {media_url}")
+                    else:
+                        log("Caption burn failed — using original video")
+
+            preview_thumb_url = None
+            try:
+                from thumbnail import generate_thumbnail as _gen_thumb
+                _gen_thumb(
+                    headline=news_headline or script[:120],
+                    topic=insight.get("topic"),
+                    date_str=today,
+                    suffix="preview",
+                )
+                preview_thumb_url = f"{BACKEND_URL}/media/perm/preview_thumb.jpg"
+            except Exception as _e:
+                log(f"Thumbnail failed (non-fatal): {_e}")
+
+            result = {
+                "status":        "posted",
+                "content_type":  content_type,
+                "thumbnail_url": preview_thumb_url,
+                "news_headline": news_headline,
+                "post": {
+                    "insight":      {"id": insight.get("id",""), "topic": insight.get("topic"), "summary": insight.get("summary","")},
+                    "script":       script,
+                    "caption":      caption,
+                    "media_url":    media_url,
+                    "content_type": content_type,
+                },
+            }
+        except Exception as e:
+            log(f"HeyGen thread crashed: {e}")
+            result = {"status": "failed", "content_type": "video", "error": str(e)}
+
+        _social_preview["result"] = result
+        _social_preview["at"]     = datetime.now(timezone.utc)
+        log(f"HeyGen complete: {result.get('status')}")
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"started": True, "message": "HeyGen generation started — poll GET /admin/social/preview-status for progress."}
+
 
 @app.post("/admin/social/generate-preview")
 def admin_social_generate_preview(
