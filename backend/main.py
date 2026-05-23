@@ -8098,53 +8098,54 @@ def _translate_headlines_to_english(items: list[dict]) -> list[dict]:
     return items
 
 
-def _fetch_intl_financial_news(q: str | None = None) -> list[dict]:
-    """Fetch international (non-English) financial news and translate to English."""
-    if not NEWS_API_KEY or NEWS_API_KEY == "your_news_api_key_here":
-        return []
-
-    _INTL_SOURCES = [
-        # German
-        ("de", "handelsblatt.com,faz.net,sueddeutsche.de"),
-        # French
-        ("fr", "lesechos.fr,lefigaro.fr,latribune.fr"),
-        # Japanese
-        ("ja", "nikkei.com,nhk.or.jp"),
-        # Chinese (simplified)
-        ("zh", "caixin.com"),
-        # Spanish
-        ("es", "expansion.com,elpais.com"),
-        # Portuguese
-        ("pt", "valor.com.br,estadao.com.br"),
+def _fetch_intl_financial_news(_q: str | None = None) -> list[dict]:
+    """
+    Fetch international financial news via RSS (no API key required).
+    English feeds are returned as-is; non-English feeds are batch-translated.
+    """
+    # (source_name, rss_url, needs_translation)
+    _RSS_FEEDS = [
+        # English international
+        ("Nikkei Asia",         "https://asia.nikkei.com/rss/feed/nar",                                     False),
+        ("DW Business",         "https://rss.dw.com/rdf/rss-en-bus",                                        False),
+        ("The Hindu Business",  "https://www.thehindu.com/business/feeder/default.rss",                     False),
+        ("Arab News Economy",   "https://www.arabnews.com/taxonomy/term/6/feed",                             False),
+        ("Xinhua Finance",      "http://www.xinhuanet.com/english/rss/businessrss.xml",                      False),
+        # Non-English (translated)
+        ("Handelsblatt",        "https://www.handelsblatt.com/contentexport/feed/wirtschaft",                True),
+        ("Les Echos",           "https://www.lesechos.fr/arc/outboundfeeds/rss/?outputType=xml",             True),
+        ("El País Economía",    "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada", True),
+        ("Valor Econômico",     "https://www.valor.com.br/rss20.xml",                                        True),
     ]
 
-    query = q or "mercado OR Wirtschaft OR économie OR 経済 OR 市场 OR finanzas OR mercado"
-    collected: list[dict] = []
-    for lang, domains in _INTL_SOURCES:
+    en_items: list[dict]   = []
+    intl_items: list[dict] = []
+
+    for source_name, url, needs_translation in _RSS_FEEDS:
         try:
-            resp = requests.get(
-                f"{NEWSAPI_BASE}/everything",
-                params={"q": query, "domains": domains, "sortBy": "publishedAt",
-                        "language": lang, "pageSize": 3, "apiKey": NEWS_API_KEY},
-                timeout=8,
-            )
-            if resp.ok:
-                body = resp.json()
-                for a in body.get("articles", []):
-                    if a.get("title") and "[Removed]" not in a["title"]:
-                        collected.append({"title": a["title"], "source": a["source"]["name"]})
+            feed = feedparser.parse(url, request_headers={"User-Agent": "StarSignalBot/1.0"})
+            entries = feed.entries[:3]
+            for entry in entries:
+                title = (entry.get("title") or "").strip()
+                if not title or "[Removed]" in title:
+                    continue
+                item = {"title": title, "source": source_name}
+                if needs_translation:
+                    intl_items.append(item)
+                else:
+                    en_items.append(item)
         except Exception:
             continue
-        if len(collected) >= 12:
+        if len(en_items) + len(intl_items) >= 20:
             break
 
-    if not collected:
-        return []
-    translated = _translate_headlines_to_english(collected)
-    for it in translated:
-        if not it["source"].endswith(")"):
+    if intl_items:
+        translated = _translate_headlines_to_english(intl_items)
+        for it in translated:
             it["source"] = it["source"] + " (translated)"
-    return translated
+        en_items.extend(translated)
+
+    return en_items
 
 
 def _fetch_top_financial_news(topic: str | None = None) -> list[dict]:
@@ -9010,43 +9011,12 @@ def admin_social_news_search(
             # Broaden to all English sources if domain-filtered search returns nothing
             results = _do_search({})
 
-        # International non-English results (translated)
-        intl_items: list[dict] = []
-        _INTL_LANG_DOMAINS = [
-            ("de", "handelsblatt.com,faz.net,sueddeutsche.de"),
-            ("fr", "lesechos.fr,lefigaro.fr,latribune.fr"),
-            ("ja", "nikkei.com,nhk.or.jp"),
-            ("zh", "caixin.com"),
-            ("es", "expansion.com,elpais.com"),
-            ("pt", "valor.com.br,estadao.com.br"),
-        ]
-        for lang, domains in _INTL_LANG_DOMAINS:
-            try:
-                resp = requests.get(
-                    f"{NEWSAPI_BASE}/everything",
-                    params={"q": q, "searchIn": "title", "from": today, "domains": domains,
-                            "sortBy": "publishedAt", "language": lang, "pageSize": 3,
-                            "apiKey": NEWS_API_KEY},
-                    timeout=8,
-                )
-                if resp.ok:
-                    body = resp.json()
-                    for a in body.get("articles", []):
-                        if a.get("title") and "[Removed]" not in a["title"]:
-                            intl_items.append({"title": a["title"], "source": a["source"]["name"]})
-            except Exception:
-                continue
-            if len(intl_items) >= 10:
-                break
-
-        if intl_items:
-            translated = _translate_headlines_to_english(intl_items)
-            for it in translated:
-                it["source"] = it["source"] + " (translated)"
-            seen = {r["title"] for r in results}
-            for it in translated:
-                if it["title"] not in seen:
-                    results.append(it)
+        # International results via RSS (reliable — no NewsAPI domain restrictions)
+        intl = _fetch_intl_financial_news()
+        seen = {r["title"] for r in results}
+        for it in intl:
+            if it["title"] not in seen:
+                results.append(it)
 
     return {"headlines": results}
 
