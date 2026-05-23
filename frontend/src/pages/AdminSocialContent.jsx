@@ -537,7 +537,7 @@ export default function AdminSocialContent() {
               <ActionButton
                 onClick={handleSendToHeygen}
                 loading={generating}
-                label="Send to HeyGen"
+                label="Generate Video"
                 loadingLabel="Generating video…"
                 color="#1a0a3e" textColor="#a78bfa" border="#6d28d9"
               />

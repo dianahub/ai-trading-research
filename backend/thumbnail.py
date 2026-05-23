@@ -57,6 +57,28 @@ def _draw_wrapped(draw, text: str, start_y: int, font, color, margin: int, line_
         draw.text(((THUMB_W - lw) // 2, start_y + i * line_h), line, fill=color, font=font)
 
 
+def _infer_topic_from_headline(headline: str) -> str | None:
+    """Derive the badge topic from the headline so it reflects the video content."""
+    hl = headline.lower()
+    if any(w in hl for w in ["bitcoin", "btc", "crypto", "ethereum", "eth"]):
+        return "crypto"
+    if any(w in hl for w in ["gold", "silver", "precious metals"]):
+        return "gold"
+    if any(w in hl for w in ["oil", "opec", "crude", "energy"]):
+        return "oil"
+    if any(w in hl for w in ["stock market", "s&p", "nasdaq", "equities", "wall street", "dow jones"]):
+        return "stocks"
+    if any(w in hl for w in ["interest rate", "federal reserve", " fed ", "bond yield", "treasury yield"]):
+        return "rates"
+    if any(w in hl for w in ["inflation", "cpi", "cost of living"]):
+        return "inflation"
+    if any(w in hl for w in ["dollar", "euro", "yuan", "yen", "forex", "exchange rate"]):
+        return "currency"
+    if any(w in hl for w in ["china", "tariff", "trade war"]):
+        return "china"
+    return None
+
+
 def _build_image_prompt(headline: str, topic: str | None) -> str:
     """Build a Pollinations.ai prompt that matches the headline's subject matter."""
     topic_l = (topic or "").lower()
@@ -86,14 +108,18 @@ def _build_image_prompt(headline: str, topic: str | None) -> str:
 
 def _fetch_bg_image(headline: str, topic: str | None) -> bytes | None:
     """Fetch an AI-generated background image from Pollinations.ai (free, no key needed)."""
+    import hashlib
     import urllib.request
     import urllib.parse
 
     prompt = _build_image_prompt(headline, topic)
+    # Seed derived from headline so the same headline always returns the same image
+    # but different headlines get genuinely different generations (avoids Pollinations cache)
+    seed = int(hashlib.md5(headline.encode()).hexdigest()[:8], 16) % 1_000_000
     url = (
         "https://image.pollinations.ai/prompt/"
         + urllib.parse.quote(prompt)
-        + "?width=1080&height=1920&nologo=true&model=flux&enhance=true"
+        + f"?width=1080&height=1920&nologo=true&model=flux&enhance=true&seed={seed}"
     )
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "StarSignal/1.0"})
@@ -126,8 +152,11 @@ def generate_thumbnail(
     key  = suffix or date_str or "preview"
     path = os.path.join(PERM_DIR, f"{key}_thumb.jpg")
 
+    # Prefer headline-derived topic for the badge so it matches the video content
+    effective_topic = _infer_topic_from_headline(headline) or topic
+
     # ── Background: AI image or fallback gradient ─────────────────────────
-    bg_bytes = _fetch_bg_image(headline, topic)
+    bg_bytes = _fetch_bg_image(headline, effective_topic)
     if bg_bytes:
         import io as _io
         bg = Image.open(_io.BytesIO(bg_bytes)).convert("RGB")
@@ -162,9 +191,9 @@ def generate_thumbnail(
     _draw_centered(draw, "Financial Astrology · AI Signals", 178, _find_font(34), (100, 116, 139))
 
     # Topic badge
-    if topic:
+    if effective_topic:
         font_badge = _find_font(38)
-        badge = topic.upper()
+        badge = effective_topic.upper()
         bbox  = draw.textbbox((0, 0), badge, font=font_badge)
         bw, bh = bbox[2] - bbox[0], bbox[3] - bbox[1]
         pad_x, pad_y = 32, 14
@@ -179,8 +208,8 @@ def generate_thumbnail(
     # Divider under header
     draw.rectangle([80, 400, THUMB_W - 80, 404], fill=(30, 58, 95))
 
-    # Headline — news text, centered and word-wrapped
-    _draw_wrapped(draw, headline, 440, _find_font(66), (226, 232, 240), margin=80, line_h=84, max_lines=8)
+    # Headline — news text, centered and word-wrapped, uppercase for impact
+    _draw_wrapped(draw, headline.upper(), 440, _find_font(66), (226, 232, 240), margin=80, line_h=84, max_lines=8)
 
     # Divider above footer
     draw.rectangle([80, THUMB_H - 195, THUMB_W - 80, THUMB_H - 191], fill=(30, 58, 95))
