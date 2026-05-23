@@ -136,6 +136,26 @@ export default function AdminSocialContent() {
     }
   }
 
+  const [loadingTopNews, setLoadingTopNews] = useState(false)
+  const handleTopNews = async () => {
+    setLoadingTopNews(true)
+    setShowSuggestions(false)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20000)
+    try {
+      const r = await fetch(`${API}/admin/social/news-search?q=`, { headers: adminHeaders(), signal: controller.signal })
+      const d = await r.json()
+      setNewsSuggestions(d.headlines || [])
+      setShowSuggestions(true)
+      newsInputRef.current?.focus()
+    } catch {
+      setNewsSuggestions([])
+    } finally {
+      clearTimeout(timeout)
+      setLoadingTopNews(false)
+    }
+  }
+
   const handleGenerateScript = async () => {
     setGeneratingScript(true)
     setScriptStage(null)
@@ -401,6 +421,14 @@ export default function AdminSocialContent() {
                 style={{ background: '#0c1e38', border: '1px solid #1e4976', color: '#93c5fd', whiteSpace: 'nowrap', opacity: loadingSuggestions ? 0.6 : 1 }}
               >
                 {loadingSuggestions ? 'Searching…' : 'Search'}
+              </button>
+              <button
+                onClick={handleTopNews}
+                disabled={loadingTopNews}
+                className="rounded-lg px-4 py-2 text-sm font-semibold"
+                style={{ background: '#0c1e38', border: '1px solid #334155', color: '#94a3b8', whiteSpace: 'nowrap', opacity: loadingTopNews ? 0.6 : 1 }}
+              >
+                {loadingTopNews ? 'Loading…' : 'Top News 24h ↓'}
               </button>
             </div>
             {showSuggestions && newsSuggestions.length > 0 && (
