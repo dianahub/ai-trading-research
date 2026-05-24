@@ -37,10 +37,15 @@ def _ensure_temp_dir():
 
 def generate_twin_video(script: str) -> tuple[str, str | None]:
     """Submit a 9:16 talking-head video job and return (video_url, caption_url_or_none)."""
-    avatar_id = os.getenv("HEYGEN_AVATAR_ID")
+    from datetime import date as _date
+    avatar_id_1 = os.getenv("HEYGEN_AVATAR_ID", "")
+    avatar_id_2 = os.getenv("HEYGEN_AVATAR_ID_2", "6431a82f5aa14667a246f182c9032834")
+    # Alternate every day: even day-of-year → avatar 1, odd → avatar 2
+    avatar_id = avatar_id_1 if _date.today().timetuple().tm_yday % 2 == 0 else avatar_id_2
     voice_id  = os.getenv("HEYGEN_VOICE_ID", "")
     if not avatar_id:
         raise RuntimeError("HEYGEN_AVATAR_ID not set")
+    print(f"[heygen] day={_date.today().timetuple().tm_yday} using avatar={avatar_id[:8]}…", flush=True)
 
     avatar_type = os.getenv("HEYGEN_AVATAR_TYPE", "talking_photo")
 
