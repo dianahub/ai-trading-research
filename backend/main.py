@@ -138,6 +138,13 @@ FD_BASE                     = "https://api.financialdatasets.ai"
 HEYGEN_API_KEY   = os.getenv("HEYGEN_API_KEY", "")
 HEYGEN_AVATAR_ID = os.getenv("HEYGEN_AVATAR_ID", "")
 
+# Known avatar IDs that can be toggled in the admin UI
+HEYGEN_AVATAR_IDS = [
+    {"id": HEYGEN_AVATAR_ID,                     "label": "Avatar 1"},
+    {"id": "6431a82f5aa14667a246f182c9032834",   "label": "Avatar 2"},
+]
+_active_avatar: dict = {"id": HEYGEN_AVATAR_ID}   # overridden by /admin/social/avatar-select
+
 # Instagram posting
 INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
 INSTAGRAM_ACCOUNT_ID   = os.getenv("INSTAGRAM_ACCOUNT_ID", "")
@@ -8355,7 +8362,7 @@ def _social_notify(subject: str, body: str):
 _social_preview: dict = {"result": None, "at": None}
 
 
-def _social_run_pipeline(preview: bool = False, date: str | None = None, forced_headline: str | None = None) -> dict:
+def _social_run_pipeline(preview: bool = False, date: str | None = None, forced_headline: str | None = None, forced_headline_source: str | None = None) -> dict:
     """
     Full social pipeline:
       1. Pick best unused insight
@@ -8399,7 +8406,7 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None, forced_
             # Step 1: fetch news first — headline drives everything
             if forced_headline:
                 log(f"Using forced headline: {forced_headline}")
-                top_news = [{"title": forced_headline, "source": "Custom"}]
+                top_news = [{"title": forced_headline, "source": forced_headline_source or "Custom"}]
             else:
                 log("Fetching top financial news...")
                 top_news = _fetch_top_financial_news()
@@ -8960,9 +8967,11 @@ def admin_heygen_avatars(
 
 class GeneratePreviewBody(BaseModel):
     forced_headline: str | None = None
+    forced_headline_source: str | None = None
 
 class GenerateScriptBody(BaseModel):
     forced_headline: str | None = None
+    forced_headline_source: str | None = None
 
 class GenerateHeygenBody(BaseModel):
     script: str
@@ -9041,10 +9050,11 @@ def admin_social_generate_script(
     """Step 1 of 2: generate script + caption via Claude. Fast — no HeyGen call."""
     _require_admin(x_admin_email, x_admin_password)
     headline = body.forced_headline.strip() if body.forced_headline and body.forced_headline.strip() else None
+    headline_source = body.forced_headline_source.strip() if body.forced_headline_source and body.forced_headline_source.strip() else "Custom"
 
     with Session(_engine) as db:
         if headline:
-            top_news = [{"title": headline, "source": "Custom"}]
+            top_news = [{"title": headline, "source": headline_source}]
         else:
             top_news = _fetch_top_financial_news()
 
@@ -9208,10 +9218,11 @@ def admin_social_generate_preview(
     _social_preview["result"] = None
     _social_preview["at"]     = None
     headline = body.forced_headline.strip() if body.forced_headline and body.forced_headline.strip() else None
+    headline_source = body.forced_headline_source.strip() if body.forced_headline_source and body.forced_headline_source.strip() else None
 
     def _run():
         try:
-            result = _social_run_pipeline(preview=True, forced_headline=headline)
+            result = _social_run_pipeline(preview=True, forced_headline=headline, forced_headline_source=headline_source)
         except Exception as e:
             print(f"[social-admin] preview thread crashed: {e}", flush=True)
             result = {"status": "failed", "content_type": "video", "error": str(e)}

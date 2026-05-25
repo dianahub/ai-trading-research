@@ -50,6 +50,7 @@ export default function AdminSocialContent() {
   const [editedScript, setEditedScript] = useState('')
   const [editedCaption, setEditedCaption] = useState('')
   const [forcedHeadline, setForcedHeadline] = useState('')
+  const [forcedHeadlineSource, setForcedHeadlineSource] = useState('')
   const [newsSuggestions, setNewsSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
@@ -165,7 +166,7 @@ export default function AdminSocialContent() {
       const r = await fetch(`${API}/admin/social/generate-script`, {
         method: 'POST',
         headers: adminHeaders(),
-        body: JSON.stringify({ forced_headline: forcedHeadline.trim() || null }),
+        body: JSON.stringify({ forced_headline: forcedHeadline.trim() || null, forced_headline_source: forcedHeadlineSource.trim() || null }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) {
@@ -438,6 +439,7 @@ export default function AdminSocialContent() {
                     key={i}
                     onMouseDown={() => {
                       setForcedHeadline(item.title)
+                      setForcedHeadlineSource(item.source || '')
                       setShowSuggestions(false)
                       setNewsSuggestions([])
                     }}
