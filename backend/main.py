@@ -8000,6 +8000,9 @@ def _social_select_insight(db: Session, ignore_used: bool = False, preferred_top
         topic_matches = [c for c in candidates if preferred_topic.lower() in (c.get("topic") or "").lower()]
         if topic_matches:
             return max(topic_matches, key=_social_score_insight)
+        # No topic match — return None so the caller uses all-signals fallback
+        # (avoids forcing an unrelated insight onto a mismatched headline)
+        return None
     return max(candidates, key=_social_score_insight)
 
 
@@ -9043,13 +9046,14 @@ def admin_social_news_search(
 
 
 _SOCIAL_TOPIC_KEYWORDS = {
-    "crypto":    ["bitcoin","ethereum","btc","eth","crypto"],
-    "currency":  ["dollar","euro","yuan","yen","forex","treasury","exchange rate","central bank"],
-    "gold":      ["gold","precious metals","safe haven"],
-    "oil":       ["oil","opec","crude","energy"],
-    "stocks":    ["stock","s&p","nasdaq","equities","wall street","equity"],
-    "rates":     ["interest rate","federal reserve"," fed ","bond yield","treasury yield"],
-    "inflation": ["inflation","cpi","cost of living"],
+    "crypto":      ["bitcoin","ethereum","btc","eth","crypto"],
+    "currency":    ["dollar","euro","yuan","yen","forex","exchange rate","central bank"],
+    "gold":        ["gold","precious metals","safe haven"],
+    "oil":         ["oil","opec","crude","energy","petroleum"],
+    "stocks":      ["stock","s&p","nasdaq","equities","wall street","equity","ipo","shares"],
+    "rates":       ["interest rate","federal reserve"," fed ","bond yield","treasury yield","fomc"],
+    "inflation":   ["inflation","cpi","cost of living","recession","gdp"],
+    "geopolitics": ["iran","tehran","russia","ukraine","war","conflict","sanction","israel","middle east","taiwan","nato","china tariff","trade war","geopolit"],
 }
 
 
