@@ -152,7 +152,7 @@ def _fetch_bg_image(headline: str, topic: str | None) -> bytes | None:
     )
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "StarSignal/1.0"})
-        with urllib.request.urlopen(req, timeout=60) as r:
+        with urllib.request.urlopen(req, timeout=20) as r:
             data = r.read()
         # Sanity-check: must be a real image (>10KB), not an error page
         if len(data) > 10_000 and data[:4] in (b'\xff\xd8\xff\xe0', b'\xff\xd8\xff\xe1', b'\x89PNG'):

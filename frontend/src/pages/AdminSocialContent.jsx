@@ -276,6 +276,7 @@ export default function AdminSocialContent() {
 
   const handleRegenThumbnail = async () => {
     setRegenThumb(true)
+    setStatusMsg('Generating new thumbnail (up to 20s)…')
     try {
       const r = await fetch(`${API}/admin/social/preview/regenerate-thumbnail`, {
         method: 'POST',
