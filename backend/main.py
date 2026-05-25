@@ -8764,23 +8764,35 @@ def admin_social_delete_post_video(
         return {"deleted": deleted, "id": post_id}
 
 
+class RegenThumbnailBody(BaseModel):
+    headline: str | None = None
+    topic: str | None = None
+
+
 @app.post("/admin/social/preview/regenerate-thumbnail")
 def admin_social_regen_preview_thumbnail(
+    body: RegenThumbnailBody = RegenThumbnailBody(),
     x_admin_email: str = Header(default=""),
     x_admin_password: str = Header(default=""),
 ):
     """Regenerate the thumbnail for the current preview using the same headline."""
     _require_admin(x_admin_email, x_admin_password)
-    preview = _social_preview.get("result")
-    if not preview or not preview.get("post"):
-        raise HTTPException(status_code=400, detail="No preview available — generate one first")
-    headline = preview.get("news_headline") or (preview["post"].get("script") or "")[:120]
-    topic    = (preview["post"].get("insight") or {}).get("topic")
+    # Prefer headline from request body (survives server restarts); fall back to in-memory state
+    headline = (body.headline or "").strip() or None
+    topic    = (body.topic or "").strip() or None
+    if not headline:
+        preview = _social_preview.get("result")
+        if not preview or not preview.get("post"):
+            raise HTTPException(status_code=400, detail="No preview available — generate one first")
+        headline = preview.get("news_headline") or (preview["post"].get("script") or "")[:120]
+        if not topic:
+            topic = (preview["post"].get("insight") or {}).get("topic")
     try:
         from thumbnail import generate_thumbnail as _gen_thumb
         _gen_thumb(headline=headline, topic=topic, date_str=_social_today(), suffix="preview")
         thumb_url = f"{BACKEND_URL}/media/perm/preview_thumb.jpg?t={int(time.time())}"
-        _social_preview["result"]["thumbnail_url"] = thumb_url
+        if _social_preview.get("result"):
+            _social_preview["result"]["thumbnail_url"] = thumb_url
         return {"thumbnail_url": thumb_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Thumbnail generation failed: {e}")

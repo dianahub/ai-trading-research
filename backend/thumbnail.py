@@ -60,21 +60,27 @@ def _draw_wrapped(draw, text: str, start_y: int, font, color, margin: int, line_
 def _infer_topic_from_headline(headline: str) -> str | None:
     """Derive the badge topic from the headline so it reflects the video content."""
     hl = headline.lower()
-    if any(w in hl for w in ["bitcoin", "btc", "crypto", "ethereum", "eth"]):
+    if any(w in hl for w in ["bitcoin", "btc", "crypto", "ethereum", "eth", "blockchain", "defi", "solana", "xrp"]):
         return "crypto"
-    if any(w in hl for w in ["gold", "silver", "precious metals"]):
+    if any(w in hl for w in ["gold", "silver", "precious metals", "bullion"]):
         return "gold"
-    if any(w in hl for w in ["oil", "opec", "crude", "energy"]):
+    if any(w in hl for w in ["oil", "opec", "crude", "energy", "gas prices", "petroleum"]):
         return "oil"
-    if any(w in hl for w in ["stock market", "s&p", "nasdaq", "equities", "wall street", "dow jones"]):
+    if any(w in hl for w in [
+        "ipo", "stock market", "s&p", "nasdaq", "equities", "wall street", "dow jones",
+        "shares", "listing", "stock offering", "earnings", "quarterly results",
+        "spacex", "tesla", "nvidia", "apple", "microsoft", "google", "amazon",
+        "meta ", "alphabet", "openai", "anthropic", "startup", "tech stock",
+        "aerospace", "rocket", "satellite",
+    ]):
         return "stocks"
-    if any(w in hl for w in ["interest rate", "federal reserve", " fed ", "bond yield", "treasury yield"]):
+    if any(w in hl for w in ["interest rate", "federal reserve", " fed ", "bond yield", "treasury yield", "fomc"]):
         return "rates"
-    if any(w in hl for w in ["inflation", "cpi", "cost of living"]):
+    if any(w in hl for w in ["inflation", "cpi", "cost of living", "recession", "gdp"]):
         return "inflation"
-    if any(w in hl for w in ["dollar", "euro", "yuan", "yen", "forex", "exchange rate"]):
+    if any(w in hl for w in ["dollar", "euro", "yuan", "yen", "forex", "exchange rate", "currency"]):
         return "currency"
-    if any(w in hl for w in ["china", "tariff", "trade war"]):
+    if any(w in hl for w in ["china", "tariff", "trade war", "sanctions", "geopolit"]):
         return "china"
     return None
 
@@ -98,27 +104,34 @@ def _topic_accent(topic: str | None) -> tuple[int, int, int]:
 
 def _build_image_prompt(headline: str, topic: str | None) -> str:
     """Build a Pollinations.ai prompt that matches the headline's subject matter."""
-    topic_l = (topic or "").lower()
-    headline_l = headline.lower()
+    hl = headline.lower()
 
-    if any(w in topic_l + headline_l for w in ["bitcoin", "btc", "crypto", "ethereum", "eth"]):
+    if any(w in hl for w in ["bitcoin", "btc", "crypto", "ethereum", "eth", "blockchain", "defi"]):
         scene = "bitcoin cryptocurrency glowing golden digital coins vibrant colorful cinematic"
-    elif any(w in topic_l + headline_l for w in ["gold", "silver", "bullion"]):
+    elif any(w in hl for w in ["gold", "silver", "bullion", "precious metal"]):
         scene = "gold bullion bars gleaming warm rich golden light vivid colorful studio"
-    elif any(w in topic_l + headline_l for w in ["oil", "energy", "opec"]):
+    elif any(w in hl for w in ["oil", "opec", "crude", "petroleum", "energy"]):
         scene = "oil refinery at dusk vibrant orange amber sunset sky colorful dramatic"
-    elif any(w in topic_l + headline_l for w in ["dollar", "forex", "currency", "yuan", "yen", "euro"]):
+    elif any(w in hl for w in ["spacex", "rocket", "satellite", "aerospace", "nasa", "space launch"]):
+        scene = "SpaceX rocket launching into vivid blue sky dramatic cinematic colorful trail"
+    elif any(w in hl for w in ["ipo", "listing", "shares", "stock offering", "going public"]):
+        scene = "stock exchange trading floor vivid green ticker screens celebratory launch colorful"
+    elif any(w in hl for w in ["tesla", "nvidia", "apple", "microsoft", "google", "amazon", "meta", "ai chip", "artificial intelligence"]):
+        scene = "futuristic tech headquarters glowing screens vibrant blue purple neon cinematic"
+    elif any(w in hl for w in ["dollar", "forex", "currency", "yuan", "yen", "euro", "exchange rate"]):
         scene = "currency exchange forex trading screens vivid blue green glowing colorful cinematic"
-    elif any(w in topic_l + headline_l for w in ["fed", "rate", "inflation", "interest"]):
+    elif any(w in hl for w in ["fed", "federal reserve", "interest rate", "bond yield", "fomc"]):
         scene = "federal reserve grand columns golden light vibrant warm cinematic architecture"
-    elif any(w in topic_l + headline_l for w in ["war", "conflict", "sanction", "geopolit"]):
+    elif any(w in hl for w in ["inflation", "cpi", "recession", "gdp"]):
+        scene = "economic data charts colorful upward arrows vivid financial cinematic"
+    elif any(w in hl for w in ["war", "conflict", "sanction", "geopolit", "tariff", "trade war"]):
         scene = "geopolitical world map glowing neon borders vibrant electric blue red cinematic"
-    elif any(w in topic_l + headline_l for w in ["stock", "equity", "nasdaq", "s&p", "dow"]):
+    elif any(w in hl for w in ["stock market", "nasdaq", "s&p", "dow jones", "wall street", "equities"]):
         scene = "stock market trading floor vivid green screens colorful energy cinematic"
     else:
         scene = "financial markets glowing vibrant data charts colorful neon cinematic"
 
-    excerpt = re.sub(r'[^a-zA-Z0-9 ]', '', headline[:60]).strip()
+    excerpt = re.sub(r'[^a-zA-Z0-9 ]', '', headline[:70]).strip()
     return f"cinematic vibrant colorful {scene}, {excerpt}, vivid professional photography, no text, no people, 4k"
 
 

@@ -277,7 +277,14 @@ export default function AdminSocialContent() {
   const handleRegenThumbnail = async () => {
     setRegenThumb(true)
     try {
-      const r = await fetch(`${API}/admin/social/preview/regenerate-thumbnail`, { method: 'POST', headers: adminHeaders() })
+      const r = await fetch(`${API}/admin/social/preview/regenerate-thumbnail`, {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({
+          headline: preview?.news_headline || null,
+          topic: preview?.post?.insight?.topic || null,
+        }),
+      })
       const d = await r.json()
       if (d.thumbnail_url) {
         setPreview(prev => ({ ...prev, thumbnail_url: d.thumbnail_url }))
