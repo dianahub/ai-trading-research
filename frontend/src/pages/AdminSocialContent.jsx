@@ -11,6 +11,46 @@ function adminHeaders() {
   }
 }
 
+function FbPageLookup() {
+  const [pages, setPages] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const lookup = async () => {
+    setLoading(true); setErr(''); setPages(null)
+    try {
+      const r = await fetch(`${API}/admin/social/facebook-pages`, { headers: adminHeaders() })
+      const d = await r.json()
+      if (!r.ok) { setErr(d.detail ?? 'Error'); return }
+      setPages(d)
+    } catch (e) { setErr(String(e)) }
+    finally { setLoading(false) }
+  }
+  return (
+    <div>
+      <button onClick={lookup} disabled={loading}
+        className="underline" style={{ color: '#60a5fa', cursor: 'pointer', background: 'none', border: 'none', fontSize: 'inherit' }}>
+        {loading ? 'Looking up…' : 'Find Facebook Page ID'}
+      </button>
+      {err && <div style={{ color: '#f87171' }}>{err}</div>}
+      {pages && (
+        <div className="mt-1" style={{ color: '#e2e8f0' }}>
+          {pages.pages.length === 0 && <span>No pages found for this token.</span>}
+          {pages.pages.map(p => (
+            <div key={p.id}>
+              <span style={{ color: '#94a3b8' }}>{p.name}:</span>{' '}
+              <span className="font-mono" style={{ color: pages.current_facebook_page_id === p.id ? '#34d399' : '#fbbf24' }}>{p.id}</span>
+              {pages.current_facebook_page_id === p.id && <span style={{ color: '#34d399' }}> ✓ set</span>}
+            </div>
+          ))}
+          {pages.pages.length > 0 && !pages.current_facebook_page_id && (
+            <div style={{ color: '#fbbf24' }}>Add FACEBOOK_PAGE_ID=&lt;id&gt; to Railway env vars</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const STATUS_COLOR = {
   posted:  { bg: '#052e1a', border: '#10b981', text: '#34d399' },
   failed:  { bg: '#2d0a0a', border: '#ef4444', text: '#f87171' },
@@ -399,8 +439,9 @@ export default function AdminSocialContent() {
               <span style={{ color: '#475569' }}>Post time</span>
               <div className="font-semibold mt-0.5" style={{ color: '#e2e8f0' }}>8:00 UTC daily</div>
             </div>
-            <div className="ml-auto text-xs self-center" style={{ color: '#475569' }}>
-              Set AUTO_POST_ENABLED, HEYGEN_*, INSTAGRAM_* in Railway env vars
+            <div className="ml-auto text-xs self-center flex flex-col gap-1 items-end" style={{ color: '#475569' }}>
+              <span>Set AUTO_POST_ENABLED, HEYGEN_*, INSTAGRAM_* in Railway env vars</span>
+              <FbPageLookup />
             </div>
           </div>
         )}

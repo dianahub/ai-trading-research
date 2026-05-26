@@ -8936,6 +8936,28 @@ def admin_social_preview_status(
     return {"ready": True, "generated_at": _social_preview["at"].isoformat(), **_social_preview["result"]}
 
 
+@app.get("/admin/social/facebook-pages")
+def admin_facebook_pages(
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Return the Facebook Pages accessible via the current INSTAGRAM_ACCESS_TOKEN."""
+    _require_admin(x_admin_email, x_admin_password)
+    token = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
+    if not token:
+        raise HTTPException(status_code=400, detail="INSTAGRAM_ACCESS_TOKEN not set")
+    r = requests.get(
+        "https://graph.facebook.com/v21.0/me/accounts",
+        params={"access_token": token, "fields": "id,name,category"},
+        timeout=15,
+    )
+    if not r.ok:
+        raise HTTPException(status_code=502, detail=f"Graph API error: {r.text[:300]}")
+    pages = r.json().get("data", [])
+    current = os.getenv("FACEBOOK_PAGE_ID", "")
+    return {"pages": pages, "current_facebook_page_id": current}
+
+
 @app.get("/admin/social/settings")
 def admin_social_settings(
     x_admin_email: str = Header(default=""),
