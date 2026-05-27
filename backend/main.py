@@ -8114,28 +8114,30 @@ def _fetch_intl_financial_news(_q: str | None = None) -> list[dict]:
     English feeds are returned as-is; non-English feeds are batch-translated.
     """
     # (source_name, rss_url, needs_translation)
+    # (source_name, rss_url, needs_translation, max_entries)
     _RSS_FEEDS = [
+        # ZeroHedge first so it's always included
+        ("ZeroHedge",           "https://feeds.feedburner.com/zerohedge/feed",                               False, 5),
         # English international
-        ("Nikkei Asia",         "https://asia.nikkei.com/rss/feed/nar",                                     False),
-        ("DW Business",         "https://rss.dw.com/rdf/rss-en-bus",                                        False),
-        ("The Hindu Business",  "https://www.thehindu.com/business/feeder/default.rss",                     False),
-        ("Arab News Economy",   "https://www.arabnews.com/taxonomy/term/6/feed",                             False),
-        ("Xinhua Finance",      "http://www.xinhuanet.com/english/rss/businessrss.xml",                      False),
-        ("ZeroHedge",           "https://feeds.feedburner.com/zerohedge/feed",                               False),
+        ("Nikkei Asia",         "https://asia.nikkei.com/rss/feed/nar",                                     False, 3),
+        ("DW Business",         "https://rss.dw.com/rdf/rss-en-bus",                                        False, 3),
+        ("The Hindu Business",  "https://www.thehindu.com/business/feeder/default.rss",                     False, 3),
+        ("Arab News Economy",   "https://www.arabnews.com/taxonomy/term/6/feed",                             False, 3),
+        ("Xinhua Finance",      "http://www.xinhuanet.com/english/rss/businessrss.xml",                      False, 3),
         # Non-English (translated)
-        ("Handelsblatt",        "https://www.handelsblatt.com/contentexport/feed/wirtschaft",                True),
-        ("Les Echos",           "https://www.lesechos.fr/arc/outboundfeeds/rss/?outputType=xml",             True),
-        ("El País Economía",    "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada", True),
-        ("Valor Econômico",     "https://www.valor.com.br/rss20.xml",                                        True),
+        ("Handelsblatt",        "https://www.handelsblatt.com/contentexport/feed/wirtschaft",                True,  3),
+        ("Les Echos",           "https://www.lesechos.fr/arc/outboundfeeds/rss/?outputType=xml",             True,  3),
+        ("El País Economía",    "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada", True, 3),
+        ("Valor Econômico",     "https://www.valor.com.br/rss20.xml",                                        True,  3),
     ]
 
     en_items: list[dict]   = []
     intl_items: list[dict] = []
 
-    for source_name, url, needs_translation in _RSS_FEEDS:
+    for source_name, url, needs_translation, max_entries in _RSS_FEEDS:
         try:
             feed = feedparser.parse(url, request_headers={"User-Agent": "StarSignalBot/1.0"})
-            entries = feed.entries[:3]
+            entries = feed.entries[:max_entries]
             for entry in entries:
                 title = (entry.get("title") or "").strip()
                 if not title or "[Removed]" in title:
@@ -8147,7 +8149,7 @@ def _fetch_intl_financial_news(_q: str | None = None) -> list[dict]:
                     en_items.append(item)
         except Exception:
             continue
-        if len(en_items) + len(intl_items) >= 20:
+        if len(en_items) + len(intl_items) >= 40:
             break
 
     if intl_items:
