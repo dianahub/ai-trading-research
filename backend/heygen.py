@@ -289,7 +289,8 @@ def _srt_to_drawtext(srt: str, text_y: int = 1000, fontsize: int = 28,
             f":fontcolor=white"
             f":x=(w-text_w)/2"
             f":y={text_y}"
-            f":shadowx=2:shadowy=2:shadowcolor=black@0.9"
+            f":shadowx=3:shadowy=3:shadowcolor=black@0.95"
+            f":box=1:boxcolor=black@0.55:boxborderw=12"
         )
         filters.append(f)
 
@@ -332,7 +333,7 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
             f.write(srt_content)
 
         # Build drawtext filter chain — captions near bottom, no dark panel
-        drawtext_filters = _srt_to_drawtext(srt_content, text_y=1150, temp_dir=cap_dir)
+        drawtext_filters = _srt_to_drawtext(srt_content, text_y=1150, fontsize=42, temp_dir=cap_dir)
         if not drawtext_filters:
             print("[heygen] No drawtext cues built — skipping caption burn", flush=True)
             return None
