@@ -482,7 +482,7 @@ export default function AdminSocialContent() {
               </button>
             </div>
             {showSuggestions && newsSuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden" style={{ background: '#0b1120', border: '1px solid #1e3a5f' }}>
+              <div className="absolute z-50 w-full mt-1 rounded-lg overflow-y-auto" style={{ background: '#0b1120', border: '1px solid #1e3a5f', maxHeight: 320 }}>
                 {newsSuggestions.map((item, i) => (
                   <button
                     key={i}
