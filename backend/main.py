@@ -9029,6 +9029,11 @@ def admin_social_news_search(
     q = q.strip()
     if not q:
         results = _fetch_top_financial_news()
+        intl = _fetch_intl_financial_news()
+        seen = {r["title"] for r in results}
+        for it in intl:
+            if it["title"] not in seen:
+                results.append(it)
     else:
         from datetime import datetime as _dt, timezone as _tz
         today = _dt.now(_tz.utc).strftime("%Y-%m-%d")
