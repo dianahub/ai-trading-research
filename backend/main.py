@@ -140,8 +140,8 @@ HEYGEN_AVATAR_ID = os.getenv("HEYGEN_AVATAR_ID", "")
 
 # Known avatar IDs that can be toggled in the admin UI
 HEYGEN_AVATAR_IDS = [
-    {"id": HEYGEN_AVATAR_ID,                     "label": "Avatar 1"},
-    {"id": "6431a82f5aa14667a246f182c9032834",   "label": "Avatar 2"},
+    {"id": "abe6938e92cc46c396ac0c0b92b59eda",   "label": "Avatar 1"},
+    {"id": "b22515f8b3244a88bd53d5c483eeed39",   "label": "Avatar 2"},
 ]
 _active_avatar: dict = {"id": HEYGEN_AVATAR_ID}   # overridden by /admin/social/avatar-select
 
@@ -8121,6 +8121,7 @@ def _fetch_intl_financial_news(_q: str | None = None) -> list[dict]:
         ("The Hindu Business",  "https://www.thehindu.com/business/feeder/default.rss",                     False),
         ("Arab News Economy",   "https://www.arabnews.com/taxonomy/term/6/feed",                             False),
         ("Xinhua Finance",      "http://www.xinhuanet.com/english/rss/businessrss.xml",                      False),
+        ("ZeroHedge",           "https://feeds.feedburner.com/zerohedge/feed",                               False),
         # Non-English (translated)
         ("Handelsblatt",        "https://www.handelsblatt.com/contentexport/feed/wirtschaft",                True),
         ("Les Echos",           "https://www.lesechos.fr/arc/outboundfeeds/rss/?outputType=xml",             True),

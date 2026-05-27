@@ -38,8 +38,8 @@ def _ensure_temp_dir():
 def generate_twin_video(script: str) -> tuple[str, str | None]:
     """Submit a 9:16 talking-head video job and return (video_url, caption_url_or_none)."""
     from datetime import date as _date
-    avatar_id_1 = os.getenv("HEYGEN_AVATAR_ID", "")
-    avatar_id_2 = os.getenv("HEYGEN_AVATAR_ID_2", "6431a82f5aa14667a246f182c9032834")
+    avatar_id_1 = os.getenv("HEYGEN_AVATAR_ID", "abe6938e92cc46c396ac0c0b92b59eda")
+    avatar_id_2 = os.getenv("HEYGEN_AVATAR_ID_2", "b22515f8b3244a88bd53d5c483eeed39")
     # Alternate every day: even day-of-year → avatar 1, odd → avatar 2
     avatar_id = avatar_id_1 if _date.today().timetuple().tm_yday % 2 == 0 else avatar_id_2
     voice_id  = os.getenv("HEYGEN_VOICE_ID", "")
@@ -58,16 +58,18 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
     else:
         character = {"type": "avatar", "avatar_id": avatar_id, "avatar_style": "normal"}
 
-    bg_value = os.getenv("HEYGEN_BACKGROUND", "https://www.starsignal.io/starsignal-bg.png")
-    bg_type  = "image" if bg_value.startswith("http") else "color"
-    background = {"type": bg_type, "url": bg_value} if bg_type == "image" else {"type": bg_type, "value": bg_value}
+    bg_value = os.getenv("HEYGEN_BACKGROUND", "")
+
+    video_input: dict = {"character": character, "voice": voice_block}
+    if bg_value:
+        bg_type = "image" if bg_value.startswith("http") else "color"
+        video_input["background"] = (
+            {"type": bg_type, "url": bg_value} if bg_type == "image"
+            else {"type": bg_type, "value": bg_value}
+        )
 
     payload = {
-        "video_inputs": [{
-            "character":  character,
-            "voice":      voice_block,
-            "background": background,
-        }],
+        "video_inputs": [video_input],
         "dimension":    {"width": 720, "height": 1280},
         "aspect_ratio": "9:16",
         "caption":      True,   # request VTT caption file from HeyGen
@@ -329,18 +331,26 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
         with open(sub_path, "w", encoding="utf-8") as f:
             f.write(srt_content)
 
-        # Dark panel over bottom 28% of the 1280px frame
-        panel_h = 358   # 1280 * 0.28
-        panel_y = 922   # 1280 - 358
-        drawbox = f"drawbox=x=0:y={panel_y}:w=iw:h={panel_h}:color=black@0.82:t=fill"
-
-        # Build drawtext filter chain — cue text written to files to avoid escaping issues
-        drawtext_filters = _srt_to_drawtext(srt_content, text_y=panel_y + 80, temp_dir=cap_dir)
+        # Build drawtext filter chain — captions near bottom, no dark panel
+        drawtext_filters = _srt_to_drawtext(srt_content, text_y=1150, temp_dir=cap_dir)
         if not drawtext_filters:
             print("[heygen] No drawtext cues built — skipping caption burn", flush=True)
             return None
 
-        vf = drawbox + "," + drawtext_filters
+        # Static "Starsignal.io" label at the top
+        font_file = _find_font_file()
+        font_part = f":fontfile={font_file}" if font_file else ""
+        starsignal_label = (
+            f"drawtext=text='Starsignal.io'"
+            f":fontsize=38"
+            f"{font_part}"
+            f":fontcolor=white"
+            f":x=(w-text_w)/2"
+            f":y=50"
+            f":shadowx=3:shadowy=3:shadowcolor=black@0.9"
+        )
+
+        vf = starsignal_label + "," + drawtext_filters
         print(f"[heygen] drawtext cues built ({drawtext_filters.count('drawtext=')} cues)", flush=True)
         cmd = [
             ffmpeg_bin, "-y",
