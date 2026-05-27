@@ -343,12 +343,13 @@ def burn_captions(video_url: str, caption_url: str | None, script: str) -> str |
         font_part = f":fontfile={font_file}" if font_file else ""
         starsignal_label = (
             f"drawtext=text='Starsignal.io'"
-            f":fontsize=38"
+            f":fontsize=42"
             f"{font_part}"
             f":fontcolor=white"
             f":x=(w-text_w)/2"
             f":y=50"
-            f":shadowx=3:shadowy=3:shadowcolor=black@0.9"
+            f":shadowx=3:shadowy=3:shadowcolor=black@0.95"
+            f":box=1:boxcolor=black@0.55:boxborderw=16"
         )
 
         vf = starsignal_label + "," + drawtext_filters
