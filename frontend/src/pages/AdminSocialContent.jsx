@@ -266,7 +266,12 @@ export default function AdminSocialContent() {
       })
       const d = await r.json()
       if (d.posted) {
-        setStatusMsg(`Posted! ${d.permalink}`)
+        const parts = [`Instagram ✓`]
+        if (d.facebook_url)    parts.push(`Facebook ✓`)
+        else if (d.facebook_error) parts.push(`Facebook ✗: ${d.facebook_error}`)
+        if (d.youtube_url)     parts.push(`YouTube ✓`)
+        else if (d.youtube_error)  parts.push(`YouTube ✗: ${d.youtube_error}`)
+        setStatusMsg(`Posted! ${parts.join(' | ')}`)
         setPreview(null)
         loadPosts()
       } else {

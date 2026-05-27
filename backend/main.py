@@ -9314,20 +9314,26 @@ def admin_social_post_preview(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    fb_result = {}
+    fb_error  = None
     try:
         from instagram import post_to_facebook
         if content_type == "video":
-            post_to_facebook(media_url, caption)
-    except Exception:
-        pass  # best-effort
+            fb_result = post_to_facebook(media_url, caption) or {}
+    except Exception as e:
+        fb_error = str(e)
+        print(f"[social] Facebook post failed: {e}", flush=True)
 
+    yt_result = {}
+    yt_error  = None
     try:
         from youtube import post_to_youtube
         if content_type == "video":
             yt_title = (p.get("script") or "").split(".")[0].strip()[:100] or "Star Signal"
-            post_to_youtube(media_url, yt_title, caption)
-    except Exception:
-        pass  # best-effort
+            yt_result = post_to_youtube(media_url, yt_title, caption) or {}
+    except Exception as e:
+        yt_error = str(e)
+        print(f"[social] YouTube post failed: {e}", flush=True)
 
     today      = _social_today()
     preview_res = _social_preview.get("result") or {}
@@ -9376,7 +9382,14 @@ def admin_social_post_preview(
 
     _social_preview["result"] = None
     _social_preview["at"]     = None
-    return {"posted": True, "permalink": ig["permalink"]}
+    return {
+        "posted":           True,
+        "permalink":        ig["permalink"],
+        "facebook_url":     fb_result.get("permalink"),
+        "facebook_error":   fb_error,
+        "youtube_url":      yt_result.get("permalink"),
+        "youtube_error":    yt_error,
+    }
 
 
 @app.post("/admin/social/skip-today")
