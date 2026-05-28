@@ -47,7 +47,7 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
         raise RuntimeError("HEYGEN_AVATAR_ID not set")
     print(f"[heygen] day={_date.today().timetuple().tm_yday} using avatar={avatar_id[:8]}…", flush=True)
 
-    avatar_type = os.getenv("HEYGEN_AVATAR_TYPE", "talking_photo")
+    avatar_type = os.getenv("HEYGEN_AVATAR_TYPE", "avatar")
 
     voice_block: dict = {"type": "text", "input_text": script, "speed": 1.0}
     if voice_id:
@@ -56,7 +56,8 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
     if avatar_type == "talking_photo":
         character = {"type": "talking_photo", "talking_photo_id": avatar_id}
     else:
-        character = {"type": "avatar", "avatar_id": avatar_id, "avatar_style": "normal"}
+        avatar_style = os.getenv("HEYGEN_AVATAR_STYLE", "full")
+        character = {"type": "avatar", "avatar_id": avatar_id, "avatar_style": avatar_style}
 
     bg_value = os.getenv("HEYGEN_BACKGROUND", "")
 
