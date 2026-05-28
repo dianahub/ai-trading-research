@@ -9314,23 +9314,33 @@ def admin_social_post_preview(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    fb_result = {}
-    fb_error  = None
+    fb_result   = {}
+    fb_error    = None
+    fb_skipped  = False
     try:
         from instagram import post_to_facebook
+        import os as _os
         if content_type == "video":
-            fb_result = post_to_facebook(media_url, caption) or {}
+            if not _os.getenv("FACEBOOK_PAGE_ID"):
+                fb_skipped = True
+            else:
+                fb_result = post_to_facebook(media_url, caption) or {}
     except Exception as e:
         fb_error = str(e)
         print(f"[social] Facebook post failed: {e}", flush=True)
 
-    yt_result = {}
-    yt_error  = None
+    yt_result   = {}
+    yt_error    = None
+    yt_skipped  = False
     try:
         from youtube import post_to_youtube
+        import os as _os
         if content_type == "video":
-            yt_title = (p.get("script") or "").split(".")[0].strip()[:100] or "Star Signal"
-            yt_result = post_to_youtube(media_url, yt_title, caption) or {}
+            if not _os.getenv("YOUTUBE_REFRESH_TOKEN"):
+                yt_skipped = True
+            else:
+                yt_title = (p.get("script") or "").split(".")[0].strip()[:100] or "Star Signal"
+                yt_result = post_to_youtube(media_url, yt_title, caption) or {}
     except Exception as e:
         yt_error = str(e)
         print(f"[social] YouTube post failed: {e}", flush=True)
@@ -9383,12 +9393,14 @@ def admin_social_post_preview(
     _social_preview["result"] = None
     _social_preview["at"]     = None
     return {
-        "posted":           True,
-        "permalink":        ig["permalink"],
-        "facebook_url":     fb_result.get("permalink"),
-        "facebook_error":   fb_error,
-        "youtube_url":      yt_result.get("permalink"),
-        "youtube_error":    yt_error,
+        "posted":            True,
+        "permalink":         ig["permalink"],
+        "facebook_url":      fb_result.get("permalink"),
+        "facebook_error":    fb_error,
+        "facebook_skipped":  fb_skipped,
+        "youtube_url":       yt_result.get("permalink"),
+        "youtube_error":     yt_error,
+        "youtube_skipped":   yt_skipped,
     }
 
 

@@ -21,8 +21,8 @@ def _youtube_client():
         token=None,
         refresh_token=os.environ["YOUTUBE_REFRESH_TOKEN"],
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.environ["YOUTUBE_CLIENT_ID"],
-        client_secret=os.environ["YOUTUBE_CLIENT_SECRET"],
+        client_id=os.environ.get("YOUTUBE_CLIENT_ID") or os.environ["GOOGLE_CLIENT_ID"],
+        client_secret=os.environ.get("YOUTUBE_CLIENT_SECRET") or os.environ["GOOGLE_CLIENT_SECRET"],
         scopes=["https://www.googleapis.com/auth/youtube.upload"],
     )
     creds.refresh(Request())

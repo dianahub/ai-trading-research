@@ -267,10 +267,12 @@ export default function AdminSocialContent() {
       const d = await r.json()
       if (d.posted) {
         const parts = [`Instagram ✓`]
-        if (d.facebook_url)    parts.push(`Facebook ✓`)
-        else if (d.facebook_error) parts.push(`Facebook ✗: ${d.facebook_error}`)
-        if (d.youtube_url)     parts.push(`YouTube ✓`)
-        else if (d.youtube_error)  parts.push(`YouTube ✗: ${d.youtube_error}`)
+        if (d.facebook_url)          parts.push(`Facebook ✓`)
+        else if (d.facebook_error)   parts.push(`Facebook ✗: ${d.facebook_error}`)
+        else if (d.facebook_skipped) parts.push(`Facebook — not configured`)
+        if (d.youtube_url)           parts.push(`YouTube ✓`)
+        else if (d.youtube_error)    parts.push(`YouTube ✗: ${d.youtube_error}`)
+        else if (d.youtube_skipped)  parts.push(`YouTube — not configured`)
         setStatusMsg(`Posted! ${parts.join(' | ')}`)
         setPreview(null)
         loadPosts()
