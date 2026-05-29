@@ -18,6 +18,7 @@ import WhaleSection from './components/WhaleSection'
 import FundamentalsCard from './components/FundamentalsCard'
 import AstroInsightsPanel from './components/AstroInsightsPanel'
 import ChatWidget from './components/ChatWidget'
+import CongressPanel from './components/CongressPanel'
 
 const FREE_LIMIT = 10
 const PARTNER_LIMIT = 50
@@ -386,7 +387,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       if (!detected) detected = { asset_type: 'crypto', name: ticker.toUpperCase() }
       const isStock = detected.asset_type === 'stock'
 
-      const [price, news, technicals, smartMoney, fundamentals] = await Promise.all([
+      const [price, news, technicals, smartMoney, fundamentals, congress] = await Promise.all([
         apiFetch(isStock ? `/stock/price/${ticker}` : `/price/${ticker}`)
           .catch(() => ({ _unavailable: true, ticker: ticker.toUpperCase() })),
         apiFetch(isStock ? `/stock/news/${ticker}` : `/news/${ticker}`)
@@ -402,6 +403,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         isStock
           ? apiFetch(`/fundamentals/${ticker}`).catch(() => null)
           : Promise.resolve(null),
+        apiFetch(`/congress/${ticker}`).catch(() => null),
       ])
 
       const [insiders, options] = isStock ? smartMoney : [null, null]
@@ -426,6 +428,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         insiders,
         options,
         fundamentals: fundamentals?.revenue ? fundamentals : null,
+        congress: congress?.unavailable ? null : congress,
         analysis: null,
         assetType: detected?.asset_type || (isStock ? 'stock' : 'crypto'),
         name
@@ -925,6 +928,13 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             <div id="news" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
               <NewsSection news={data.news} newsSentiment={data.analysis?.news_sentiment} />
             </div>
+
+            {/* Congressional trades — stocks only, shown when FMP key is configured */}
+            {data.congress && (
+              <div id="congress" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
+                <CongressPanel congressData={data.congress} ticker={data.price?.ticker || ticker} />
+              </div>
+            )}
 
           </>
         )}
