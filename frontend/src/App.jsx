@@ -717,20 +717,13 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
                   {/* CTA buttons */}
                   <div className="flex flex-col sm:flex-row items-center md:items-start gap-3 pt-1">
-                    <a href="/beta"
+                    <a href="/login"
                       style={{
                         display: 'inline-block', background: '#06b6d4', color: '#000',
                         fontWeight: 700, fontSize: '1rem', padding: '0.75rem 1.75rem',
                         borderRadius: '0.75rem', textDecoration: 'none', letterSpacing: '0.01em',
                       }}>
                       Start Free — 30 Days on Us
-                    </a>
-                    <a href="/login"
-                      style={{
-                        display: 'inline-block', color: '#94a3b8', fontWeight: 500,
-                        fontSize: '0.95rem', padding: '0.75rem 1rem', textDecoration: 'none',
-                      }}>
-                      Already have an account →
                     </a>
                   </div>
                   <p className="text-xs" style={{ color: '#475569' }}>No credit card required · Cancel anytime</p>
