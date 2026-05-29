@@ -51,12 +51,12 @@ export default function AuthNav() {
   if (!user) return (
     <div className="flex items-center gap-2">
       <Link to="/login"
-        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-        style={{ background: 'transparent', border: '1px solid #334155', color: '#e2e8f0', textDecoration: 'none' }}>
+        className="px-4 py-2 rounded-lg text-sm font-semibold"
+        style={{ background: 'transparent', border: '1px solid #94a3b8', color: '#fff', textDecoration: 'none' }}>
         Login
       </Link>
       <Link to="/login"
-        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+        className="px-4 py-2 rounded-lg text-sm font-semibold"
         style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
         Get Started Free
       </Link>
