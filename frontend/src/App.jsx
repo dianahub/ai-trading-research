@@ -929,8 +929,8 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               <NewsSection news={data.news} newsSentiment={data.analysis?.news_sentiment} />
             </div>
 
-            {/* Congressional trades — stocks only, shown when FMP key is configured */}
-            {data.congress && (
+            {/* Congressional trades — shown when backend has a working data source and returns trades */}
+            {data.congress && data.congress.total > 0 && (
               <div id="congress" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
                 <CongressPanel congressData={data.congress} ticker={data.price?.ticker || ticker} />
               </div>
