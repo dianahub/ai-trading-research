@@ -963,20 +963,20 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           <div className="w-full max-w-sm rounded-2xl p-8 text-center" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}
             onClick={e => e.stopPropagation()}>
             <div className="text-3xl mb-4">✦</div>
-            <h2 className="text-xl font-black mb-2" style={{ color: '#f1f5f9' }}>Please login or apply for a free Beta Account</h2>
+            <h2 className="text-xl font-black mb-2" style={{ color: '#f1f5f9' }}>Sign in to continue</h2>
             <p className="text-sm mb-6" style={{ color: '#94a3b8' }}>
-              Create a free beta account to access AI-powered trading research.
+              Get 30 days free — no credit card required.
             </p>
             <div className="flex flex-col gap-3">
               <a href="/login"
                 className="block w-full py-3 rounded-xl text-sm font-bold"
+                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
+                Get Started Free
+              </a>
+              <a href="/login"
+                className="block w-full py-3 rounded-xl text-sm font-bold"
                 style={{ background: '#0f1a2e', border: '1px solid #1e2d45', color: '#e2e8f0', textDecoration: 'none' }}>
                 Login
-              </a>
-              <a href="/beta"
-                className="block w-full py-3 rounded-xl text-sm font-bold"
-                style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: '#fff', textDecoration: 'none' }}>
-                Apply for free beta
               </a>
             </div>
             <button

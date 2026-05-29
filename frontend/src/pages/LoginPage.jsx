@@ -129,7 +129,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm mt-6" style={{ color: '#94a3b8' }}>
           Don't have an account?{' '}
-          <Link to="/beta" style={{ color: '#06b6d4', textDecoration: 'none' }}>Apply for beta access</Link>
+          <Link to="/signup" style={{ color: '#06b6d4', textDecoration: 'none' }}>Sign up free</Link>
         </p>
       </div>
     </div>

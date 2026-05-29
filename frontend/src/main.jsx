@@ -22,7 +22,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage.jsx'
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
 import MagicLoginPage from './pages/MagicLoginPage.jsx'
-import BetaPage from './pages/BetaPage.jsx'
+import { Navigate } from 'react-router-dom'
 import AccountPage from './pages/AccountPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
@@ -75,9 +75,9 @@ createRoot(document.getElementById('root')).render(
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/magic-login" element={<MagicLoginPage />} />
-        {/* Beta */}
-        <Route path="/beta" element={<BetaPage />} />
-        <Route path="/join" element={<BetaPage />} />
+        {/* Beta path retired — redirect to login */}
+        <Route path="/beta" element={<Navigate to="/login" replace />} />
+        <Route path="/join" element={<Navigate to="/login" replace />} />
         <Route path="/join/:slug" element={<JoinPage />} />
         {/* Admin */}
         <Route path="/admin/commissions" element={<AdminCommissions />} />

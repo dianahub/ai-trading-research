@@ -10,7 +10,7 @@ export default function JoinPage() {
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (!slug) { navigate('/beta'); return }
+    if (!slug) { navigate('/login'); return }
 
     fetch(`${API}/join/${slug}`)
       .then(r => {
@@ -27,7 +27,7 @@ export default function JoinPage() {
   }, [slug, navigate])
 
   function handleCTA() {
-    navigate(`/beta?ref=${slug}`)
+    navigate(`/login?ref=${slug}`)
   }
 
   if (notFound) {
@@ -37,7 +37,7 @@ export default function JoinPage() {
           <div className="text-5xl mb-4">🔭</div>
           <h1 className="text-2xl font-bold mb-2" style={{ color: '#f1f5f9' }}>Link not found</h1>
           <p className="mb-6" style={{ color: '#94a3b8' }}>This referral link doesn't exist.</p>
-          <button onClick={() => navigate('/beta')}
+          <button onClick={() => navigate('/login')}
             className="px-6 py-3 rounded-lg font-semibold text-white"
             style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)' }}>
             Apply for Beta Access
