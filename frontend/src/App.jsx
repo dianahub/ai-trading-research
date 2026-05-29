@@ -696,7 +696,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                     <span style={{ color: '#06b6d4' }}>and the Charts</span>
                   </h1>
                   <p className="text-base md:text-lg max-w-md" style={{ color: '#94a3b8' }}>
-                    The only research tool that pairs AI-powered technical analysis and news sentiment with financial astrology — so you see what the market <em>and</em> the cosmos are signaling.
+                    The only research tool that pairs AI-powered technical analysis and news sentiment with financial astrology — so you see what the market <em>and</em> the cosmos are signaling. Search any ticker, then ask our AI anything about it.
                   </p>
 
                   {/* Feature pills */}
@@ -749,7 +749,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                   <span style={{ color: '#06b6d4' }}>and the Charts</span>
                 </h1>
                 <p className="text-base max-w-lg mx-auto" style={{ color: '#94a3b8' }}>
-                  Enter any stock or crypto ticker for an instant AI research report — technical analysis, news sentiment, whale tracking, and astrological market signals in one place.
+                  Search any stock or crypto ticker for an instant AI research report — then ask our AI anything about it. Technical analysis, news sentiment, whale tracking, and astrological signals in one place.
                 </p>
 
                 {/* Feature pills */}
