@@ -86,7 +86,20 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
         raise RuntimeError(f"HeyGen generate: unexpected response — {data}")
 
     print(f"[heygen] Video job submitted: {video_id}", flush=True)
-    return _poll_video(video_id)
+    video_url, caption_url = _poll_video(video_id)
+
+    # Optional sync.so lipsync post-processing
+    try:
+        from syncso import is_configured, lipsync
+        if is_configured():
+            print("[heygen] Piping through sync.so for improved lipsync…", flush=True)
+            video_url = lipsync(video_url)
+        else:
+            print("[heygen] SYNCSO_API_KEY not set — skipping lipsync step", flush=True)
+    except Exception as e:
+        print(f"[heygen] sync.so step failed ({e}) — using raw HeyGen video", flush=True)
+
+    return video_url, caption_url
 
 
 def _poll_video(video_id: str) -> tuple[str, str | None]:
