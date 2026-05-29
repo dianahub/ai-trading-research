@@ -35,6 +35,11 @@ def _token() -> str:
 def _fb_page_token(page_id: str) -> str:
     if page_id in _fb_token_cache:
         return _fb_token_cache[page_id]
+    # Use a dedicated page token if provided — never expires
+    direct = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN", "")
+    if direct:
+        _fb_token_cache[page_id] = direct
+        return direct
     r = requests.get(
         f"{_GRAPH}/me/accounts",
         params={"access_token": _token()},
