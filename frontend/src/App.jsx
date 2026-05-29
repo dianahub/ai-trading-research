@@ -683,75 +683,118 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
         {/* Idle state */}
         {!loading && !data && !error && (
-          <div className="flex flex-col items-center justify-center py-6 md:py-20 space-y-6 fade-in">
-            {/* Hero */}
-            <div className="text-center space-y-3">
-              <div className="text-5xl mb-2">🔭 ♅</div>
-              <p className="text-4xl md:text-5xl font-bold tracking-tight" style={{ color: '#e2e8f0' }}>Starsignal.io</p>
-              <h2 className="text-lg font-semibold" style={{ color: '#94a3b8' }}>
-                AI + Astro Trading Research
-              </h2>
-              <p className="text-base max-w-lg mx-auto" style={{ color: '#94a3b8' }}>
-                Enter any stock or crypto ticker to get an instant AI-powered research report — combining technical analysis, news sentiment, and astrological market signals.
-              </p>
-            </div>
+          <div className="flex flex-col items-center justify-center py-6 md:py-16 space-y-8 fade-in">
 
-            {/* Feature pills */}
-            <div className="flex flex-wrap justify-center gap-3 text-xs">
-              {[
-                { icon: '📈', label: 'Technicals & Indicators' },
-                { icon: '📰', label: 'News Sentiment' },
-                { icon: '🐋', label: 'Whale & Smart Money' },
-                { icon: '♅', label: 'Astro Signals' },
-                { icon: '🤖', label: 'Claude AI Summary' },
-              ].map(f => (
-                <span key={f.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium"
-                  style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
-                  {f.icon} {f.label}
-                </span>
-              ))}
-            </div>
-            {/* Inserted video element here */}
-            {AUTH_ACTIVE && !authedUser && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
-                <div style={{ borderRadius: 16, overflow: 'hidden', width: '100%', maxWidth: 315, aspectRatio: '9/16', background: '#0b1120' }}>
-                  <video
-                    src="/promo.mp4"
-                    autoPlay muted loop playsInline
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
+            {/* Hero — two-column on desktop when video is shown, centered otherwise */}
+            {AUTH_ACTIVE && !authedUser ? (
+              <div className="w-full flex flex-col md:flex-row items-center gap-8 md:gap-12">
+                {/* Left: copy + CTA */}
+                <div className="flex-1 text-center md:text-left space-y-5">
+                  <div className="text-4xl">♅ 🔭</div>
+                  <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-tight" style={{ color: '#e2e8f0' }}>
+                    Trade with the Stars<br />
+                    <span style={{ color: '#06b6d4' }}>and the Charts</span>
+                  </h1>
+                  <p className="text-base md:text-lg max-w-md" style={{ color: '#94a3b8' }}>
+                    The only research tool that pairs AI-powered technical analysis and news sentiment with financial astrology — so you see what the market <em>and</em> the cosmos are signaling.
+                  </p>
+
+                  {/* Feature pills */}
+                  <div className="flex flex-wrap justify-center md:justify-start gap-2 text-xs">
+                    {[
+                      { icon: '♅', label: 'Astro Signals' },
+                      { icon: '📈', label: 'Technicals' },
+                      { icon: '📰', label: 'News Sentiment' },
+                      { icon: '🐋', label: 'Whale Tracking' },
+                      { icon: '🤖', label: 'Claude AI' },
+                    ].map(f => (
+                      <span key={f.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium"
+                        style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
+                        {f.icon} {f.label}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* CTA buttons */}
+                  <div className="flex flex-col sm:flex-row items-center md:items-start gap-3 pt-1">
+                    <a href="/beta"
+                      style={{
+                        display: 'inline-block', background: '#06b6d4', color: '#000',
+                        fontWeight: 700, fontSize: '1rem', padding: '0.75rem 1.75rem',
+                        borderRadius: '0.75rem', textDecoration: 'none', letterSpacing: '0.01em',
+                      }}>
+                      Start Free — 30 Days on Us
+                    </a>
+                    <a href="/login"
+                      style={{
+                        display: 'inline-block', color: '#94a3b8', fontWeight: 500,
+                        fontSize: '0.95rem', padding: '0.75rem 1rem', textDecoration: 'none',
+                      }}>
+                      Already have an account →
+                    </a>
+                  </div>
+                  <p className="text-xs" style={{ color: '#475569' }}>No credit card required · Cancel anytime</p>
+                </div>
+
+                {/* Right: promo video */}
+                <div className="shrink-0" style={{ width: '100%', maxWidth: 260 }}>
+                  <div style={{ borderRadius: 20, overflow: 'hidden', aspectRatio: '9/16', background: '#0b1120', boxShadow: '0 8px 40px rgba(6,182,212,0.15)' }}>
+                    <video
+                      src="/promo.mp4"
+                      autoPlay muted loop playsInline
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Logged-in / auth-disabled: centered hero */
+              <div className="text-center space-y-4">
+                <div className="text-5xl mb-2">♅ 🔭</div>
+                <h1 className="text-4xl md:text-5xl font-bold tracking-tight" style={{ color: '#e2e8f0' }}>
+                  Trade with the Stars<br />
+                  <span style={{ color: '#06b6d4' }}>and the Charts</span>
+                </h1>
+                <p className="text-base max-w-lg mx-auto" style={{ color: '#94a3b8' }}>
+                  Enter any stock or crypto ticker for an instant AI research report — technical analysis, news sentiment, whale tracking, and astrological market signals in one place.
+                </p>
+
+                {/* Feature pills */}
+                <div className="flex flex-wrap justify-center gap-3 text-xs pt-1">
+                  {[
+                    { icon: '♅', label: 'Astro Signals' },
+                    { icon: '📈', label: 'Technicals' },
+                    { icon: '📰', label: 'News Sentiment' },
+                    { icon: '🐋', label: 'Whale Tracking' },
+                    { icon: '🤖', label: 'Claude AI' },
+                  ].map(f => (
+                    <span key={f.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium"
+                      style={{ background: '#111827', border: '1px solid #1e2d45', color: '#94a3b8' }}>
+                      {f.icon} {f.label}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Quick tickers — hidden for logged-out users when auth is active */}
-            <div className="text-center space-y-2">
-              {(!AUTH_ACTIVE || authedUser) && (
-                <>
-                  <p className="text-base font-semibold" style={{ color: '#94a3b8' }}>👇 Try a quick search below, or enter any symbol above in the search bar and click Analyze</p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
-                      <button key={t}
-                        onClick={() => handleSearch(t)}
-                        className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all"
-                        style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-              {AUTH_ACTIVE && !authedUser && (
-                <p className="text-sm mt-2 font-medium" style={{ color: '#94a3b8' }}>
-                  Please{' '}
-                  <a href="/login" style={{ color: '#06b6d4', textDecoration: 'none' }}>login</a>
-                  {' '}or{' '}
-                  <a href="/beta" style={{ color: '#06b6d4', textDecoration: 'none' }}>apply for a free Beta Account</a>
-                </p>
-              )}
-            </div>
+            {/* Quick tickers — logged-in / auth-disabled only */}
+            {(!AUTH_ACTIVE || authedUser) && (
+              <div className="text-center space-y-3">
+                <p className="text-sm font-medium" style={{ color: '#64748b' }}>Try a ticker to get started</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
+                    <button key={t}
+                      onClick={() => handleSearch(t)}
+                      className="px-4 py-2 rounded-lg text-sm font-mono font-semibold transition-all"
+                      style={{ background: '#111827', border: '1px solid #1e3a5f', color: '#94a3b8', cursor: 'pointer' }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            <p className="text-xs" style={{ color: '#94a3b8' }}>
+            <p className="text-xs" style={{ color: '#334155' }}>
               Powered by CoinGecko · Finnhub · Claude AI · Financial Astrology
             </p>
           </div>
