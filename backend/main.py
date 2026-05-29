@@ -271,6 +271,14 @@ def _save_cache():
 
 _load_cache()  # load on startup
 
+# Senate congressional trading — warm cache in background on startup
+try:
+    import congress_senate as _congress_senate
+    _congress_senate.start_background_load()
+except Exception as _e:
+    print(f"[main] congress_senate load skipped: {_e}", flush=True)
+    _congress_senate = None  # type: ignore
+
 COINGECKO_BASE   = "https://api.coingecko.com/api/v3"
 NEWSAPI_BASE     = "https://newsapi.org/v2"
 ETHERSCAN_BASE   = "https://api.etherscan.io/api"
@@ -1195,7 +1203,7 @@ def chat_celeste(body: ChatRequest, response: Response, ss_session: Optional[str
 
 
 def _fetch_congress_data(ticker: str) -> tuple[list, list]:
-    """Fetch House + Senate trades for a ticker via FMP. Returns (house_trades, senate_trades)."""
+    """Fetch House trades via FMP. Senate data is handled by congress_senate module."""
     if not FMP_API_KEY:
         return [], []
 
@@ -1203,9 +1211,9 @@ def _fetch_congress_data(ticker: str) -> tuple[list, list]:
     now   = time.time()
     cached = _congress_cache.get(upper)
     if cached and (now - cached["fetched_at"]) < CONGRESS_TTL:
-        return cached["house"], cached["senate"]
+        return cached["house"], cached.get("senate", [])
 
-    house, senate = [], []
+    house = []
     try:
         r = requests.get(
             f"{FMP_BASE}/house-disclosure",
@@ -1217,73 +1225,64 @@ def _fetch_congress_data(ticker: str) -> tuple[list, list]:
     except Exception:
         pass
 
-    try:
-        r = requests.get(
-            f"{FMP_BASE}/senate-trading",
-            params={"symbol": upper, "apikey": FMP_API_KEY},
-            timeout=15, headers=_HEADERS,
-        )
-        if r.ok:
-            senate = r.json() if isinstance(r.json(), list) else []
-    except Exception:
-        pass
-
-    _congress_cache[upper] = {"house": house, "senate": senate, "fetched_at": now}
-    return house, senate
+    _congress_cache[upper] = {"house": house, "senate": [], "fetched_at": now}
+    return house, []
 
 
 @app.get("/congress/{ticker}")
 def get_congress_trades(ticker: str):
-    """Return recent congressional stock trades for a given ticker (House + Senate)."""
-    if not FMP_API_KEY:
-        return {"ticker": ticker.upper(), "total": 0, "trades": [], "data_current": False, "unavailable": True}
-
+    """Return recent congressional stock trades for a given ticker (Senate live + House via FMP)."""
     upper = ticker.upper()
-    house_raw, senate_raw = _fetch_congress_data(upper)
-
     trades = []
 
-    for t in house_raw:
-        tx_type = (t.get("type") or "").lower()
-        trades.append({
-            "member":     t.get("representative", "Unknown"),
-            "chamber":    "House",
-            "trade_type": "buy" if "purchase" in tx_type else "sell",
-            "amount":     t.get("amount", "—"),
-            "tx_date":    t.get("transactionDate") or t.get("disclosureDate") or "",
-            "disclosed":  t.get("disclosureDate", ""),
-            "asset":      t.get("assetDescription", ticker),
-            "link":       t.get("link", ""),
-        })
+    # --- Senate: live EFD scrape (cached daily) ---
+    if _congress_senate and _congress_senate.is_ready():
+        senate_trades = _congress_senate.get_trades_for_ticker(upper)
+        trades.extend(senate_trades)
+    cache_loading = _congress_senate is not None and not (_congress_senate.is_ready())
 
-    for t in senate_raw:
-        tx_type = (t.get("type") or "").lower()
-        name = t.get("senator") or f"{t.get('firstName', '')} {t.get('lastName', '')}".strip() or "Unknown"
-        trades.append({
-            "member":     name,
-            "chamber":    "Senate",
-            "trade_type": "buy" if "purchase" in tx_type else "sell",
-            "amount":     t.get("amount", "—"),
-            "tx_date":    t.get("transactionDate") or t.get("dateRecieved") or "",
-            "disclosed":  t.get("dateRecieved", ""),
-            "asset":      t.get("assetDescription", ticker),
-            "link":       t.get("link", ""),
-        })
+    # --- House: FMP fallback (works if FMP_API_KEY is set and tier allows) ---
+    if FMP_API_KEY:
+        house_raw, _ = _fetch_congress_data(upper)
+        for t in house_raw:
+            tx_type = (t.get("type") or "").lower()
+            trades.append({
+                "member":     t.get("representative", "Unknown"),
+                "chamber":    "House",
+                "trade_type": "buy" if "purchase" in tx_type else "sell",
+                "amount":     t.get("amount", "—"),
+                "tx_date":    t.get("transactionDate") or t.get("disclosureDate") or "",
+                "disclosed":  t.get("disclosureDate", ""),
+                "asset":      t.get("assetDescription", ticker),
+                "link":       t.get("link", ""),
+            })
+
+    if not trades and cache_loading:
+        return {
+            "ticker": upper, "total": 0, "trades": [],
+            "data_current": False, "cache_loading": True,
+        }
+
+    if not trades and not _congress_senate:
+        return {"ticker": upper, "total": 0, "trades": [], "data_current": False, "unavailable": True}
 
     def sort_key(x):
         d = x.get("tx_date") or ""
-        try:
-            return datetime.strptime(d[:10], "%Y-%m-%d")
-        except Exception:
-            return datetime.min
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(d[:10], fmt)
+            except Exception:
+                continue
+        return datetime.min
 
     trades.sort(key=sort_key, reverse=True)
 
     return {
-        "ticker":       upper,
-        "total":        len(trades),
-        "trades":       trades[:30],
-        "data_current": True,
+        "ticker":        upper,
+        "total":         len(trades),
+        "trades":        trades[:30],
+        "data_current":  True,
+        "cache_loading": cache_loading,
     }
 
 

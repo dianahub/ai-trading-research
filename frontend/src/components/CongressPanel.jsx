@@ -71,7 +71,7 @@ function TradeRow({ trade }) {
 export default function CongressPanel({ congressData, ticker }) {
   const [showAll, setShowAll] = useState(false)
 
-  const { total = 0, trades = [] } = congressData ?? {}
+  const { total = 0, trades = [], cache_loading = false } = congressData ?? {}
 
   const unavailable = !congressData
 
@@ -121,11 +121,15 @@ export default function CongressPanel({ congressData, ticker }) {
       <div className="p-5 space-y-3">
         {unavailable ? (
           <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
-            Congressional data unavailable — the backend may need a restart to load this feature.
+            Congressional data unavailable.
+          </p>
+        ) : cache_loading && total === 0 ? (
+          <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
+            Senate disclosure data is loading in the background — check back in a few minutes.
           </p>
         ) : total === 0 ? (
           <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
-            No congressional disclosures found for <span className="font-mono text-white">{ticker}</span>.
+            No congressional disclosures found for <span className="font-mono text-white">{ticker}</span> in the last 6 months.
           </p>
         ) : (
           <>
@@ -148,7 +152,7 @@ export default function CongressPanel({ congressData, ticker }) {
             )}
 
             <p className="text-xs pt-1" style={{ color: '#94a3b8', borderTop: '1px solid #1e2d45', paddingTop: 10 }}>
-              Data sourced from public House &amp; Senate financial disclosures (STOCK Act). Trades are disclosed up to 45 days after execution. Not a trading signal — for informational purposes only.
+              Senate data sourced live from efdsearch.senate.gov (STOCK Act). Trades disclosed up to 45 days after execution. Not a trading signal — for informational purposes only.
             </p>
           </>
         )}

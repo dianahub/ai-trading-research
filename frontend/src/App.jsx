@@ -428,7 +428,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
         insiders,
         options,
         fundamentals: fundamentals?.revenue ? fundamentals : null,
-        congress: congress?.unavailable ? null : congress,
+        congress: (congress?.unavailable && !congress?.cache_loading) ? null : congress,
         analysis: null,
         assetType: detected?.asset_type || (isStock ? 'stock' : 'crypto'),
         name
@@ -929,8 +929,8 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               <NewsSection news={data.news} newsSentiment={data.analysis?.news_sentiment} />
             </div>
 
-            {/* Congressional trades — shown when backend has a working data source and returns trades */}
-            {data.congress && data.congress.total > 0 && (
+            {/* Congressional trades */}
+            {data.congress && (data.congress.total > 0 || data.congress.cache_loading) && (
               <div id="congress" className="fade-in" style={{ scrollMarginTop: 'calc(var(--header-h, 72px) + 120px)' }}>
                 <CongressPanel congressData={data.congress} ticker={data.price?.ticker || ticker} />
               </div>
