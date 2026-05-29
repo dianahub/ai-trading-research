@@ -53,7 +53,7 @@ export default function AuthNav() {
       <Link to="/login"
         className="px-4 py-2 rounded-lg text-sm font-semibold"
         style={{ background: 'transparent', border: '1px solid #94a3b8', color: '#fff', textDecoration: 'none' }}>
-        Login
+        LOGIN
       </Link>
       <Link to="/login"
         className="px-4 py-2 rounded-lg text-sm font-semibold"
