@@ -1885,7 +1885,9 @@ def analyze(req: AnalyzeRequest, response: Response, ss_session: Optional[str] =
         except Exception:
             pass
 
-        prompt = f"""Analyze the following data for {upper} (Stock) and respond with a JSON object only — no markdown, no extra text.
+        prompt = f"""Today's date: {datetime.now(timezone.utc).strftime("%B %d, %Y")}
+
+Analyze the following data for {upper} (Stock) and respond with a JSON object only — no markdown, no extra text.
 
 ## Price Data
 {price_block}
@@ -1993,7 +1995,9 @@ Rules:
         except Exception:
             pass
 
-        prompt = f"""Analyze the following data for {upper} (Crypto) and respond with a JSON object only — no markdown, no extra text.
+        prompt = f"""Today's date: {datetime.now(timezone.utc).strftime("%B %d, %Y")}
+
+Analyze the following data for {upper} (Crypto) and respond with a JSON object only — no markdown, no extra text.
 
 ## Price Data
 {price_block}
