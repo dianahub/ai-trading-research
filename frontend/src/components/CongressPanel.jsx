@@ -1,10 +1,19 @@
 // CongressPanel.jsx
 // Displays recent congressional stock trades (House + Senate) from public disclosures.
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 function fmt_date(str) {
   if (!str) return '—'
   try {
+    // Backend sends MM/DD/YYYY — convert to ISO before parsing
+    const parts = str.split('/')
+    if (parts.length === 3) {
+      const [m, d, y] = parts
+      return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      })
+    }
     return new Date(str.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
     })
@@ -70,6 +79,19 @@ function TradeRow({ trade }) {
 
 export default function CongressPanel({ congressData, ticker }) {
   const [showAll, setShowAll] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const handleHash = () => { if (window.location.hash === '#congress') setOpen(true) }
+    const handleOpen = (e) => { if (e.detail === '#congress') setOpen(true) }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    window.addEventListener('open-section', handleOpen)
+    return () => {
+      window.removeEventListener('hashchange', handleHash)
+      window.removeEventListener('open-section', handleOpen)
+    }
+  }, [])
 
   const { total = 0, trades = [], cache_loading = false } = congressData ?? {}
 
@@ -87,9 +109,12 @@ export default function CongressPanel({ congressData, ticker }) {
       className="rounded-xl overflow-hidden"
       style={{ background: '#0b0f1e', border: '1px solid #38bdf8' }}
     >
-      {/* Header */}
-      <div className="px-5 py-4 flex items-center justify-between gap-4"
-        style={{ borderBottom: '1px solid #1e2d45' }}>
+      {/* Header — accordion toggle */}
+      <div
+        className="px-5 py-4 flex items-center justify-between gap-4 cursor-pointer select-none"
+        style={{ borderBottom: open ? '1px solid #1e2d45' : 'none' }}
+        onClick={() => setOpen(o => !o)}
+      >
         <div className="flex items-center gap-3">
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
@@ -109,16 +134,26 @@ export default function CongressPanel({ congressData, ticker }) {
           </div>
         </div>
 
-        {total > 0 && (
-          <div className="flex items-center gap-3 text-xs">
-            <span style={{ color: '#10b981' }}>▲ {buys} buy{buys !== 1 ? 's' : ''}</span>
-            <span style={{ color: '#ef4444' }}>▼ {sells} sell{sells !== 1 ? 's' : ''}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {total > 0 && (
+            <div className="flex items-center gap-3 text-xs">
+              <span style={{ color: '#10b981' }}>▲ {buys} buy{buys !== 1 ? 's' : ''}</span>
+              <span style={{ color: '#ef4444' }}>▼ {sells} sell{sells !== 1 ? 's' : ''}</span>
+            </div>
+          )}
+          <ChevronDown
+            size={16}
+            style={{
+              color: '#94a3b8',
+              transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s',
+            }}
+          />
+        </div>
       </div>
 
       {/* Body */}
-      <div className="p-5 space-y-3">
+      {open && <div className="p-5 space-y-3">
         {unavailable ? (
           <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
             Congressional data unavailable.
@@ -156,7 +191,7 @@ export default function CongressPanel({ congressData, ticker }) {
             </p>
           </>
         )}
-      </div>
+      </div>}
     </div>
   )
 }
