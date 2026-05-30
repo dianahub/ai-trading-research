@@ -279,6 +279,17 @@ except Exception as _e:
     print(f"[main] congress_senate load skipped: {_e}", flush=True)
     _congress_senate = None  # type: ignore
 
+# Instagram token — refresh on startup so it never expires mid-cycle
+def _refresh_instagram_on_startup():
+    try:
+        import instagram as _ig
+        if os.getenv("INSTAGRAM_ACCESS_TOKEN"):
+            _ig.refresh_token()
+    except Exception as _e:
+        print(f"[main] Instagram token refresh skipped: {_e}", flush=True)
+
+threading.Thread(target=_refresh_instagram_on_startup, daemon=True).start()
+
 COINGECKO_BASE   = "https://api.coingecko.com/api/v3"
 NEWSAPI_BASE     = "https://newsapi.org/v2"
 ETHERSCAN_BASE   = "https://api.etherscan.io/api"
