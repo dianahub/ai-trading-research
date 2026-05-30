@@ -974,8 +974,9 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             onClick={e => e.stopPropagation()}>
             <div className="text-3xl mb-4">✦</div>
             <h2 className="text-xl font-black mb-2" style={{ color: '#f1f5f9' }}>Sign in to continue</h2>
-            <p className="text-sm mb-6" style={{ color: '#94a3b8' }}>
-              Get 30 days free — no credit card required.
+            <p className="text-sm mb-6" style={{ color: '#94a3b8', lineHeight: '1.6' }}>
+              Star Signal uses AI to generate real-time market analysis. We ask you to sign in to keep bots from burning through AI tokens —{' '}
+              <span style={{ color: '#e2e8f0' }}>your account is free for 30 days, no credit card required.</span>
             </p>
             <div className="flex flex-col gap-3">
               <a href="/login"
