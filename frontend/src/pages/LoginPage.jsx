@@ -39,6 +39,12 @@ export default function LoginPage() {
           <span className="text-white font-bold tracking-widest text-sm">Star Signal</span>
         </Link>
 
+        <div className="rounded-xl px-4 py-3 mb-5 text-sm text-center"
+          style={{ background: '#0a1628', border: '1px solid #1e3a5f', color: '#94a3b8', lineHeight: '1.6' }}>
+          Star Signal uses AI to generate real-time market analysis. We ask you to sign in to keep bots from burning through AI tokens —{' '}
+          <span style={{ color: '#e2e8f0' }}>your account is free for 30 days, no credit card required.</span>
+        </div>
+
         <div className="rounded-2xl p-8" style={{ background: '#0b1120', border: '1px solid #1e2d45' }}>
           <h1 className="text-xl font-bold mb-6 text-center" style={{ color: '#f1f5f9' }}>Sign In</h1>
 
