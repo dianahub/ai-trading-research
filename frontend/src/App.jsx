@@ -729,7 +729,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                       Start Free — 30 Days on Us
                     </a>
                   </div>
-                  <p className="text-xs" style={{ color: '#475569' }}>No credit card required · Cancel anytime</p>
+                  <p className="text-xs" style={{ color: '#94a3b8' }}>No credit card required · Cancel anytime</p>
                 </div>
 
                 {/* Right: promo video */}
