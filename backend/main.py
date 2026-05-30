@@ -1866,7 +1866,10 @@ def analyze(req: AnalyzeRequest, response: Response, ss_session: Optional[str] =
                 f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
                 + (f"Astro Summary: {astro_summary}\n" if astro_summary else "")
                 + f"Note: This signal is derived from financial astrology sources. "
-                f"Incorporate it meaningfully into the research_summary third paragraph.\n"
+                f"Incorporate it meaningfully into the research_summary third paragraph. "
+                f"IMPORTANT: today is {datetime.now(timezone.utc).strftime('%B %d, %Y')} — any specific date windows "
+                f"mentioned in the astro summary that have already passed must be treated as historical context, "
+                f"not upcoming events. Only reference future dates as forward-looking.\n"
             )
         try:
             _ci = _lookup_company(upper)
@@ -1976,7 +1979,10 @@ Rules:
                 f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
                 + (f"Astro Summary: {astro_summary}\n" if astro_summary else "")
                 + f"Note: This signal is derived from financial astrology sources. "
-                f"Incorporate it meaningfully into the research_summary third paragraph.\n"
+                f"Incorporate it meaningfully into the research_summary third paragraph. "
+                f"IMPORTANT: today is {datetime.now(timezone.utc).strftime('%B %d, %Y')} — any specific date windows "
+                f"mentioned in the astro summary that have already passed must be treated as historical context, "
+                f"not upcoming events. Only reference future dates as forward-looking.\n"
             )
         try:
             _ci = _lookup_company(upper)
