@@ -29,7 +29,7 @@ _loading = False
 
 CACHE_TTL = 24 * 60 * 60  # 24 hours
 RATE_LIMIT = 1.0           # seconds between requests
-LOOKBACK_DAYS = 180        # how far back to search (about 6 months)
+LOOKBACK_DAYS = 365        # how far back to search (1 year)
 
 
 def _make_session() -> requests.Session:
