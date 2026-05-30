@@ -1860,7 +1860,7 @@ def analyze(req: AnalyzeRequest, response: Response, ss_session: Optional[str] =
         astro_data = _fetch_astro_data()
         if astro_signal_val is not None:
             astro_direction = "bullish" if astro_signal_val > 0.05 else ("bearish" if astro_signal_val < -0.05 else "neutral")
-            astro_summary = astro_data.get("overall_summary", "") if astro_data else ""
+            astro_summary = _clean_astro_summary(astro_data.get("overall_summary", "")) if astro_data else ""
             astro_block = (
                 f"\n## Astrological / Alternative Signal (weight: {ASTRO_SIGNAL_WEIGHT*100:.0f}%)\n"
                 f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
@@ -1974,7 +1974,7 @@ Rules:
         astro_data = _fetch_astro_data()
         if astro_signal_val is not None:
             astro_direction = "bullish" if astro_signal_val > 0.05 else ("bearish" if astro_signal_val < -0.05 else "neutral")
-            astro_summary = astro_data.get("overall_summary", "") if astro_data else ""
+            astro_summary = _clean_astro_summary(astro_data.get("overall_summary", "")) if astro_data else ""
             astro_block = (
                 f"\n## Astrological / Alternative Signal (weight: {ASTRO_SIGNAL_WEIGHT*100:.0f}%)\n"
                 f"Astro Signal Score: {astro_signal_val:+.4f} (range -1.0 to 1.0, direction: {astro_direction})\n"
@@ -7552,12 +7552,51 @@ def _deduplicate_insights(incoming: list[dict], existing: list[dict]) -> list[di
     return merged
 
 
+def _has_stale_date_window(text: str) -> bool:
+    """Return True if text references a specific date window that has already passed."""
+    import re as _re
+    today = datetime.now(timezone.utc)
+    tl = text.lower()
+    window_kw = ['window', 'phase', 'through', 'until', 'weakness', 'inflection', 'by mid', 'by late', 'by early']
+    if not any(kw in tl for kw in window_kw):
+        return False
+    month_nums = {
+        'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+        'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12,
+    }
+    for mname, mnum in month_nums.items():
+        if mname not in tl:
+            continue
+        if mnum < today.month:
+            return True
+        if mnum == today.month:
+            days = _re.findall(rf'{mname}\s+(\d{{1,2}})', tl)
+            if any(int(d) <= today.day for d in days):
+                return True
+            if f'mid-{mname[:3]}' in tl or f'mid {mname}' in tl:
+                if today.day > 15:
+                    return True
+            if f'early {mname}' in tl or f'early-{mname[:3]}' in tl:
+                if today.day > 10:
+                    return True
+    return False
+
+
+def _clean_astro_summary(text: str) -> str:
+    """Strip bullet points from an astro summary that contain stale past-date windows."""
+    bullets = [b.strip() for b in text.split('•') if b.strip()]
+    clean = [b for b in bullets if not _has_stale_date_window(b)]
+    return '\n'.join(f'• {b}' for b in clean) if clean else text
+
+
 def _generate_astro_summary(insights: list[dict]) -> str:
     """Generate a 3-4 bullet point market outlook summary from current insights using Claude."""
     if not insights or not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == "your_anthropic_api_key_here":
         return ""
     try:
         from collections import Counter
+        # Filter out insights whose summary is entirely about a past date window
+        insights = [i for i in insights if not _has_stale_date_window(i.get('summary', ''))]
         # Sample up to 20 insights, preferring diversity across topics and outlooks
         seen_keys: set = set()
         sample: list[dict] = []
@@ -7597,7 +7636,7 @@ def _generate_astro_summary(insights: list[dict]) -> str:
                 "Write 3 bullet points summarizing the overall astrological market outlook."
             )}],
         )
-        return resp.content[0].text.strip()
+        return _clean_astro_summary(resp.content[0].text.strip())
     except Exception as e:
         print(f"[ingestion] Summary generation failed: {e}", flush=True)
         return ""
