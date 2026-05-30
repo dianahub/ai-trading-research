@@ -123,7 +123,7 @@ export default function CongressPanel({ congressData, ticker }) {
             🏛
           </div>
           <div>
-            <span className="text-sm font-semibold tracking-wide" style={{ color: '#e2e8f0' }}>
+            <span className="text-sm font-semibold tracking-wide uppercase" style={{ color: '#e2e8f0' }}>
               Congressional Trades
             </span>
             {total > 0 && (
