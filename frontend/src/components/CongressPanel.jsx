@@ -168,6 +168,13 @@ export default function CongressPanel({ congressData, ticker }) {
           </p>
         ) : (
           <>
+            <p className="text-xs pb-3" style={{ color: '#64748b', borderBottom: '1px solid #1e2d45' }}>
+              Under the STOCK Act, members of Congress must disclose stock trades within 45 days of execution.
+              This panel shows House and Senate disclosures for <span className="font-mono" style={{ color: '#94a3b8' }}>{ticker}</span> over
+              the past year. Congressional trading activity can signal insider awareness of policy, regulation, or
+              sector tailwinds — but is not a trading signal on its own.
+            </p>
+
             {visible.map((trade, i) => (
               <TradeRow key={i} trade={trade} />
             ))}

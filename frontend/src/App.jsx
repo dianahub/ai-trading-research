@@ -599,6 +599,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                 { href: '#smart-money',   label: '🐋 Whales',         show: !!data.whales },
                 { href: '#astro',         label: '♅ Astro',           show: true },
                 { href: '#news',          label: '📰 News',           show: true },
+                { href: '#congress',      label: '🏛 Congress',       show: !!(data.congress && data.congress.total > 0) },
               ].filter(s => s.show)
 
               return (
