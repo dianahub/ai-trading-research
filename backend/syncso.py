@@ -69,14 +69,14 @@ def _poll(job_id: str, headers: dict) -> str:
         resp = requests.get(f"{_BASE}/v2/generate/{job_id}", headers=headers, timeout=15)
         resp.raise_for_status()
         data   = resp.json()
-        status = data.get("status")
-        if status == "completed":
+        status = (data.get("status") or "").upper()
+        if status == "COMPLETED":
             url = data.get("outputUrl") or data.get("output_url")
             if not url:
                 raise RuntimeError(f"sync.so job {job_id} completed but no outputUrl")
             print(f"[syncso] Done: {url}", flush=True)
             return url
-        if status == "failed":
+        if status == "FAILED":
             raise RuntimeError(f"sync.so job {job_id} failed: {data.get('error', 'unknown')}")
         print(f"[syncso] Polling {job_id} — status: {status}", flush=True)
         time.sleep(_POLL_INTERVAL)
