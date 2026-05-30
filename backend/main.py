@@ -1867,9 +1867,10 @@ def analyze(req: AnalyzeRequest, response: Response, ss_session: Optional[str] =
                 + (f"Astro Summary: {astro_summary}\n" if astro_summary else "")
                 + f"Note: This signal is derived from financial astrology sources. "
                 f"Incorporate it meaningfully into the research_summary third paragraph. "
-                f"IMPORTANT: today is {datetime.now(timezone.utc).strftime('%B %d, %Y')} — any specific date windows "
-                f"mentioned in the astro summary that have already passed must be treated as historical context, "
-                f"not upcoming events. Only reference future dates as forward-looking.\n"
+                f"CRITICAL: today is {datetime.now(timezone.utc).strftime('%B %d, %Y')} — do NOT mention any specific dates, "
+                f"date ranges, or time windows from the astro summary that have already passed. Omit them entirely. "
+                f"Only reference dates that are still in the future. If the astro summary only contains past date windows, "
+                f"focus on the planetary factors and their ongoing relevance instead.\n"
             )
         try:
             _ci = _lookup_company(upper)
@@ -1980,9 +1981,10 @@ Rules:
                 + (f"Astro Summary: {astro_summary}\n" if astro_summary else "")
                 + f"Note: This signal is derived from financial astrology sources. "
                 f"Incorporate it meaningfully into the research_summary third paragraph. "
-                f"IMPORTANT: today is {datetime.now(timezone.utc).strftime('%B %d, %Y')} — any specific date windows "
-                f"mentioned in the astro summary that have already passed must be treated as historical context, "
-                f"not upcoming events. Only reference future dates as forward-looking.\n"
+                f"CRITICAL: today is {datetime.now(timezone.utc).strftime('%B %d, %Y')} — do NOT mention any specific dates, "
+                f"date ranges, or time windows from the astro summary that have already passed. Omit them entirely. "
+                f"Only reference dates that are still in the future. If the astro summary only contains past date windows, "
+                f"focus on the planetary factors and their ongoing relevance instead.\n"
             )
         try:
             _ci = _lookup_company(upper)
@@ -7585,8 +7587,9 @@ def _generate_astro_summary(insights: list[dict]) -> str:
                 "write exactly 3 concise bullet points (one sentence each) summarizing the overall market outlook. "
                 "Focus on the dominant trends across sectors. Use plain English — where a 'Basis' field is provided, "
                 "you may briefly reference the planetary factor (e.g. 'driven by Saturn's transit') but never invent planetary causes not listed. "
-                "Any specific date windows mentioned in the signals that have already passed should be treated as historical context — "
-                "do not present them as upcoming events. Only reference future dates as forward-looking. "
+                f"CRITICAL: today is {today_str}. Do NOT mention any specific dates, date ranges, or time windows that have already passed — "
+                "omit them completely rather than reframing them. Only mention dates that are still in the future. "
+                "If a signal's entire relevance was a past date window, skip it and use a different signal. "
                 "Return only the 3 bullet points, one per line, starting each line with '• '."
             ),
             messages=[{"role": "user", "content": (
