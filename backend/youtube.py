@@ -42,11 +42,24 @@ def post_to_youtube(video_url: str, title: str, description: str) -> dict:
 
     youtube = _youtube_client()
 
+    channel_footer = (
+        "\n\n🔗 Full analysis at starsignal.io — free for 30 days, no credit card required.\n\n"
+        "⚠️ Educational content only. Not financial advice.\n\n"
+        "#financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis "
+        "#stockstobuy #bitcoinprediction #tradingstrategies #astrology #starsignal #AItrading "
+        "#marketprediction #cosmicmarkets #daytrading"
+    )
+
     body = {
         "snippet": {
             "title": title[:100],  # YouTube title max 100 chars
-            "description": description,
-            "tags": ["financialastrology", "astrotrading", "stockmarket", "cryptotrading", "trading", "starsignal"],
+            "description": description + channel_footer,
+            "tags": [
+                "financialastrology", "astrotrading", "stockmarket", "cryptotrading",
+                "trading", "marketanalysis", "stockstobuy", "bitcoinprediction",
+                "tradingstrategies", "astrology", "starsignal", "AItrading",
+                "marketprediction", "cosmicmarkets", "daytrading",
+            ],
             "categoryId": "22",  # People & Blogs
         },
         "status": {
