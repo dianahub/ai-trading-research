@@ -7574,15 +7574,19 @@ def _generate_astro_summary(insights: list[dict]) -> str:
             + (f" (Basis: {i.get('astro_reasoning')})" if i.get("astro_reasoning") else "")
             for i in sample
         )
+        today_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
         client_a = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         resp = client_a.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=400,
             system=(
-                "You are a financial market summarizer. Given a list of astrological market signals, "
+                f"You are a financial market summarizer. Today's date is {today_str}. "
+                "Given a list of astrological market signals, "
                 "write exactly 3 concise bullet points (one sentence each) summarizing the overall market outlook. "
                 "Focus on the dominant trends across sectors. Use plain English — where a 'Basis' field is provided, "
                 "you may briefly reference the planetary factor (e.g. 'driven by Saturn's transit') but never invent planetary causes not listed. "
+                "Any specific date windows mentioned in the signals that have already passed should be treated as historical context — "
+                "do not present them as upcoming events. Only reference future dates as forward-looking. "
                 "Return only the 3 bullet points, one per line, starting each line with '• '."
             ),
             messages=[{"role": "user", "content": (
