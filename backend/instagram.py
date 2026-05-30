@@ -38,14 +38,20 @@ def _token() -> str:
 
 
 def refresh_token() -> str | None:
-    """Refresh the Instagram long-lived user token. Returns the new token or None on failure.
+    """Refresh the Facebook long-lived user token. Returns the new token or None on failure.
     Updates the in-memory token and, if RAILWAY_API_TOKEN is set, persists it to Railway."""
     global _current_token
     try:
         current = _token()
+        app_id     = os.getenv("FACEBOOK_APP_ID") or os.getenv("META_APP_ID", "")
+        app_secret = os.getenv("FACEBOOK_APP_SECRET") or os.getenv("META_APP_SECRET", "")
+        if not app_id or not app_secret:
+            print("[instagram] Token refresh skipped: FACEBOOK_APP_ID/SECRET not set", flush=True)
+            return None
         r = requests.get(
-            f"{_IG_GRAPH}/refresh_access_token",
-            params={"grant_type": "ig_refresh_token", "access_token": current},
+            f"{_GRAPH}/oauth/access_token",
+            params={"grant_type": "fb_exchange_token", "client_id": app_id,
+                    "client_secret": app_secret, "fb_exchange_token": current},
             timeout=15,
         )
         if not r.ok:
