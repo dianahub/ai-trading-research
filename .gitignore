@@ -15,6 +15,9 @@ frontend/.env
 frontend/node_modules/
 frontend/dist/
 
+# Databases
+*.db
+
 # OS
 .DS_Store
 Thumbs.db
