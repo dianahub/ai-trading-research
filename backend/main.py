@@ -4456,7 +4456,7 @@ def _unique_referral_code(db: Session) -> str:
 def _create_session(db: Session, user_id: str, remember: bool = False) -> str:
     raw = secrets.token_urlsafe(32)
     token_hash = _hash_password(raw)
-    days = 30 if remember else 7
+    days = 30
     sess = UserSession(
         user_id=user_id,
         token_hash=token_hash,
@@ -4801,7 +4801,7 @@ def auth_signup(req: AuthSignupRequest, response: Response):
 
         raw_token = _create_session(db, user.id)
         response.set_cookie("ss_session", raw_token, httponly=True, samesite=COOKIE_SAMESITE,
-                            secure=True, max_age=60*60*24*7)
+                            secure=True, max_age=60*60*24*30)
         return {"user": _user_dict(user), "message": "Account created. Please verify your email."}
 
 
@@ -4842,10 +4842,9 @@ def auth_login(req: AuthLoginRequest, response: Response):
         user.last_login = now
         db.commit()
 
-        raw_token = _create_session(db, user.id, req.remember_me)
-        max_age = 60*60*24*30 if req.remember_me else 60*60*24*7
+        raw_token = _create_session(db, user.id)
         response.set_cookie("ss_session", raw_token, httponly=True, samesite=COOKIE_SAMESITE,
-                            secure=True, max_age=max_age)
+                            secure=True, max_age=60*60*24*30)
 
         beta_expired = (user.tier == "beta" and user.beta_expires_at and
                         user.beta_expires_at.replace(tzinfo=timezone.utc) < now)
@@ -5438,7 +5437,7 @@ def magic_login(body: dict, response: Response):
         db.commit()
         raw_token = _create_session(db, user.id)
         response.set_cookie("ss_session", raw_token, httponly=True, samesite=COOKIE_SAMESITE,
-                            secure=True, max_age=60*60*24*7)
+                            secure=True, max_age=60*60*24*30)
         return {"user": _user_dict(user)}
 
 
