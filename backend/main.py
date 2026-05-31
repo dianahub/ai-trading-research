@@ -271,12 +271,11 @@ def _save_cache():
 
 _load_cache()  # load on startup
 
-# Senate congressional trading — warm cache in background on startup
+# Senate congressional trading — lazy load on first request (not on startup)
 try:
     import congress_senate as _congress_senate
-    _congress_senate.start_background_load()
 except Exception as _e:
-    print(f"[main] congress_senate load skipped: {_e}", flush=True)
+    print(f"[main] congress_senate import skipped: {_e}", flush=True)
     _congress_senate = None  # type: ignore
 
 # Instagram token — refresh on startup so it never expires mid-cycle
@@ -8437,8 +8436,37 @@ def _social_notify(subject: str, body: str):
         print(f"[social] notify failed: {e}", flush=True)
 
 
-# In-memory preview store — single instance only
+# Preview store — persisted to DB so server restarts don't wipe in-progress jobs
 _social_preview: dict = {"result": None, "at": None}
+
+def _load_social_preview_from_db() -> None:
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS social_preview
+                (id INTEGER PRIMARY KEY, result TEXT, at TEXT)""")
+            row = conn.execute("SELECT result, at FROM social_preview WHERE id=1").fetchone()
+            if row and row[0]:
+                import json as _json
+                _social_preview["result"] = _json.loads(row[0])
+                from datetime import datetime as _dt
+                _social_preview["at"] = _dt.fromisoformat(row[1]) if row[1] else None
+    except Exception as e:
+        print(f"[social] preview db load failed: {e}", flush=True)
+
+def _save_social_preview_to_db() -> None:
+    try:
+        import json as _json
+        result_json = _json.dumps(_social_preview["result"]) if _social_preview["result"] else None
+        at_str = _social_preview["at"].isoformat() if _social_preview.get("at") else None
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("""CREATE TABLE IF NOT EXISTS social_preview
+                (id INTEGER PRIMARY KEY, result TEXT, at TEXT)""")
+            conn.execute("INSERT OR REPLACE INTO social_preview (id, result, at) VALUES (1, ?, ?)",
+                         (result_json, at_str))
+    except Exception as e:
+        print(f"[social] preview db save failed: {e}", flush=True)
+
+_load_social_preview_from_db()
 
 
 def _social_run_pipeline(preview: bool = False, date: str | None = None, forced_headline: str | None = None, forced_headline_source: str | None = None) -> dict:
@@ -9321,6 +9349,7 @@ def admin_social_generate_heygen(
 
         _social_preview["result"] = result
         _social_preview["at"]     = datetime.now(timezone.utc)
+        _save_social_preview_to_db()
         log(f"HeyGen complete: {result.get('status')}")
 
     threading.Thread(target=_run, daemon=True).start()
@@ -9347,6 +9376,7 @@ def admin_social_generate_preview(
             result = {"status": "failed", "content_type": "video", "error": str(e)}
         _social_preview["result"] = result
         _social_preview["at"]     = datetime.now(timezone.utc)
+        _save_social_preview_to_db()
         print(f"[social-admin] preview complete: {result.get('status')}", flush=True)
 
     threading.Thread(target=_run, daemon=True).start()
