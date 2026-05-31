@@ -8438,13 +8438,22 @@ def _social_notify(subject: str, body: str):
 
 # Preview store — persisted to DB so server restarts don't wipe in-progress jobs
 _social_preview: dict = {"result": None, "at": None}
+_UNSET = object()  # sentinel for optional param
+
+def _social_preview_db_init(db) -> None:
+    db.execute(text("""CREATE TABLE IF NOT EXISTS social_preview
+        (id INTEGER PRIMARY KEY, result TEXT, at TEXT, pending_job TEXT)"""))
+    # migrate: add pending_job column if missing
+    try:
+        db.execute(text("ALTER TABLE social_preview ADD COLUMN pending_job TEXT"))
+    except Exception:
+        pass
+    db.commit()
 
 def _load_social_preview_from_db() -> None:
     try:
         with Session(_engine) as db:
-            db.execute(text("""CREATE TABLE IF NOT EXISTS social_preview
-                (id INTEGER PRIMARY KEY, result TEXT, at TEXT)"""))
-            db.commit()
+            _social_preview_db_init(db)
             row = db.execute(text("SELECT result, at FROM social_preview WHERE id=1")).fetchone()
             if row and row[0]:
                 _social_preview["result"] = json.loads(row[0])
@@ -8452,20 +8461,83 @@ def _load_social_preview_from_db() -> None:
     except Exception as e:
         print(f"[social] preview db load failed: {e}", flush=True)
 
-def _save_social_preview_to_db() -> None:
+def _save_social_preview_to_db(pending_job: dict | None = _UNSET) -> None:  # type: ignore[assignment]
     try:
         result_json = json.dumps(_social_preview["result"]) if _social_preview["result"] else None
         at_str = _social_preview["at"].isoformat() if _social_preview.get("at") else None
         with Session(_engine) as db:
-            db.execute(text("""CREATE TABLE IF NOT EXISTS social_preview
-                (id INTEGER PRIMARY KEY, result TEXT, at TEXT)"""))
-            db.execute(text("INSERT OR REPLACE INTO social_preview (id, result, at) VALUES (1, :r, :a)"),
-                       {"r": result_json, "a": at_str})
+            _social_preview_db_init(db)
+            if pending_job is _UNSET:
+                db.execute(text("INSERT OR REPLACE INTO social_preview (id, result, at) VALUES (1, :r, :a)"),
+                           {"r": result_json, "a": at_str})
+            else:
+                pj = json.dumps(pending_job) if pending_job else None
+                db.execute(text("INSERT OR REPLACE INTO social_preview (id, result, at, pending_job) VALUES (1, :r, :a, :p)"),
+                           {"r": result_json, "a": at_str, "p": pj})
             db.commit()
     except Exception as e:
         print(f"[social] preview db save failed: {e}", flush=True)
 
+def _load_pending_job_from_db() -> dict | None:
+    try:
+        with Session(_engine) as db:
+            _social_preview_db_init(db)
+            row = db.execute(text("SELECT pending_job FROM social_preview WHERE id=1")).fetchone()
+            if row and row[0]:
+                return json.loads(row[0])
+    except Exception as e:
+        print(f"[social] pending job load failed: {e}", flush=True)
+    return None
+
 _load_social_preview_from_db()
+
+def _heygen_resume_thread(job: dict) -> None:
+    """Called on startup if a HeyGen job was in progress when the server died."""
+    video_id     = job.get("video_id", "")
+    script       = job.get("script", "")
+    caption      = job.get("caption", "")
+    news_headline = job.get("news_headline", "")
+    insight      = job.get("insight") or {}
+    today        = job.get("date", _social_today())
+    log = lambda *a: print(f"[social-heygen-recover {today}]", *a, flush=True)
+    log(f"Recovering pending HeyGen job {video_id}…")
+    try:
+        from heygen import poll_twin_video, burn_captions
+        raw_video_url, caption_url = poll_twin_video(video_id)
+        log(f"Video ready: {raw_video_url}")
+        media_url = raw_video_url
+        if os.getenv("HEYGEN_CAPTIONS", "true").lower() != "false":
+            log("Burning captions…")
+            captioned_path = burn_captions(raw_video_url, caption_url, script)
+            if captioned_path:
+                file_id   = os.path.basename(captioned_path)
+                media_url = f"{BACKEND_URL}/media/temp/{file_id}"
+                log(f"Captioned video: {media_url}")
+        result = {
+            "status":        "posted",
+            "content_type":  "video",
+            "thumbnail_url": None,
+            "news_headline": news_headline,
+            "post": {
+                "insight":      {"id": insight.get("id",""), "topic": insight.get("topic"), "summary": insight.get("summary","")},
+                "script":       script,
+                "caption":      caption,
+                "media_url":    media_url,
+                "content_type": "video",
+            },
+        }
+    except Exception as e:
+        log(f"Recovery failed: {e}")
+        result = {"status": "failed", "content_type": "video", "error": str(e)}
+    _social_preview["result"] = result
+    _social_preview["at"]     = datetime.now(timezone.utc)
+    _save_social_preview_to_db(pending_job=None)
+    log(f"Recovery complete: {result.get('status')}")
+
+_pending = _load_pending_job_from_db()
+if _pending and _pending.get("video_id"):
+    print(f"[social] Resuming pending HeyGen job {_pending['video_id']} from DB…", flush=True)
+    threading.Thread(target=_heygen_resume_thread, args=(_pending,), daemon=True).start()
 
 
 def _social_run_pipeline(preview: bool = False, date: str | None = None, forced_headline: str | None = None, forced_headline_source: str | None = None) -> dict:
@@ -9264,7 +9336,7 @@ def admin_social_generate_heygen(
     insight       = body.insight or {}
 
     def _run():
-        from heygen import generate_twin_video, burn_captions
+        from heygen import burn_captions
         today = _social_today()
         log = lambda *a: print(f"[social-heygen {today}]", *a, flush=True)
         try:
@@ -9302,7 +9374,16 @@ def admin_social_generate_heygen(
                 local_video_path = out_path
             else:
                 log("Generating HeyGen twin video...")
-                raw_video_url, caption_url = generate_twin_video(script)
+                from heygen import submit_twin_video, poll_twin_video
+                video_id = submit_twin_video(script)
+                # Persist job context immediately so a restart can recover
+                _save_social_preview_to_db(pending_job={
+                    "video_id": video_id, "script": script, "caption": caption,
+                    "news_headline": news_headline, "insight": insight,
+                    "date": today,
+                })
+                log(f"HeyGen job {video_id} saved to DB — polling…")
+                raw_video_url, caption_url = poll_twin_video(video_id)
                 log(f"Video ready: {raw_video_url}")
                 media_url = raw_video_url
                 if os.getenv("HEYGEN_CAPTIONS", "true").lower() != "false":
@@ -9348,7 +9429,7 @@ def admin_social_generate_heygen(
 
         _social_preview["result"] = result
         _social_preview["at"]     = datetime.now(timezone.utc)
-        _save_social_preview_to_db()
+        _save_social_preview_to_db(pending_job=None)  # clear pending job
         log(f"HeyGen complete: {result.get('status')}")
 
     threading.Thread(target=_run, daemon=True).start()

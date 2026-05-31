@@ -35,12 +35,10 @@ def _ensure_temp_dir():
     os.makedirs(_TEMP_DIR, exist_ok=True)
 
 
-def generate_twin_video(script: str) -> tuple[str, str | None]:
-    """Submit a 9:16 talking-head video job and return (video_url, caption_url_or_none)."""
+def _build_video_payload(script: str) -> dict:
     from datetime import date as _date
     avatar_id_1 = os.getenv("HEYGEN_AVATAR_ID", "abe6938e92cc46c396ac0c0b92b59eda")
     avatar_id_2 = os.getenv("HEYGEN_AVATAR_ID_2", "b22515f8b3244a88bd53d5c483eeed39")
-    # Alternate every day: even day-of-year → avatar 1, odd → avatar 2
     avatar_id = avatar_id_1 if _date.today().timetuple().tm_yday % 2 == 0 else avatar_id_2
     voice_id  = os.getenv("HEYGEN_VOICE_ID", "")
     if not avatar_id:
@@ -48,7 +46,6 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
     print(f"[heygen] day={_date.today().timetuple().tm_yday} using avatar={avatar_id[:8]}…", flush=True)
 
     avatar_type = os.getenv("HEYGEN_AVATAR_TYPE", "avatar")
-
     voice_block: dict = {"type": "text", "input_text": script, "speed": 1.0}
     if voice_id:
         voice_block["voice_id"] = voice_id
@@ -60,7 +57,6 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
         character = {"type": "avatar", "avatar_id": avatar_id, "avatar_style": avatar_style}
 
     bg_value = os.getenv("HEYGEN_BACKGROUND", "")
-
     video_input: dict = {"character": character, "voice": voice_block}
     if bg_value:
         bg_type = "image" if bg_value.startswith("http") else "color"
@@ -69,13 +65,17 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
             else {"type": bg_type, "value": bg_value}
         )
 
-    payload = {
+    return {
         "video_inputs": [video_input],
         "dimension":    {"width": 720, "height": 1280},
         "aspect_ratio": "9:16",
-        "caption":      True,   # request VTT caption file from HeyGen
+        "caption":      True,
     }
 
+
+def submit_twin_video(script: str) -> str:
+    """Submit a HeyGen video job and return the video_id immediately (non-blocking)."""
+    payload = _build_video_payload(script)
     resp = requests.post(f"{_BASE}/v2/video/generate", headers=_headers(), json=payload, timeout=30)
     if not resp.ok:
         print(f"[heygen] generate error {resp.status_code}: {resp.text}", flush=True)
@@ -84,11 +84,15 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
     video_id = (data.get("data") or {}).get("video_id") or data.get("video_id")
     if not video_id:
         raise RuntimeError(f"HeyGen generate: unexpected response — {data}")
-
     print(f"[heygen] Video job submitted: {video_id}", flush=True)
+    return video_id
+
+
+def poll_twin_video(video_id: str) -> tuple[str, str | None]:
+    """Poll an existing HeyGen job to completion, then run sync.so if configured.
+    Returns (video_url, caption_url_or_none)."""
     video_url, caption_url = _poll_video(video_id)
 
-    # Optional sync.so lipsync post-processing
     try:
         from syncso import is_configured, lipsync
         if is_configured():
@@ -100,6 +104,12 @@ def generate_twin_video(script: str) -> tuple[str, str | None]:
         print(f"[heygen] sync.so step failed ({e}) — using raw HeyGen video", flush=True)
 
     return video_url, caption_url
+
+
+def generate_twin_video(script: str) -> tuple[str, str | None]:
+    """Submit a 9:16 talking-head video job and return (video_url, caption_url_or_none)."""
+    video_id = submit_twin_video(script)
+    return poll_twin_video(video_id)
 
 
 def _poll_video(video_id: str) -> tuple[str, str | None]:
