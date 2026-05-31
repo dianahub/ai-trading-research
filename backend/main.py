@@ -273,16 +273,9 @@ _load_cache()  # load on startup
 
 CONGRESS_API_URL = os.getenv("CONGRESS_API_URL", "")  # congress_infor service URL
 
-# Instagram token — refresh on startup so it never expires mid-cycle
-def _refresh_instagram_on_startup():
-    try:
-        import instagram as _ig
-        if os.getenv("INSTAGRAM_ACCESS_TOKEN"):
-            _ig.refresh_token()
-    except Exception as _e:
-        print(f"[main] Instagram token refresh skipped: {_e}", flush=True)
-
-threading.Thread(target=_refresh_instagram_on_startup, daemon=True).start()
+# Instagram token is long-lived (58 days). Do NOT refresh on startup —
+# persisting a new token via Railway API triggers a container restart loop.
+# Token auto-refreshes on 401 errors when posting (see instagram.post_reel).
 
 COINGECKO_BASE   = "https://api.coingecko.com/api/v3"
 NEWSAPI_BASE     = "https://newsapi.org/v2"
