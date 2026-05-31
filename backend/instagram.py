@@ -10,6 +10,7 @@ Env vars:
 
 import os
 import time
+import threading
 import requests
 
 _GRAPH         = "https://graph.facebook.com/v21.0"
@@ -65,7 +66,7 @@ def refresh_token() -> str | None:
         expires_in = data.get("expires_in", 0)
         _current_token = new_token
         print(f"[instagram] Token refreshed successfully (expires_in={expires_in}s ≈ {expires_in//86400}d)", flush=True)
-        _persist_token_to_railway(new_token)
+        threading.Thread(target=_persist_token_to_railway, args=(new_token,), daemon=True).start()
         return new_token
     except Exception as e:
         print(f"[instagram] Token refresh error: {e}", flush=True)

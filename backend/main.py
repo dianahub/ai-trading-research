@@ -8441,28 +8441,27 @@ _social_preview: dict = {"result": None, "at": None}
 
 def _load_social_preview_from_db() -> None:
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("""CREATE TABLE IF NOT EXISTS social_preview
-                (id INTEGER PRIMARY KEY, result TEXT, at TEXT)""")
-            row = conn.execute("SELECT result, at FROM social_preview WHERE id=1").fetchone()
+        with Session(_engine) as db:
+            db.execute(text("""CREATE TABLE IF NOT EXISTS social_preview
+                (id INTEGER PRIMARY KEY, result TEXT, at TEXT)"""))
+            db.commit()
+            row = db.execute(text("SELECT result, at FROM social_preview WHERE id=1")).fetchone()
             if row and row[0]:
-                import json as _json
-                _social_preview["result"] = _json.loads(row[0])
-                from datetime import datetime as _dt
-                _social_preview["at"] = _dt.fromisoformat(row[1]) if row[1] else None
+                _social_preview["result"] = json.loads(row[0])
+                _social_preview["at"] = datetime.fromisoformat(row[1]) if row[1] else None
     except Exception as e:
         print(f"[social] preview db load failed: {e}", flush=True)
 
 def _save_social_preview_to_db() -> None:
     try:
-        import json as _json
-        result_json = _json.dumps(_social_preview["result"]) if _social_preview["result"] else None
+        result_json = json.dumps(_social_preview["result"]) if _social_preview["result"] else None
         at_str = _social_preview["at"].isoformat() if _social_preview.get("at") else None
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("""CREATE TABLE IF NOT EXISTS social_preview
-                (id INTEGER PRIMARY KEY, result TEXT, at TEXT)""")
-            conn.execute("INSERT OR REPLACE INTO social_preview (id, result, at) VALUES (1, ?, ?)",
-                         (result_json, at_str))
+        with Session(_engine) as db:
+            db.execute(text("""CREATE TABLE IF NOT EXISTS social_preview
+                (id INTEGER PRIMARY KEY, result TEXT, at TEXT)"""))
+            db.execute(text("INSERT OR REPLACE INTO social_preview (id, result, at) VALUES (1, :r, :a)"),
+                       {"r": result_json, "a": at_str})
+            db.commit()
     except Exception as e:
         print(f"[social] preview db save failed: {e}", flush=True)
 
