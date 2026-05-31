@@ -8718,16 +8718,8 @@ def _social_run_pipeline(preview: bool = False, date: str | None = None, forced_
             ig = post_reel(media_url, caption, cover_url=cover_url)
             log(f"Posted! ID: {ig['media_id']}  URL: {ig['permalink']}")
 
-            # ── Cross-post to Facebook ─────────────────────────────────────────
+            # Facebook cross-posting is handled by Instagram's cross_post_to_reels parameter
             fb_permalink = ""
-            try:
-                from instagram import post_to_facebook
-                fb = post_to_facebook(media_url, caption)
-                if fb:
-                    fb_permalink = fb.get("permalink", "")
-                    log(f"Also posted to Facebook: {fb_permalink}")
-            except Exception as fb_err:
-                log(f"Facebook cross-post failed (Instagram OK): {fb_err}")
 
             # ── Cross-post to YouTube ──────────────────────────────────────────
             yt_permalink = ""
@@ -9427,18 +9419,7 @@ def admin_social_post_preview(
 
     fb_result   = {}
     fb_error    = None
-    fb_skipped  = False
-    try:
-        from instagram import post_to_facebook
-        import os as _os
-        if content_type == "video":
-            if not _os.getenv("FACEBOOK_PAGE_ID"):
-                fb_skipped = True
-            else:
-                fb_result = post_to_facebook(media_url, caption) or {}
-    except Exception as e:
-        fb_error = str(e)
-        print(f"[social] Facebook post failed: {e}", flush=True)
+    fb_skipped  = not bool(os.getenv("FACEBOOK_PAGE_ID"))
 
     yt_result   = {}
     yt_error    = None

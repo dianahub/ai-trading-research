@@ -118,6 +118,10 @@ def _post_reel_with_token(video_url: str, caption: str, cover_url: str | None, t
     payload: dict = {"media_type": "REELS", "video_url": video_url, "caption": caption, "share_to_feed": True}
     if cover_url:
         payload["cover_url"] = cover_url
+    fb_page_id = os.getenv("FACEBOOK_PAGE_ID")
+    if fb_page_id:
+        payload["cross_post_to_reels"] = [{"page_id": fb_page_id}]
+        print(f"[instagram] Cross-posting Reel to Facebook page {fb_page_id}", flush=True)
 
     r = requests.post(
         f"{_GRAPH}/{account_id}/media",
