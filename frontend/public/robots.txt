@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /account
+Disallow: /partners/dashboard
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /magic-login
+
+Sitemap: https://www.starsignal.io/sitemap.xml
