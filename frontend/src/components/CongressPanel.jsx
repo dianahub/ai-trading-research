@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || ''
+const BACKEND = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || ''
 
 function fmt_date(str) {
   if (!str) return '—'
