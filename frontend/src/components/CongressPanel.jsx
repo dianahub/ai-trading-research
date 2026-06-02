@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 
+const BACKEND = import.meta.env.VITE_BACKEND_URL || ''
+
 function fmt_date(str) {
   if (!str) return '—'
   try {
-    // Backend sends MM/DD/YYYY — convert to ISO before parsing
     const parts = str.split('/')
     if (parts.length === 3) {
       const [m, d, y] = parts
@@ -32,7 +33,6 @@ function TradeRow({ trade }) {
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-lg"
       style={{ background: '#0a0e1a', border: '1px solid #1e2d45' }}
     >
-      {/* Left: name + chamber */}
       <div className="flex items-center gap-3 min-w-0">
         <div
           className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold"
@@ -50,7 +50,6 @@ function TradeRow({ trade }) {
         </div>
       </div>
 
-      {/* Right: trade type + amount */}
       <div className="flex items-center gap-3 shrink-0">
         <span
           className="px-2.5 py-1 rounded text-xs font-bold tracking-wider"
@@ -77,13 +76,106 @@ function TradeRow({ trade }) {
   )
 }
 
-export default function CongressPanel({ congressData, ticker }) {
-  const [showAll, setShowAll] = useState(false)
-  const [open, setOpen] = useState(false)
+const SENTIMENT_STYLES = {
+  bullish: { color: '#10b981', bg: '#052e16', border: '#065f46', label: 'BULLISH' },
+  bearish: { color: '#ef4444', bg: '#1f0a0a', border: '#7f1d1d', label: 'BEARISH' },
+  mixed:   { color: '#f59e0b', bg: '#1c1400', border: '#92400e', label: 'MIXED'   },
+  neutral: { color: '#94a3b8', bg: '#111827', border: '#1e2d45', label: 'NEUTRAL' },
+}
+
+function AISummaryTab({ ticker }) {
+  const [state, setState] = useState('idle') // idle | loading | done | error
+  const [data, setData]   = useState(null)
 
   useEffect(() => {
-    const handleHash = () => { if (window.location.hash === '#congress') setOpen(true) }
-    const handleOpen = (e) => { if (e.detail === '#congress') setOpen(true) }
+    if (!ticker) return
+    setState('loading')
+    setData(null)
+    fetch(`${BACKEND}/congress/${encodeURIComponent(ticker)}/summary`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.unavailable) { setState('error'); return }
+        setData(d)
+        setState('done')
+      })
+      .catch(() => setState('error'))
+  }, [ticker])
+
+  if (state === 'loading') {
+    return (
+      <div className="flex items-center justify-center py-10 text-sm" style={{ color: '#94a3b8' }}>
+        <span className="animate-pulse">Generating AI analysis…</span>
+      </div>
+    )
+  }
+
+  if (state === 'error' || !data?.ai_analysis) {
+    return (
+      <p className="text-sm text-center py-8" style={{ color: '#64748b' }}>
+        AI analysis unavailable for <span className="font-mono" style={{ color: '#94a3b8' }}>{ticker}</span>.
+      </p>
+    )
+  }
+
+  const ai = data.ai_analysis
+  const s  = ai.stats || {}
+  const sentiment = (ai.sentiment || 'neutral').toLowerCase()
+  const style = SENTIMENT_STYLES[sentiment] || SENTIMENT_STYLES.neutral
+  const buyPct  = s.total_trades ? Math.round(s.buys / s.total_trades * 100) : 0
+  const sellPct = 100 - buyPct
+
+  return (
+    <div className="space-y-4">
+      {/* Sentiment + stats row */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span
+          className="px-3 py-1 rounded text-xs font-bold tracking-widest"
+          style={{ background: style.bg, color: style.color, border: `1px solid ${style.border}` }}
+        >
+          {style.label}
+        </span>
+        <span className="text-xs" style={{ color: '#10b981' }}>▲ {s.buys ?? '—'} buys ({buyPct}%)</span>
+        <span className="text-xs" style={{ color: '#ef4444' }}>▼ {s.sells ?? '—'} sells ({sellPct}%)</span>
+        <span className="text-xs" style={{ color: '#94a3b8' }}>{s.unique_members ?? '—'} members</span>
+        {s.date_range?.earliest && (
+          <span className="text-xs" style={{ color: '#64748b' }}>
+            {s.date_range.earliest} → {s.date_range.latest}
+          </span>
+        )}
+      </div>
+
+      {/* Summary */}
+      {ai.summary && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748b' }}>Summary</p>
+          <p className="text-sm leading-relaxed" style={{ color: '#cbd5e1' }}>{ai.summary}</p>
+        </div>
+      )}
+
+      {/* Notable patterns */}
+      {ai.notable_patterns && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#64748b' }}>Notable patterns</p>
+          <p className="text-sm leading-relaxed" style={{ color: '#cbd5e1' }}>{ai.notable_patterns}</p>
+        </div>
+      )}
+
+      <p className="text-xs pt-2" style={{ color: '#334155', borderTop: '1px solid #1e2d45', paddingTop: 10 }}>
+        Based strictly on disclosed filing data — no speculation or outside information.
+        {ai.cached && <span style={{ color: '#475569' }}> · Cached today</span>}
+      </p>
+    </div>
+  )
+}
+
+export default function CongressPanel({ congressData, ticker }) {
+  const [showAll, setShowAll] = useState(false)
+  const [open, setOpen]       = useState(false)
+  const [tab, setTab]         = useState('trades') // 'trades' | 'ai'
+
+  useEffect(() => {
+    const handleHash  = () => { if (window.location.hash === '#congress') setOpen(true) }
+    const handleOpen  = (e) => { if (e.detail === '#congress') setOpen(true) }
     handleHash()
     window.addEventListener('hashchange', handleHash)
     window.addEventListener('open-section', handleOpen)
@@ -93,16 +185,16 @@ export default function CongressPanel({ congressData, ticker }) {
     }
   }, [])
 
+  // Reset tab when ticker changes
+  useEffect(() => { setTab('trades'); setShowAll(false) }, [ticker])
+
   const { total = 0, trades = [], cache_loading = false } = congressData ?? {}
-
   const unavailable = !congressData
-
   const PREVIEW = 5
   const visible  = showAll ? trades : trades.slice(0, PREVIEW)
   const hasMore  = trades.length > PREVIEW
-
-  const buys  = trades.filter(t => t.trade_type === 'buy').length
-  const sells = trades.filter(t => t.trade_type === 'sell').length
+  const buys     = trades.filter(t => t.trade_type === 'buy').length
+  const sells    = trades.filter(t => t.trade_type === 'sell').length
 
   return (
     <div
@@ -153,52 +245,81 @@ export default function CongressPanel({ congressData, ticker }) {
       </div>
 
       {/* Body */}
-      {open && <div className="p-5 space-y-3">
-        {unavailable ? (
-          <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
-            Congressional data unavailable.
-          </p>
-        ) : cache_loading && total === 0 ? (
-          <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
-            Senate disclosure data is loading in the background — check back in a few minutes.
-          </p>
-        ) : total === 0 ? (
-          <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
-            No congressional disclosures found for <span className="font-mono text-white">{ticker}</span> in the last 6 months.
-          </p>
-        ) : (
-          <>
-            <p className="text-xs pb-3" style={{ color: '#64748b', borderBottom: '1px solid #1e2d45' }}>
-              Under the STOCK Act, members of Congress must disclose stock trades within 45 days of execution.
-              This panel shows House and Senate disclosures for <span className="font-mono" style={{ color: '#94a3b8' }}>{ticker}</span> over
-              the past year. Congressional trading activity can signal insider awareness of policy, regulation, or
-              sector tailwinds — but is not a trading signal on its own.
+      {open && (
+        <div className="p-5">
+          {unavailable ? (
+            <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
+              Congressional data unavailable.
             </p>
-
-            {visible.map((trade, i) => (
-              <TradeRow key={i} trade={trade} />
-            ))}
-
-            {hasMore && (
-              <button
-                onClick={() => setShowAll(s => !s)}
-                className="w-full py-2.5 rounded-lg text-sm font-semibold tracking-wide transition-all cursor-pointer hover:brightness-125"
-                style={{
-                  background: '#111827',
-                  color: '#94a3b8',
-                  border: '1px solid #1e2d45',
-                }}
-              >
-                {showAll ? 'Show less' : `Show all ${trades.length} disclosures ↓`}
-              </button>
-            )}
-
-            <p className="text-xs pt-1" style={{ color: '#94a3b8', borderTop: '1px solid #1e2d45', paddingTop: 10 }}>
-              Senate data sourced live from efdsearch.senate.gov (STOCK Act). Trades disclosed up to 45 days after execution. Not a trading signal — for informational purposes only.
+          ) : cache_loading && total === 0 ? (
+            <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
+              Senate disclosure data is loading in the background — check back in a few minutes.
             </p>
-          </>
-        )}
-      </div>}
+          ) : total === 0 ? (
+            <p className="text-sm text-center py-6" style={{ color: '#94a3b8' }}>
+              No congressional disclosures found for <span className="font-mono text-white">{ticker}</span> in the last year.
+            </p>
+          ) : (
+            <>
+              {/* Tabs */}
+              <div className="flex gap-1 mb-4" style={{ borderBottom: '1px solid #1e2d45' }}>
+                {[
+                  { key: 'trades', label: 'Trades' },
+                  { key: 'ai',     label: 'AI Analysis' },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={e => { e.stopPropagation(); setTab(key) }}
+                    className="px-4 py-2 text-xs font-semibold tracking-wide transition-colors"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: tab === key ? '2px solid #38bdf8' : '2px solid transparent',
+                      color: tab === key ? '#38bdf8' : '#64748b',
+                      cursor: 'pointer',
+                      marginBottom: '-1px',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Trades tab */}
+              {tab === 'trades' && (
+                <div className="space-y-3">
+                  <p className="text-xs pb-3" style={{ color: '#64748b', borderBottom: '1px solid #1e2d45' }}>
+                    Under the STOCK Act, members of Congress must disclose stock trades within 45 days of execution.
+                    This panel shows House and Senate disclosures for{' '}
+                    <span className="font-mono" style={{ color: '#94a3b8' }}>{ticker}</span> over the past year.
+                  </p>
+
+                  {visible.map((trade, i) => (
+                    <TradeRow key={i} trade={trade} />
+                  ))}
+
+                  {hasMore && (
+                    <button
+                      onClick={() => setShowAll(s => !s)}
+                      className="w-full py-2.5 rounded-lg text-sm font-semibold tracking-wide transition-all cursor-pointer hover:brightness-125"
+                      style={{ background: '#111827', color: '#94a3b8', border: '1px solid #1e2d45' }}
+                    >
+                      {showAll ? 'Show less' : `Show all ${trades.length} disclosures ↓`}
+                    </button>
+                  )}
+
+                  <p className="text-xs pt-1" style={{ color: '#94a3b8', borderTop: '1px solid #1e2d45', paddingTop: 10 }}>
+                    Data sourced from efdsearch.senate.gov and disclosures-clerk.house.gov. Not a trading signal — for informational purposes only.
+                  </p>
+                </div>
+              )}
+
+              {/* AI Analysis tab */}
+              {tab === 'ai' && <AISummaryTab ticker={ticker} />}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

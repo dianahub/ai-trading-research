@@ -272,6 +272,7 @@ def _save_cache():
 _load_cache()  # load on startup
 
 CONGRESS_API_URL = os.getenv("CONGRESS_API_URL", "")  # congress_infor service URL
+CONGRESS_API_KEY = os.getenv("CONGRESS_API_KEY", "")  # internal key — bypasses Pro gate
 
 # Instagram token is long-lived (58 days). Do NOT refresh on startup —
 # persisting a new token via Railway API triggers a container restart loop.
@@ -1200,6 +1201,10 @@ def chat_celeste(body: ChatRequest, response: Response, ss_session: Optional[str
     return {"reply": resp.content[0].text.strip()}
 
 
+def _congress_headers() -> dict:
+    return {"X-Api-Key": CONGRESS_API_KEY} if CONGRESS_API_KEY else {}
+
+
 @app.get("/congress/{ticker}")
 def get_congress_trades(ticker: str):
     """Return congressional trades via the congress_infor microservice."""
@@ -1214,7 +1219,8 @@ def get_congress_trades(ticker: str):
         return cached["data"]
 
     try:
-        r = requests.get(f"{CONGRESS_API_URL.rstrip('/')}/trades/{upper}", timeout=10)
+        r = requests.get(f"{CONGRESS_API_URL.rstrip('/')}/trades/{upper}",
+                         headers=_congress_headers(), timeout=10)
         r.raise_for_status()
         data = r.json()
     except Exception as e:
@@ -1222,6 +1228,36 @@ def get_congress_trades(ticker: str):
         return {"ticker": upper, "total": 0, "trades": [], "data_current": False, "unavailable": True}
 
     _congress_cache[upper] = {"data": data, "fetched_at": now}
+    return data
+
+
+_congress_summary_cache: dict = {}
+CONGRESS_SUMMARY_TTL = 24 * 60 * 60  # same as congress_infor's own cache
+
+
+@app.get("/congress/{ticker}/summary")
+def get_congress_summary(ticker: str):
+    """Return AI trend analysis for a ticker from the congress_infor microservice."""
+    upper = ticker.upper()
+
+    if not CONGRESS_API_URL:
+        return {"unavailable": True}
+
+    now    = time.time()
+    cached = _congress_summary_cache.get(upper)
+    if cached and (now - cached["fetched_at"]) < CONGRESS_SUMMARY_TTL:
+        return cached["data"]
+
+    try:
+        r = requests.get(f"{CONGRESS_API_URL.rstrip('/')}/trades/{upper}/summary",
+                         headers=_congress_headers(), params={"limit": 100}, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        print(f"[congress-summary] fetch failed for {upper}: {e}", flush=True)
+        return {"unavailable": True}
+
+    _congress_summary_cache[upper] = {"data": data, "fetched_at": now}
     return data
 
 
