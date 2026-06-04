@@ -1205,6 +1205,45 @@ def _congress_headers() -> dict:
     return {"X-Api-Key": CONGRESS_API_KEY} if CONGRESS_API_KEY else {}
 
 
+_congress_latest_cache: dict = {}
+CONGRESS_LATEST_TTL = 60 * 60  # 1-hour cache for the recent feed
+
+
+@app.get("/congress/latest")
+def get_congress_latest(
+    chamber: str = None,
+    days: int = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """Return the most recently filed congressional trades across all tickers."""
+    if not CONGRESS_API_URL:
+        return {"total": 0, "trades": [], "has_more": False, "unavailable": True}
+
+    cache_key = f"{chamber}:{days}:{limit}:{offset}"
+    now       = time.time()
+    cached    = _congress_latest_cache.get(cache_key)
+    if cached and (now - cached["fetched_at"]) < CONGRESS_LATEST_TTL:
+        return cached["data"]
+
+    try:
+        params: dict = {"limit": limit, "offset": offset}
+        if chamber:
+            params["chamber"] = chamber
+        if days:
+            params["days"] = days
+        r = requests.get(f"{CONGRESS_API_URL.rstrip('/')}/trades/recent",
+                         headers=_congress_headers(), params=params, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        print(f"[congress-latest] fetch failed: {e}", flush=True)
+        return {"total": 0, "trades": [], "has_more": False, "unavailable": True}
+
+    _congress_latest_cache[cache_key] = {"data": data, "fetched_at": now}
+    return data
+
+
 @app.get("/congress/{ticker}")
 def get_congress_trades(ticker: str):
     """Return congressional trades via the congress_infor microservice."""

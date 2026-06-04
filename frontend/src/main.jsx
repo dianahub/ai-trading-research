@@ -44,6 +44,7 @@ import AdminLeads from './pages/AdminLeads.jsx'
 import AdminQRCode from './pages/AdminQRCode.jsx'
 import FeedbackPage from './pages/FeedbackPage.jsx'
 import ContactApiPage from './pages/ContactApiPage.jsx'
+import CongressPage from './pages/CongressPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -96,6 +97,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/leads" element={<AdminLeads />} />
         <Route path="/admin/qr-code" element={<AdminQRCode />} />
         <Route path="/feedback" element={<FeedbackPage />} />
+        <Route path="/congress" element={<CongressPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

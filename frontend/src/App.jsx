@@ -753,7 +753,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                   <span style={{ color: '#06b6d4' }}>and the Charts</span>
                 </h1>
                 <p className="text-base max-w-lg mx-auto" style={{ color: '#94a3b8' }}>
-                  Search any stock or crypto ticker for an instant AI research report — then ask our AI anything about it. Technical analysis, news sentiment, whale tracking, and astrological signals in one place.
+                  Search any stock or crypto ticker for an instant AI research report — then ask our AI anything about it. Technical analysis, news sentiment, whale tracking, congressional trades, and astrological signals in one place.
                 </p>
 
                 {/* Feature pills */}
@@ -763,6 +763,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
                     { icon: '📈', label: 'Technicals' },
                     { icon: '📰', label: 'News Sentiment' },
                     { icon: '🐋', label: 'Whale Tracking' },
+                    { icon: '🏛', label: 'Congress Trades' },
                     { icon: '🤖', label: 'Claude AI' },
                   ].map(f => (
                     <span key={f.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium"
