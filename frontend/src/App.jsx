@@ -390,7 +390,7 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
 
       const [price, news, technicals, smartMoney, fundamentals, congress] = await Promise.all([
         apiFetch(isStock ? `/stock/price/${ticker}` : `/price/${ticker}`)
-          .catch(() => ({ _unavailable: true, ticker: ticker.toUpperCase() })),
+          .catch((err) => ({ _unavailable: true, _err: err?.message || '', ticker: ticker.toUpperCase() })),
         apiFetch(isStock ? `/stock/news/${ticker}` : `/news/${ticker}`)
           .catch(() => ({ articles: [] })),
         apiFetch(isStock ? `/stock/technicals/${ticker}` : `/technicals/${ticker}`)
@@ -410,9 +410,10 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       const [insiders, options] = isStock ? smartMoney : [null, null]
       const whales = isStock ? null : smartMoney
 
-      // If price came back unavailable the symbol doesn't exist — bail out
+      // If price came back unavailable, distinguish a bad symbol from a service error
       if (price?._unavailable) {
-        setError('SYMBOL_NOT_FOUND')
+        const is404 = /not found|no price data|no market data|valid stock|valid.*ticker/i.test(price._err || '')
+        setError(is404 ? 'SYMBOL_NOT_FOUND' : 'PRICE_UNAVAILABLE')
         setLoading(false)
         return
       }
@@ -852,6 +853,20 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
               <p className="text-sm" style={{ color: '#94a3b8' }}>
                 <span className="font-mono font-semibold text-white">{ticker}</span> could not be found. Check the symbol and try again.
               </p>
+            </div>
+          ) : error === 'PRICE_UNAVAILABLE' ? (
+            <div className="rounded-xl p-8 fade-in flex flex-col items-center gap-3 text-center"
+              style={{ background: '#0f1a2e', border: '1px solid #1e3a5f' }}>
+              <span className="text-5xl">⚙️</span>
+              <p className="text-xl font-bold" style={{ color: '#94a3b8' }}>Data temporarily unavailable</p>
+              <p className="text-sm" style={{ color: '#64748b' }}>
+                Price data for <span className="font-mono font-semibold text-white">{ticker}</span> couldn't be fetched right now. Please try again in a moment.
+              </p>
+              <button onClick={() => handleSearch(ticker)}
+                className="mt-2 px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer hover:brightness-125"
+                style={{ background: '#1e3a5f', color: '#38bdf8', border: '1px solid #38bdf8' }}>
+                Try again
+              </button>
             </div>
           ) : (
             <div className="rounded-xl p-5 fade-in flex items-start gap-3"
