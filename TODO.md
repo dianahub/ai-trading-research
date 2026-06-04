@@ -96,7 +96,7 @@ Emails are currently landing in spam because they send from `onboarding@resend.d
 - [ ] **AlternativeTo** — list as alternative to Bloomberg/TradingView, Capitol Trades, Quiver Quant
 
 ### Features to add that make the page more shareable
-- [ ] **"Share this trade" button** — one click to tweet a specific trade
+- [x] **"Share this trade" button** — one click to tweet a specific trade — done 2026-06-03
 - [ ] **Email alert signup** — "Get notified when Congress buys/sells a ticker you follow"
 - [ ] **Most-traded tickers leaderboard** — "NVDA · AAPL · TSLA · most bought by Congress this month" (good for SEO + shareability)
 
