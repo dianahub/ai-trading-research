@@ -1,5 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { usePageMeta } from '../hooks/usePageMeta'
+
+const PAGE_TITLE = 'Congressional Stock Trades — Real-Time STOCK Act Disclosures | Starsignal.io'
+const PAGE_DESC  = 'Track the latest stock and asset trades filed by U.S. senators and representatives under the STOCK Act. Filter by Senate or House, search by politician or ticker, and get AI analysis of congressional trading patterns.'
+const CANONICAL  = 'https://www.starsignal.io/congress'
+
+const JSON_LD = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'Dataset',
+  name: 'Congressional Stock Trade Disclosures',
+  description: 'Real-time stock and asset trade disclosures filed by U.S. Congress members under the STOCK Act, sourced from efdsearch.senate.gov and disclosures-clerk.house.gov.',
+  url: CANONICAL,
+  creator: { '@type': 'Organization', name: 'Starsignal.io', url: 'https://www.starsignal.io' },
+  isAccessibleForFree: true,
+  keywords: ['STOCK Act', 'congressional stock trades', 'senator stock trades', 'house representative trades', 'congress investing', 'politician stock disclosure'],
+})
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const LIMIT = 50
@@ -83,6 +99,18 @@ function StatPill({ label, value, color }) {
 }
 
 export default function CongressPage() {
+  usePageMeta({ title: PAGE_TITLE, description: PAGE_DESC, canonical: CANONICAL })
+
+  // Inject JSON-LD on mount
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.type = 'application/ld+json'
+    script.id   = 'congress-jsonld'
+    script.text = JSON_LD
+    document.head.appendChild(script)
+    return () => document.getElementById('congress-jsonld')?.remove()
+  }, [])
+
   const [trades, setTrades]   = useState([])
   const [total, setTotal]     = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -173,12 +201,19 @@ export default function CongressPage() {
               🏛
             </div>
             <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#f1f5f9' }}>
-              Congressional Trades
+              Congressional Stock Trades
             </h1>
           </div>
-          <p className="text-sm" style={{ color: '#64748b' }}>
-            Under the STOCK Act, members of Congress must disclose stock trades within 45 days.
-            Data sourced from efdsearch.senate.gov and disclosures-clerk.house.gov.
+          <p className="text-sm leading-relaxed max-w-3xl" style={{ color: '#94a3b8' }}>
+            Real-time stock and asset trade disclosures filed by U.S. senators and
+            representatives. Under the{' '}
+            <strong style={{ color: '#cbd5e1' }}>STOCK Act</strong>, members of Congress must
+            report trades within 45 days of execution. Data sourced from{' '}
+            <a href="https://efdsearch.senate.gov" target="_blank" rel="noopener noreferrer"
+              className="hover:underline" style={{ color: '#38bdf8' }}>efdsearch.senate.gov</a>{' '}
+            and{' '}
+            <a href="https://disclosures-clerk.house.gov" target="_blank" rel="noopener noreferrer"
+              className="hover:underline" style={{ color: '#38bdf8' }}>disclosures-clerk.house.gov</a>.
           </p>
         </div>
 
@@ -311,6 +346,42 @@ export default function CongressPage() {
             </p>
           </>
         )}
+
+        {/* FAQ — keyword-rich content for search engines */}
+        <section className="mt-16 pt-10 max-w-3xl" style={{ borderTop: '1px solid #1e2d45' }}>
+          <h2 className="text-lg font-bold mb-6" style={{ color: '#e2e8f0' }}>
+            About Congressional Stock Trade Disclosures
+          </h2>
+          <div className="space-y-6">
+            {[
+              {
+                q: 'What is the STOCK Act?',
+                a: 'The Stop Trading on Congressional Knowledge (STOCK) Act, signed into law in 2012, prohibits members of Congress and federal employees from trading stocks based on non-public information obtained through their official duties. It also requires members of Congress, their spouses, and dependent children to publicly disclose any stock, bond, or commodity trade over $1,000 within 45 days of the transaction.',
+              },
+              {
+                q: 'How often is this data updated?',
+                a: 'The data is refreshed every few hours directly from the Senate Electronic Financial Disclosures (efdsearch.senate.gov) and the House of Representatives financial disclosures portal. Because Congress members have up to 45 days to file, newer trades may not yet appear.',
+              },
+              {
+                q: 'Can I see AI analysis of congressional trades for a specific stock?',
+                a: 'Yes. Search any ticker on the Starsignal.io dashboard, then open the Congressional Trades panel and click the AI Analysis tab. Claude reads the disclosed trade data and summarizes whether congressional sentiment is bullish, bearish, or mixed — plus any notable patterns like clusters of buying or a single member driving most of the volume.',
+              },
+              {
+                q: 'What does the trade amount range mean?',
+                a: 'The STOCK Act requires disclosure of a trade\'s approximate value in one of several ranges: $1,001–$15,000 · $15,001–$50,000 · $50,001–$100,000 · $100,001–$250,000 · $250,001–$500,000 · $500,001–$1,000,000 · over $1,000,000. Exact amounts are not required.',
+              },
+              {
+                q: 'Is this data a trading signal?',
+                a: 'No. This data is provided for informational and educational purposes only. Congressional disclosures are public record, but a disclosed trade is not investment advice. Always do your own research before making any financial decision.',
+              },
+            ].map(({ q, a }) => (
+              <div key={q}>
+                <h3 className="text-sm font-semibold mb-1" style={{ color: '#cbd5e1' }}>{q}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: '#64748b' }}>{a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
     </div>
   )

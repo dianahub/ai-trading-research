@@ -8,6 +8,12 @@
   </url>
 
   <url>
+    <loc>https://www.starsignal.io/congress</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
     <loc>https://www.starsignal.io/about</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
