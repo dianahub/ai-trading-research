@@ -19,6 +19,7 @@ import FundamentalsCard from './components/FundamentalsCard'
 import AstroInsightsPanel from './components/AstroInsightsPanel'
 import ChatWidget from './components/ChatWidget'
 import CongressPanel from './components/CongressPanel'
+import ShareButton from './components/ShareButton'
 
 const FREE_LIMIT = 10
 const PARTNER_LIMIT = 50
@@ -593,9 +594,14 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
           <>
             <div className="sticky z-40 -mx-4 px-4 md:mx-0 md:px-0"
               style={{ top: 'var(--header-h, 64px)', background: '#0a0e1a' }}>
-            <div className="fade-in flex items-baseline gap-3 py-2 md:py-0">
+            <div className="fade-in flex items-center gap-3 py-2 md:py-0 flex-wrap">
               <h1 className="text-2xl md:text-3xl font-bold" style={{ color: '#f1f5f9' }}>{data.name}</h1>
               <span className="text-lg font-mono" style={{ color: '#94a3b8' }}>{ticker}</span>
+              <ShareButton
+                text={`📊 $${ticker} AI analysis — technicals, news sentiment, whale tracking & astro signals:`}
+                url={`https://www.starsignal.io/?ticker=${encodeURIComponent(ticker)}`}
+                label="Share"
+              />
             </div>
 
             {/* Section nav — hamburger on mobile, pill row on desktop */}

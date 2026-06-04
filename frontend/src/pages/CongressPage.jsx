@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { usePageMeta } from '../hooks/usePageMeta'
+import ShareButton from '../components/ShareButton'
 
 const PAGE_TITLE = 'Congressional Stock Trades — Real-Time STOCK Act Disclosures | Starsignal.io'
 const PAGE_DESC  = 'Track the latest stock and asset trades filed by U.S. senators and representatives under the STOCK Act. Filter by Senate or House, search by politician or ticker, and get AI analysis of congressional trading patterns.'
@@ -83,6 +84,11 @@ function TradeCard({ trade }) {
             ↗
           </a>
         )}
+        <ShareButton
+          text={`${trade.chamber === 'House' ? '🏛' : '⚖️'} ${trade.member || 'Congress'} just ${trade.trade_type === 'buy' ? 'bought' : 'sold'} ${trade.ticker ? `$${trade.ticker}` : 'stock'} (${trade.amount || 'undisclosed'}) · Track congressional trades:`}
+          url="https://www.starsignal.io/congress"
+          label="Share"
+        />
       </div>
     </div>
   )
