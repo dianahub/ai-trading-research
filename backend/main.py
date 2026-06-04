@@ -9034,6 +9034,72 @@ async def admin_social_post_custom_video(
     return {"posted": True, "permalink": ig.get("permalink", ""), "caption": caption, "media_id": ig.get("media_id", "")}
 
 
+@app.post("/admin/social/post-video-from-url")
+async def admin_social_post_video_from_url(
+    request: Request,
+    x_admin_email: str = Header(default=""),
+    x_admin_password: str = Header(default=""),
+):
+    """Download a video from a URL (e.g. Higgsfield CDN), generate a caption, and post to Instagram."""
+    _require_admin(x_admin_email, x_admin_password)
+    from instagram import post_reel
+
+    body = await request.json()
+    video_url = (body.get("video_url") or "").strip()
+    if not video_url:
+        raise HTTPException(status_code=400, detail="video_url is required")
+
+    os.makedirs("/tmp/social_videos", exist_ok=True)
+    file_id = f"{uuid.uuid4()}.mp4"
+    save_path = f"/tmp/social_videos/{file_id}"
+
+    import httpx
+    async with httpx.AsyncClient(timeout=120) as client:
+        r = await client.get(video_url)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Could not download video: HTTP {r.status_code}")
+        with open(save_path, "wb") as f:
+            f.write(r.content)
+
+    local_url = f"{BACKEND_URL}/media/temp/{file_id}"
+
+    top_news = _fetch_top_financial_news()
+    top_headline = top_news[0]["title"] if top_news else ""
+
+    with Session(_engine) as db:
+        insight = _social_select_insight(db)
+
+    if not insight:
+        caption = (
+            f'🚨 "{top_headline}"\n\n'
+            f'✨ According to astrologers, the stars signal major market moves ahead — check the link in bio for the full forecast.\n\n'
+            f'Link in bio → starsignal.io for free financial astrology signals 🔗\n\n'
+            f'#financialastrology #astrotrading #stockmarket #cryptotrading #trading #marketanalysis #cosmicmarkets #astrology'
+        ) if top_headline else "Link in bio → starsignal.io 🔗"
+    else:
+        caption = _social_generate_caption(insight, top_headline)
+
+    try:
+        ig = post_reel(local_url, caption)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Instagram post failed: {e}")
+
+    try:
+        from instagram import post_to_facebook
+        post_to_facebook(local_url, caption)
+    except Exception:
+        pass
+
+    try:
+        from youtube import post_to_youtube
+        yt_title = insight.get("topic", "Star Signal") if insight else "Star Signal"
+        post_to_youtube(local_url, yt_title, caption)
+    except Exception:
+        pass
+
+    return {"posted": True, "permalink": ig.get("permalink", ""), "caption": caption, "media_id": ig.get("media_id", "")}
+
+
 @app.get("/admin/social/posts")
 def admin_social_posts(
     days: int = 30,

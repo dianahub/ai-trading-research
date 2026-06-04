@@ -110,6 +110,7 @@ export default function AdminSocialContent() {
 
   // Upload & post your own video
   const [uploadFile, setUploadFile]       = useState(null)
+  const [uploadUrl, setUploadUrl]         = useState('')
   const [uploading, setUploading]         = useState(false)
   const [uploadResult, setUploadResult]   = useState(null)
   const [uploadMsg, setUploadMsg]         = useState('')
@@ -373,18 +374,24 @@ export default function AdminSocialContent() {
   }
 
   const handleUploadAndPost = async () => {
-    if (!uploadFile) return
+    if (!uploadFile && !uploadUrl.trim()) return
     setUploading(true)
     setUploadResult(null)
-    setUploadMsg('Uploading video and generating caption…')
+    setUploadMsg('Posting video and generating caption…')
     try {
-      const form = new FormData()
-      form.append('file', uploadFile)
-      const headers = {
-        'x-admin-email':    'contact@starsignal.io',
-        'x-admin-password': 'BISCUITLOVE',
+      const headers = { 'x-admin-email': 'contact@starsignal.io', 'x-admin-password': 'BISCUITLOVE' }
+      let r
+      if (uploadUrl.trim()) {
+        r = await fetch(`${API}/admin/social/post-video-from-url`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_url: uploadUrl.trim() }),
+        })
+      } else {
+        const form = new FormData()
+        form.append('file', uploadFile)
+        r = await fetch(`${API}/admin/social/post-custom-video`, { method: 'POST', headers, body: form })
       }
-      const r = await fetch(`${API}/admin/social/post-custom-video`, { method: 'POST', headers, body: form })
       const d = await r.json()
       if (!r.ok) {
         setUploadMsg(`Failed: ${d.detail ?? JSON.stringify(d)}`)
@@ -392,6 +399,7 @@ export default function AdminSocialContent() {
         setUploadResult(d)
         setUploadMsg(`Posted! ${d.permalink}`)
         setUploadFile(null)
+        setUploadUrl('')
         loadPosts()
       }
     } catch (e) {
@@ -545,10 +553,23 @@ export default function AdminSocialContent() {
             Upload a video you recorded. A caption with today's news + astrology tags is generated automatically and posted to Instagram, Facebook & YouTube.
           </p>
 
+          <div className="mb-3">
+            <div className="text-xs mb-1 font-semibold" style={{ color: '#475569' }}>PASTE VIDEO URL (e.g. Higgsfield CDN link)</div>
+            <input
+              type="url"
+              placeholder="https://d8j0ntlcm91z4.cloudfront.net/…"
+              value={uploadUrl}
+              onChange={e => { setUploadUrl(e.target.value); setUploadResult(null); setUploadMsg('') }}
+              className="w-full rounded-lg px-3 py-2 text-sm"
+              style={{ background: '#0d1f35', border: '1px solid #1e4976', color: '#e2e8f0', outline: 'none' }}
+            />
+            <div className="text-xs mt-2" style={{ color: '#334155' }}>— or —</div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-3">
             <label className="rounded-lg px-4 py-2 text-sm font-semibold cursor-pointer"
               style={{ background: '#0c1e38', border: '1px solid #1e4976', color: '#93c5fd' }}>
-              {uploadFile ? uploadFile.name : 'Choose Video…'}
+              {uploadFile ? uploadFile.name : 'Choose Video File…'}
               <input type="file" accept="video/*" className="hidden"
                 onChange={e => { setUploadFile(e.target.files[0] ?? null); setUploadResult(null); setUploadMsg('') }} />
             </label>
@@ -556,14 +577,14 @@ export default function AdminSocialContent() {
             <ActionButton
               onClick={handleUploadAndPost}
               loading={uploading}
-              disabled={!uploadFile}
+              disabled={!uploadFile && !uploadUrl.trim()}
               label="Post to Instagram, Facebook & YouTube"
-              loadingLabel="Uploading & Posting…"
+              loadingLabel="Posting…"
               color="#052e1a" textColor="#34d399" border="#10b981"
             />
 
-            {uploadFile && !uploading && (
-              <button onClick={() => { setUploadFile(null); setUploadResult(null); setUploadMsg('') }}
+            {(uploadFile || uploadUrl) && !uploading && (
+              <button onClick={() => { setUploadFile(null); setUploadUrl(''); setUploadResult(null); setUploadMsg('') }}
                 className="text-xs" style={{ color: '#64748b' }}>
                 Clear
               </button>
