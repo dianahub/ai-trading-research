@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import './App.css'
 import SearchBar from './components/SearchBar'
 import AuthNav from './components/AuthNav'
@@ -244,7 +244,6 @@ function dismissUntilMidnight() {
 }
 
 export default function App() {
-  const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading]     = useState(false)
   const [analyzing, setAnalyzing]       = useState(false)
   const [analysisError, setAnalysisError] = useState(null)
@@ -301,15 +300,6 @@ export default function App() {
     window.addEventListener('resize', updateHeaderHeight)
     return () => window.removeEventListener('resize', updateHeaderHeight)
   }, [])
-
-  // Auto-search when ?ticker= is present in the URL
-  useEffect(() => {
-    const t = searchParams.get('ticker')
-    if (t) {
-      setSearchParams({}, { replace: true })
-      handleSearch(t)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch astro data once on mount — independent of ticker searches
   useEffect(() => {
@@ -536,6 +526,16 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
       setAnalyzing(false)
     }
   }
+
+  // Auto-search when ?ticker= is in the URL (e.g. links from /congress page)
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('ticker')
+    if (t) {
+      window.history.replaceState({}, '', window.location.pathname)
+      handleSearch(t)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen" style={{ background: '#0a0e1a' }}>
