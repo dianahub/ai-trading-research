@@ -98,6 +98,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY")
 RESEND_API_KEY      = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM         = os.getenv("RESEND_FROM", "Star Signal <onboarding@resend.dev>")
 NEWS_API_KEY        = os.getenv("NEWS_API_KEY")
 ETHERSCAN_API_KEY   = os.getenv("ETHERSCAN_API_KEY", "")
 WHALE_ALERT_API_KEY = os.getenv("WHALE_ALERT_API_KEY", "")
@@ -714,7 +715,7 @@ def contact(req: ContactRequest):
         try:
             resend.api_key = RESEND_API_KEY
             resend.Emails.send({
-                "from":    "Star Signal <onboarding@resend.dev>",
+                "from":    RESEND_FROM,
                 "reply_to": "dianahelene@gmail.com",
                 "to":      ["contact@starsignal.io"],
                 "reply_to": req.email,
@@ -748,7 +749,7 @@ def contact_api(req: ContactApiRequest):
         try:
             resend.api_key = RESEND_API_KEY
             resend.Emails.send({
-                "from":    "Star Signal <onboarding@resend.dev>",
+                "from":    RESEND_FROM,
                 "reply_to": "dianahelene@gmail.com",
                 "to":      ["contact@starsignal.io"],
                 "reply_to": req.email,
@@ -811,7 +812,7 @@ def submit_feedback(req: FeedbackRequest):
             rating_line = f"Rating: {stars} ({req.rating}/5)<br>" if req.rating else ""
             resend.api_key = RESEND_API_KEY
             email_payload = {
-                "from":    "Star Signal <onboarding@resend.dev>",
+                "from":    RESEND_FROM,
                 "reply_to": "dianahelene@gmail.com",
                 "to":      ["dianahelene@gmail.com"],
                 "subject": f"Beta Feedback from {req.name or 'anonymous'}",
@@ -3599,7 +3600,7 @@ def send_outreach_email(
         try:
             resend.api_key = RESEND_API_KEY
             result = resend.Emails.send({
-                "from":    "Star Signal <onboarding@resend.dev>",
+                "from":    RESEND_FROM,
                 "reply_to": "dianahelene@gmail.com",
                 "to":      [c.contact_email],
                 "subject": req.subject or f"Partnership opportunity — Starsignal.io",
@@ -8430,7 +8431,7 @@ def _social_notify(subject: str, body: str):
         return
     try:
         resend.Emails.send({
-            "from":    "Star Signal <onboarding@resend.dev>",
+            "from":    RESEND_FROM,
             "to":      [ADMIN_EMAIL_SOCIAL],
             "subject": subject,
             "text":    body,
