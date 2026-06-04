@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import './App.css'
 import SearchBar from './components/SearchBar'
 import AuthNav from './components/AuthNav'
@@ -244,6 +244,7 @@ function dismissUntilMidnight() {
 }
 
 export default function App() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading]     = useState(false)
   const [analyzing, setAnalyzing]       = useState(false)
   const [analysisError, setAnalysisError] = useState(null)
@@ -300,6 +301,15 @@ export default function App() {
     window.addEventListener('resize', updateHeaderHeight)
     return () => window.removeEventListener('resize', updateHeaderHeight)
   }, [])
+
+  // Auto-search when ?ticker= is present in the URL
+  useEffect(() => {
+    const t = searchParams.get('ticker')
+    if (t) {
+      setSearchParams({}, { replace: true })
+      handleSearch(t)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch astro data once on mount — independent of ticker searches
   useEffect(() => {
@@ -778,7 +788,12 @@ const handleToggleAstro = () => setShowAstro(prev => !prev)
             {/* Quick tickers — logged-in / auth-disabled only */}
             {(!AUTH_ACTIVE || authedUser) && (
               <div className="text-center space-y-3">
-                <p className="text-sm font-medium" style={{ color: '#64748b' }}>Try a ticker to get started</p>
+                <p className="text-sm font-medium" style={{ color: '#64748b' }}>
+                  Try a ticker to get started, or{' '}
+                  <Link to="/congress" className="hover:underline" style={{ color: '#38bdf8' }}>
+                    see what Congress is trading
+                  </Link>
+                </p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {['BTC', 'ETH', 'SOL', 'AAPL', 'TSLA', 'NVDA', 'GLD', 'SPY'].map(t => (
                     <button key={t}
